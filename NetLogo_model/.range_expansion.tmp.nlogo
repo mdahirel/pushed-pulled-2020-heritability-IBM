@@ -164,7 +164,7 @@ if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
     ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
     let mom self
     set ind_fecundity exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
-    ;; ricker function
+    ;; ricker fution
 
     hatch random-poisson ind_fecundity [ ;; for each individual, fecundity is Poisson-distributed around its mean fecundity
       hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
