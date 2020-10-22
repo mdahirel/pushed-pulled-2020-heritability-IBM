@@ -27,8 +27,7 @@ turtles-own [
   ;;growth and reproduction
   adult ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
   has_reproduced ;; a 0/1 flag indicating if the individual has reproduced (individuals can only reproduce once)
-  allee_thres  ;; Threshold of Allee effects (must be >=0); 0 = no Allee effect, > 1 = strong Allee effect (i.e. growth rate < 0 at low densities), between 0 and 1: weak Allee effect
-  ind_fecundity ;; (hypothetical) mean fecundity at population size = 0, *assuming no Allee effect*
+  ind_fecundity ;; (hypothetical) mean fecundity at population size = 0
 
   ;neutral genetic diversity
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
@@ -91,9 +90,6 @@ to setup-turtles
     ;; assign dispersal traits from the global means and SD; if SD = 0, all individuals start with the same values, so no evolution possible in any case (no mutation in the model)
     ;; The difference between the "reshuffled" (non-evo) and evolutionary settings is that at the next generations:
     ;; individuals inherit trait values from mom in evo, but redraw from the starting distribution in reshuffled/non-evo
-
-    set allee_thres start_allee_thres ;; no individual variation in Allee threshold for the moment, individual Allee variable = global Allee threshold
-    ;; but script written with an individual Allee threshold to allow for variation in the future (reflecting e.g. variation in predator vulnerability)
   ]
 end
 
@@ -115,7 +111,7 @@ to go
     ;; but because of that, some steps must be omitted during the first round, or else model doesn't work _ like killing all adults before reproduction
 
     ;; reproduction step
-    ask turtles[reproduce] ;; the reproduction formula includes competition(and Alle effects if present)
+    ask turtles[reproduce] ;; the reproduction formula includes competition
     ask turtles[check_death] ;; enforce non-overlapping generations: kill all adults and leave only juveniles produced in previous round
     ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
   ]
@@ -167,8 +163,8 @@ to reproduce  ; clonal reproduction, no mutation
 if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
     ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
     let mom self
-    set ind_fecundity exp(ln(fecundity) * (1 - population_size / carrying_capacity) * (1 - start_allee_thres / population_size) )
-    ;; ricker fucntion modified for allee effects as in morel_journel et al oikos 2015 (see maybe also Courchamp et al book)
+    set ind_fecundity exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
+    ;; ricker function
 
     hatch random-poisson ind_fecundity [ ;; for each individual, fecundity is Poisson-distributed around its mean fecundity
       hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
@@ -190,9 +186,7 @@ if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
       [set logit_disp0 [logit_disp0] of mom
         set disp_slope [disp_slope] of mom
       ;;keep silent for now ;;set fecundity [fecundity] of mom ;; for later evolutionary tests with fecundity heritable
-      ;;keep silent for now ;;set allee_thres [allee_thres] of mom;; same with allee
       ]
-      set allee_thres start_allee_thres
       ]
 
       set has_reproduced 1
@@ -266,21 +260,6 @@ NIL
 NIL
 NIL
 0
-
-SLIDER
-628
-171
-800
-204
-start_allee_thres
-start_allee_thres
-0
-250
-19.0
-1
-1
-NIL
-HORIZONTAL
 
 SLIDER
 24
@@ -444,7 +423,7 @@ This model is designed to operate at "low" densities (equilibrium population siz
 
 From an initial population, haploid individuals reproduce, compete and disperse and as a result the species colonizes the landscape.
 
-The model allows for density-dependency in dispersal and growth (including Allee effects), as well as individual variation in dispersal and growth.
+The model allows for density-dependency in dispersal and growth, as well as individual variation in dispersal and growth.
 
 When there is individual variation in traits, evolution can be activated (individuals inherit their parental allele) or turned down (trait values are drawn at random every generation).
 
@@ -461,7 +440,7 @@ Individuals then live the following life cycle:
 -once adults, they disperse or not based on their dispersal-density reaction norm and current patch population size
 
 -they reproduce clonally and transmit their neutral allele (and in the evolutionary setting trait alleles to offspring
-the fecundity formula directly gives the number of offspring post-competition and accounting for Allee effects in one step, to avoid wasting computing power by creating individuals that would then be killed
+the fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
 
 -they die
 
@@ -482,7 +461,6 @@ The following global parameters can be set up in the Interface tab:
 - *logit_disp0_sd*: standard deviation of the distribution of dispersal rates at the start of the run **on the logit scale**
 - *slope_disp_sd*: standard deviation of the distribution of dispersal reaction norm slopes at the start of the run **on the logit scale**
 - *fecundity*: average fecundity at the start of the run
-- *start_allee_thres*: Allee threshold at the start of the run (always >= 0; 0: no Allee effect, >1: strong Allee effect, between 0 and 1: weak Allee effect)
 
 ### Landscape window
 
