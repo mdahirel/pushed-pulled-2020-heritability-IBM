@@ -1,14 +1,20 @@
 ;;Individual-based model aiming to study population dynamics, adaptive and neutral evolution during pushed vs pulled range expansions
 ;;
-;;first NetLogo version: June 2019 , current version: March 2020
-;;authors : Maxime Dahirel (Netlogo version + extension) / Marjorie Haond (initial MatLab model)
+;;first NetLogo version: June 2019 , current version: October 2020
+;;authors : Maxime Dahirel and Chloé Guicharnaud
+;; building on a model by Maxime Dahirel and Marjorie Haond
 ;; Netlogo version: 6.1.1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;PART 1: define patch and individual variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-globals[logit_disp0_mean] ;; a placeholder global variable used to translate the initial dispersal rate (entered on the probability scale as it's easier) to the logit scale
+globals[
+  logit_disp0_mean ;; a placeholder global variable used to translate the initial dispersal rate (entered on the probability scale as it's easier) to the logit scale
+  past_front ;; position of the front before dispersal
+  present_front ;; position of the front after dispersal
+  new_front ;; if "yes", the position of the front have advanced
+]
 
 turtles-own [
   ;;dispersal
@@ -39,6 +45,7 @@ patches-own [
   N_postdispersal   ;; adult population size after the dispersal phase
   N_allele0         ;; (post-dispersal phase) number of adults with neutral_locus = 0
   N_allele1         ;; (post-dispersal phase) number of adults with neutral_locus = 1
+  N_sedentary       ;; number of turtles who did not move
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,6 +57,7 @@ to setup
   clear-all
   define-landscape
   set logit_disp0_mean ln (disp0_mean / (1 - disp0_mean))
+  set past_front 0
   setup-patches
   setup-turtles
   reset-ticks
@@ -122,6 +130,12 @@ to go
   ;;postdispersal count here
   ask patches[check_population_size] ;; need a second population size check to update population size for density-dependent dispersal
   ask patches[set N_postdispersal population_size]
+
+  set present_front max( [ pxcor ] of patches with [N_postdispersal > 0] ) ;; find the position of the actual front
+  ifelse ( present_front > past_front)
+  [set new_front "yes"]
+  [set new_front "no"]
+  set past_front present_front
 
   ask patches[ ;;record patch-level allelic frequencies
     set N_allele0 count (turtles-here with [neutral_locus = 0])
