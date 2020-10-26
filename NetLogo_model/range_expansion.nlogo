@@ -14,6 +14,11 @@ globals[
   past_front ;; position of the front before dispersal
   present_front ;; position of the front after dispersal
   new_front ;; if "yes", the position of the front have advanced
+  V_A_disp_slope ;; genetic additive variance of the dispersal-density reaction norm slope
+  V_R_disp_slope ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
+  V_A_logit_disp0 ;; genetic additive variance of logit_disp0
+  V_R_logit_disp0 ;; residual (i.e. environmental) variance of logit disp0
+
 ]
 
 turtles-own [
@@ -23,6 +28,10 @@ turtles-own [
   disp0 ;; (hypothetical) dispersal probability at population size = 0
   disp_slope ;;slope of the dispersal-density reaction norm (logit scale)
   available_moves ;; a list of all possible movements if one disperses (in 1D spaces, typically -1 or +1 unless landscape boundary is reached)
+  genotype_logit_disp0 ;; the genetic value of logit_disp0
+  noise_logit_disp0 ;; noise altering the genetic value of logit_disp0
+  genotype_disp_slope ;; the genetic value of disp_slope
+  noise_disp_slope ;; noise altering the genetic value of disp_slope
 
   ;;growth and reproduction
   adult ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
@@ -57,6 +66,10 @@ to setup
   define-landscape
   set logit_disp0_mean ln (disp0_mean / (1 - disp0_mean))
   set past_front 0
+  set V_A_disp_slope heritability * variance_disp_slope
+  set V_R_disp_slope (1 - heritability) * variance_disp_slope
+  set V_A_logit_disp0 heritability * variance_logit_disp0
+  set V_R_logit_disp0 (1 - heritability) * variance_logit_disp0
   setup-patches
   setup-turtles
   reset-ticks
@@ -85,11 +98,19 @@ to setup-turtles
     set neutral_locus random 2 ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
 
 
-    set logit_disp0 random-normal logit_disp0_mean logit_disp0_sd
-    set disp_slope random-normal slope_disp_mean slope_disp_sd
-    ;; assign dispersal traits from the global means and SD; if SD = 0, all individuals start with the same values, so no evolution possible in any case (no mutation in the model)
-    ;; The difference between the "reshuffled" (non-evo) and evolutionary settings is that at the next generations:
-    ;; individuals inherit trait values from mom in evo, but redraw from the starting distribution in reshuffled/non-evo
+    set genotype_logit_disp0 random-normal logit_disp0_mean V_A_logit_disp0
+    set genotype_disp_slope random-normal slope_disp_mean V_A_disp_slope
+    ;; assign genotypic trait value from the global means and genetic variance
+
+    set noise_logit_disp0 random-normal 0 V_R_logit_disp0
+    set noise_disp_slope random-normal 0 V_R_disp_slope
+    ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
+
+    set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
+    set disp_slope genotype_disp_slope + noise_disp_slope
+    ;; the phenotypic dispersal traits values correspond to the genetic value altered by the residual noise
+
+    ;; At the next generation, individuals draw genotypic values from parent(s) if heritability>0, and redraw the residual noise from the random normal distribution
   ]
 end
 
@@ -179,14 +200,17 @@ if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
       set parentID [who] of mom
 
       ;;trait determination
-      ifelse (trait_variation = "reshuffled");;if non-evolutionary simulation we redraw traits from initial distribution ;; if evolutionary we inherit
-      [set logit_disp0 random-normal logit_disp0_mean logit_disp0_sd
-        set disp_slope random-normal slope_disp_mean slope_disp_sd
-      ]
-      [set logit_disp0 [logit_disp0] of mom
-        set disp_slope [disp_slope] of mom
-      ;;keep silent for now ;;set fecundity [fecundity] of mom ;; for later evolutionary tests with fecundity heritable
-      ]
+      set genotype_logit_disp0 random-normal [logit_disp0] of mom V_A_logit_disp0
+      set genotype_disp_slope random-normal [disp_slope] of mom V_A_disp_slope
+      ;; draw genotypic value from parent(s)
+
+      set noise_logit_disp0 random-normal 0 V_R_logit_disp0
+      set noise_disp_slope random-normal 0 V_R_disp_slope
+      ;; draw residual noise
+
+      set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
+      set disp_slope genotype_disp_slope + noise_disp_slope
+      ;; the phenotypic dispersal traits values correspond to the genetic value altered by the residual noise
       ]
 
       set has_reproduced 1
@@ -291,10 +315,10 @@ SLIDER
 280
 408
 313
-logit_disp0_sd
-logit_disp0_sd
+variance_logit_disp0
+variance_logit_disp0
 0
-2
+1
 0.0
 0.1
 1
@@ -340,7 +364,7 @@ slope_disp_mean
 slope_disp_mean
 -4
 4
-0.0
+-1.1
 0.1
 1
 NIL
@@ -351,10 +375,10 @@ SLIDER
 318
 408
 351
-slope_disp_sd
-slope_disp_sd
+variance_disp_slope
+variance_disp_slope
 0
-2
+1
 0.0
 0.1
 1
@@ -362,9 +386,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-22
+24
 290
-194
+196
 323
 duration
 duration
@@ -411,6 +435,21 @@ false
 "" ""
 PENS
 "pen-0" 1.0 0 -7500403 true "" "let front max( [ pxcor ] of patches with [N_postdispersal > 0] )\nplot mean (  [ 2 * (N_allele0 / N_postdispersal) * (N_allele1 / N_postdispersal)] of patches with [ pxcor = front ] )"
+
+SLIDER
+437
+215
+609
+248
+heritability
+heritability
+0
+1
+1.0
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 # Range expansion model
