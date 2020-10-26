@@ -31,7 +31,7 @@ turtles-own [
   genotype_logit_disp0 ;; the genetic value of logit_disp0
   noise_logit_disp0 ;; noise altering the genetic value of logit_disp0
   genotype_disp_slope ;; the genetic value of disp_slope
-  noise_disp_slope ;; noise altering the genetic value of disp_slope
+  noise_disp_slope ;; noise added to the genetic value of disp_slope
 
   ;;growth and reproduction
   adult ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
@@ -66,10 +66,10 @@ to setup
   define-landscape
   set logit_disp0_mean ln (disp0_mean / (1 - disp0_mean))
   set past_front 0
-  set V_A_disp_slope heritability * variance_disp_slope
-  set V_R_disp_slope (1 - heritability) * variance_disp_slope
-  set V_A_logit_disp0 heritability * variance_logit_disp0
-  set V_R_logit_disp0 (1 - heritability) * variance_logit_disp0
+  set V_A_disp_slope heritability * variance_pheno_disp_slope
+  set V_R_disp_slope (1 - heritability) * variance_pheno_disp_slope
+  set V_A_logit_disp0 heritability * variance_pheno_logit_disp0
+  set V_R_logit_disp0 (1 - heritability) * variance_pheno_logit_disp0
   setup-patches
   setup-turtles
   reset-ticks
@@ -98,12 +98,12 @@ to setup-turtles
     set neutral_locus random 2 ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
 
 
-    set genotype_logit_disp0 random-normal logit_disp0_mean V_A_logit_disp0
-    set genotype_disp_slope random-normal slope_disp_mean V_A_disp_slope
+    set genotype_logit_disp0 random-normal logit_disp0_mean sqrt(V_A_logit_disp0)
+    set genotype_disp_slope random-normal slope_disp_mean sqrt(V_A_disp_slope)
     ;; assign genotypic trait value from the global means and genetic variance
 
-    set noise_logit_disp0 random-normal 0 V_R_logit_disp0
-    set noise_disp_slope random-normal 0 V_R_disp_slope
+    set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+    set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
     ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
     set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
@@ -200,17 +200,17 @@ if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
       set parentID [who] of mom
 
       ;;trait determination
-      set genotype_logit_disp0 random-normal [logit_disp0] of mom V_A_logit_disp0
-      set genotype_disp_slope random-normal [disp_slope] of mom V_A_disp_slope
-      ;; draw genotypic value from parent(s)
+      set genotype_logit_disp0 [genotype_logit_disp0] of mom
+      set genotype_disp_slope [disp_slope] of mom
+      ;; genotypic value inherited from parent(s)
 
-      set noise_logit_disp0 random-normal 0 V_R_logit_disp0
-      set noise_disp_slope random-normal 0 V_R_disp_slope
+      set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+      set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
       ;; draw residual noise
 
       set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
       set disp_slope genotype_disp_slope + noise_disp_slope
-      ;; the phenotypic dispersal traits values correspond to the genetic value altered by the residual noise
+      ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
       ]
 
       set has_reproduced 1
@@ -286,10 +286,10 @@ NIL
 0
 
 SLIDER
-24
-243
-196
-276
+29
+174
+201
+207
 K
 K
 10
@@ -300,26 +300,16 @@ K
 NIL
 HORIZONTAL
 
-CHOOSER
-28
-176
-166
-221
-trait_variation
-trait_variation
-"reshuffled" "evolutionary"
-0
-
 SLIDER
 236
 280
-408
+438
 313
-variance_logit_disp0
-variance_logit_disp0
+variance_pheno_logit_disp0
+variance_pheno_logit_disp0
 0
 1
-0.0
+0.1
 0.1
 1
 NIL
@@ -341,10 +331,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-437
-171
-609
-204
+441
+174
+613
+207
 fecundity
 fecundity
 0
@@ -356,10 +346,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-236
-215
-408
-248
+237
+221
+409
+254
 slope_disp_mean
 slope_disp_mean
 -4
@@ -373,23 +363,23 @@ HORIZONTAL
 SLIDER
 236
 318
-408
+437
 351
-variance_disp_slope
-variance_disp_slope
+variance_pheno_disp_slope
+variance_pheno_disp_slope
 0
 1
-0.0
+0.3
 0.1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-290
-196
-323
+29
+221
+201
+254
 duration
 duration
 0
@@ -437,10 +427,10 @@ PENS
 "pen-0" 1.0 0 -7500403 true "" "let front max( [ pxcor ] of patches with [N_postdispersal > 0] )\nplot mean (  [ 2 * (N_allele0 / N_postdispersal) * (N_allele1 / N_postdispersal)] of patches with [ pxcor = front ] )"
 
 SLIDER
-437
-215
-609
-248
+441
+220
+613
+253
 heritability
 heritability
 0
