@@ -309,7 +309,7 @@ variance_pheno_logit_disp0
 variance_pheno_logit_disp0
 0
 1
-0.1
+0.8
 0.1
 1
 NIL
@@ -354,7 +354,7 @@ slope_disp_mean
 slope_disp_mean
 -4
 4
--1.1
+0.0
 0.1
 1
 NIL
@@ -369,7 +369,7 @@ variance_pheno_disp_slope
 variance_pheno_disp_slope
 0
 1
-0.3
+0.0
 0.1
 1
 NIL
@@ -384,7 +384,7 @@ duration
 duration
 0
 1000
-200.0
+100.0
 10
 1
 NIL
@@ -435,11 +435,48 @@ heritability
 heritability
 0
 1
-1.0
+0.15
 0.01
 1
 NIL
 HORIZONTAL
+
+PLOT
+825
+131
+1025
+281
+logit_disp0 edge h2 tracker
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot variance ([genotype_logit_disp0] of turtles with [xcor >= past_front]) / variance ([logit_disp0] of turtles with [xcor >= past_front])"
+
+PLOT
+1013
+358
+1304
+508
+logit_disp0 random noise tracker
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+true
+"" ""
+PENS
+"edge" 1.0 0 -16777216 true "" "plot variance ([noise_logit_disp0] of turtles with [xcor >= past_front])"
+"core" 1.0 0 -7500403 true "" "plot variance ([noise_logit_disp0] of turtles with [xcor = 0])"
 
 @#$#@#$#@
 # Range expansion model
