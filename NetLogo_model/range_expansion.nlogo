@@ -36,7 +36,7 @@ turtles-own [
   ;;growth and reproduction
   adult ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
   has_reproduced ;; a 0/1 flag indicating if the individual has reproduced (individuals can only reproduce once)
-  ind_fecundity ;; (hypothetical) mean fecundity at population size = 0
+  ind_fecundity ;; actual individual fecundity
 
   ;neutral genetic diversity
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
@@ -184,10 +184,10 @@ to reproduce  ; clonal reproduction, no mutation
 if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
     ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
     let mom self
-    set ind_fecundity exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
-    ;; ricker function
+    set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
+    ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
 
-    hatch random-poisson ind_fecundity [ ;; for each individual, fecundity is Poisson-distributed around its mean fecundity
+    hatch ind_fecundity [
       hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
       set adult 0
