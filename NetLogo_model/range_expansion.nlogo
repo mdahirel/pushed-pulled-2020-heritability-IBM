@@ -95,6 +95,7 @@ to setup-turtles
     hide-turtle  ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
     set adult 1
     set has_reproduced 0
+    set ind_fecundity 0
 
     ( ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
       [set neutral_locus (list random 2)
@@ -282,6 +283,7 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
 
         set adult 0
         set has_reproduced 0
+        set ind_fecundity 0
 
         ;;neutral alleles
         set neutral_locus [neutral_locus] of mom
