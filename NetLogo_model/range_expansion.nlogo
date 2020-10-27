@@ -176,7 +176,7 @@ to go
     set N_allele1 sum (reduce sentence ([neutral_locus] of turtles-here))
     (ifelse reproduction = "clonal"
       [set N_allele0 population_size - N_allele1]
-      [set N_allele0 2 * population_size - N_allele1])  ;;for sexual reproduction, twice as much alleles than individuals
+      [set N_allele0 2 * population_size - N_allele1])  ;;for sexual reproduction, twice as many alleles than individuals
   ]
   tick
 end
@@ -205,12 +205,11 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
     let mom self
     let mate nobody
     set mate one-of ( (other turtles-here) with [has_reproduced = 0 and adult = 1]) ;; choose one mate among the unmated individuals of the patch
-    set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
-      ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
 
 
     if mate != nobody [ ;; if they find a mate
-
+      set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
+      ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
       hatch ind_fecundity [ ;; mom reproduce
         hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
@@ -575,7 +574,7 @@ CHOOSER
 reproduction
 reproduction
 "clonal" "sexual"
-0
+1
 
 @#$#@#$#@
 # Range expansion model
