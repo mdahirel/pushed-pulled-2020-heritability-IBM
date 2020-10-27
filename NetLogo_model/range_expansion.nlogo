@@ -95,22 +95,36 @@ to setup-turtles
     hide-turtle  ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
     set adult 1
     set has_reproduced 0
-    set neutral_locus random 2 ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
 
+    ( ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
+      [set neutral_locus (list random 2)
 
-    set genotype_logit_disp0 random-normal logit_disp0_mean sqrt(V_A_logit_disp0)
-    set genotype_disp_slope random-normal slope_disp_mean sqrt(V_A_disp_slope)
-    ;; assign genotypic trait value from the global means and genetic variance
+       set genotype_logit_disp0 (list random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
+       set genotype_disp_slope (list random-normal slope_disp_mean sqrt(V_A_disp_slope))
+       ;; assign genotypic trait values from the global means and genetic variance
 
-    set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-    set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
-    ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
+       set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+       set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+       ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
-    set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
-    set disp_slope genotype_disp_slope + noise_disp_slope
-    ;; the phenotypic dispersal traits values correspond to the genetic value altered by the residual noise
+       set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
+       set disp_slope mean (genotype_disp_slope) + noise_disp_slope]
 
-    ;; At the next generation, individuals draw genotypic values from parent(s) if heritability>0, and redraw the residual noise from the random normal distribution
+       ;; At the next generation, individuals draw genotypic values from parent(s) if heritability>0, and redraw the residual noise from the random normal distribution
+
+      [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
+       ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
+
+       set genotype_logit_disp0 list (random-normal logit_disp0_mean sqrt(V_A_logit_disp0)) (random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
+       set genotype_disp_slope list (random-normal slope_disp_mean sqrt(V_A_disp_slope)) (random-normal slope_disp_mean sqrt(V_A_disp_slope))
+
+       set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+       set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+
+       set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
+       set disp_slope mean (genotype_disp_slope) + noise_disp_slope]
+
+  )
   ]
 end
 
@@ -132,7 +146,11 @@ to go
     ;; but because of that, some steps must be omitted during the first round, or else model doesn't work _ like killing all adults before reproduction
 
     ;; reproduction step
-    ask turtles[reproduce] ;; the reproduction formula includes competition
+    ( ifelse reproduction = "clonal"
+      [ask turtles[reproduce_clonal]]
+      [ask turtles[reproduce_sexual]]
+      )
+    ;; the reproduction formula includes competition
     ask turtles[check_death] ;; enforce non-overlapping generations: kill all adults and leave only juveniles produced in previous round
     ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
   ]
@@ -154,11 +172,12 @@ to go
   [set new_front "no"]
   set past_front present_front
 
-  ask patches[ ;;record patch-level allelic frequencies
-    set N_allele0 count (turtles-here with [neutral_locus = 0])
-    set N_allele1 count (turtles-here with [neutral_locus = 1])
+  ask patches with [N_postdispersal > 0] [ ;;record patch-level allelic frequencies
+    set N_allele1 sum (reduce sentence ([neutral_locus] of turtles-here))
+    (ifelse reproduction = "clonal"
+      [set N_allele0 population_size - N_allele1]
+      [set N_allele0 2 * population_size - N_allele1])  ;;for sexual reproduction, twice as many alleles than individuals
   ]
-
   tick
 end
 
@@ -180,43 +199,112 @@ to move_turtles
 end
 
 
-to reproduce  ; clonal reproduction, no mutation
-if has_reproduced = 0 [ ;; safety to avoid multiple reproductions.
-    ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
+to reproduce_sexual  ;; sexual reproduction, no mutation
+if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
+    ;;avoid multiple matings as partners of several "focals"
     let mom self
-    set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
-    ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
+    let mate nobody
+    set mate one-of ( (other turtles-here) with [has_reproduced = 0 and adult = 1]) ;; choose one mate among the unmated individuals of the patch
 
-    hatch ind_fecundity [
-      hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
-      set adult 0
-      set has_reproduced 0
+    if mate != nobody [ ;; if they find a mate
+      set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
+      ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
+      hatch ind_fecundity [ ;; mom reproduce
+        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
-      ;;neutral alleles
-      set neutral_locus [neutral_locus] of mom
+        set adult 0
+        set has_reproduced 0
 
-      ;;misc.
-      set parentID [who] of mom
+        ;;neutral alleles
+        set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
 
-      ;;trait determination
-      set genotype_logit_disp0 [genotype_logit_disp0] of mom
-      set genotype_disp_slope [disp_slope] of mom
-      ;; genotypic value inherited from parent(s)
+        ;;misc.
+        set parentID [who] of mom
 
-      set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-      set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
-      ;; draw residual noise
+        ;;trait determination
+        set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
+        set genotype_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        ;; genotypic value inherited from parent(s)
 
-      set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
-      set disp_slope genotype_disp_slope + noise_disp_slope
-      ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
+        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        ;; draw residual noise
+
+        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
+        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
+        ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
+      ]
+
+      ask mate [set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )]
+
+      hatch [ind_fecundity] of mate [ ;;the mate also reproduce
+        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
+
+        set adult 0
+        set has_reproduced 0
+
+        ;;neutral alleles
+        set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
+
+        ;;misc.
+        set parentID [who] of mate
+
+        ;;trait determination
+        set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
+        set genotype_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        ;; genotypic value inherited from parent(s)
+
+        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        ;; draw residual noise
+
+        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
+        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
+        ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
       ]
 
       set has_reproduced 1
+      ask mate [set has_reproduced 1]
     ]
+  ]
 end
 
+to reproduce_clonal  ;; clonal reproduction, no mutation
+if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
+    ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
+    let mom self
+    set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
+      ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
+
+      hatch ind_fecundity [
+        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
+
+        set adult 0
+        set has_reproduced 0
+
+        ;;neutral alleles
+        set neutral_locus [neutral_locus] of mom
+
+        ;;misc.
+        set parentID [who] of mom
+
+        ;;trait determination
+        set genotype_logit_disp0 [genotype_logit_disp0] of mom
+        set genotype_disp_slope [genotype_disp_slope] of mom
+        ;; genotypic value inherited from parent(s)
+
+        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        ;; draw residual noise
+
+        set logit_disp0 mean(genotype_logit_disp0) + noise_logit_disp0
+        set disp_slope mean(genotype_disp_slope) + noise_disp_slope
+        ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
+      ]
+      set has_reproduced 1
+    ]
+end
 
 to check_death
     if adult = 1 [ die ]
@@ -286,10 +374,10 @@ NIL
 0
 
 SLIDER
-29
-174
-201
-207
+38
+281
+210
+314
 K
 K
 10
@@ -376,10 +464,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-29
-221
-201
-254
+38
+328
+210
+361
 duration
 duration
 0
@@ -477,6 +565,16 @@ true
 PENS
 "edge" 1.0 0 -16777216 true "" "plot variance ([noise_logit_disp0] of turtles with [xcor >= past_front])"
 "core" 1.0 0 -7500403 true "" "plot variance ([noise_logit_disp0] of turtles with [xcor = 0])"
+
+CHOOSER
+29
+175
+167
+220
+reproduction
+reproduction
+"clonal" "sexual"
+1
 
 @#$#@#$#@
 # Range expansion model
