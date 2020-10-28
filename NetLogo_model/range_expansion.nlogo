@@ -42,7 +42,9 @@ turtles-own [
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
 
   ;;misc.
-  parentID ;; unique Netlogo-created ID of the parent, useful for pedigree
+  momID ;; [sexual] unique Netlogo-created ID of the mother, useful for pedigree. [clonal] momID set and kept to the unique ID of the starting individual of the clonal line
+  PgrandmaID ;; [sexual] unique ID of the paternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
+  MgrandmaID ;; [sexual] unique ID of the maternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
 ]
 
 
@@ -109,10 +111,15 @@ to setup-turtles
        ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
-       set disp_slope mean (genotype_disp_slope) + noise_disp_slope]
+       set disp_slope mean (genotype_disp_slope) + noise_disp_slope
 
        ;; At the next generation, individuals draw genotypic values from parent(s) if heritability>0, and redraw the residual noise from the random normal distribution
 
+       ;;assigning a line ID ; for clonal reproduction, momID correspond to the unique ID of a clonal line. MgrandmaID and PgrandmaID are equal to momID
+       set momID who
+       set MgrandmaID who
+       set PgrandmaID who
+      ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
        ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
 
@@ -123,8 +130,13 @@ to setup-turtles
        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
 
        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
-       set disp_slope mean (genotype_disp_slope) + noise_disp_slope]
+       set disp_slope mean (genotype_disp_slope) + noise_disp_slope
 
+      ;;assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
+      set PgrandmaID -999
+      set MgrandmaID -999
+      set momID -999
+      ]
   )
   ]
 end
@@ -221,7 +233,9 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
 
         ;;misc.
-        set parentID [who] of mom
+        set momID [who] of mom
+        set PgrandmaID [momID] of mate
+        set MgrandmaID [momID] of mom
 
         ;;trait determination
         set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
@@ -249,7 +263,9 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
 
         ;;misc.
-        set parentID [who] of mate
+        set momID [who] of mate
+        set PgrandmaID [momID] of mom
+        set MgrandmaID [momID] of mate
 
         ;;trait determination
         set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
@@ -289,7 +305,10 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
         set neutral_locus [neutral_locus] of mom
 
         ;;misc.
-        set parentID [who] of mom
+        set momID [momID] of mom
+        set MgrandmaID [momID] of mom
+        set PgrandmaID [momID] of mom
+
 
         ;;trait determination
         set genotype_logit_disp0 [genotype_logit_disp0] of mom
