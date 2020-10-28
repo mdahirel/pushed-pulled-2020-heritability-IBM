@@ -42,7 +42,6 @@ turtles-own [
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
 
   ;;misc.
-  parentID ;; unique Netlogo-created ID of the parent, useful for pedigree
   momID ;; unique Netlogo-created ID of the parent, useful for pedigree. For clonal reproduction, momID correspond to the unique ID of a clonal line
   PgrandmaID ;; unique ID of the paternal grandmother of the turtle, -999 for the first generation (unknown pedigree). Set equal to momID for clonal reproduction
   MgrandmaID  ;; unique ID of the maternal grandmother of the turtle, -999 for the first generation (unknown pedigree). Set equal to momID for clonal reproduction
