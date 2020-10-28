@@ -42,9 +42,9 @@ turtles-own [
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
 
   ;;misc.
-  momID ;; unique Netlogo-created ID of the parent, useful for pedigree. For clonal reproduction, momID correspond to the unique ID of a clonal line
-  PgrandmaID ;; unique ID of the paternal grandmother of the turtle, -999 for the first generation (unknown pedigree). Set equal to momID for clonal reproduction
-  MgrandmaID  ;; unique ID of the maternal grandmother of the turtle, -999 for the first generation (unknown pedigree). Set equal to momID for clonal reproduction
+  momID ;; [sexual] unique Netlogo-created ID of the mother, useful for pedigree. [clonal] momID set and kept to the unique ID of the starting individual of the clonal line
+  PgrandmaID ;; [sexual] unique ID of the paternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
+  MgrandmaID ;; [sexual] unique ID of the maternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
 ]
 
 
@@ -132,7 +132,7 @@ to setup-turtles
        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
 
-      ;;assigning an unknown pedigree for sexual reproduction
+      ;;assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
       set PgrandmaID -999
       set MgrandmaID -999
       set momID -999
