@@ -11,38 +11,39 @@
 
 globals[
   logit_disp0_mean ;; a placeholder global variable used to translate the initial dispersal rate (entered on the probability scale as it's easier) to the logit scale
-  past_front ;; position of the front before dispersal
-  present_front ;; position of the front after dispersal
-  new_front ;; if "yes", the position of the front have advanced
-  V_A_disp_slope ;; genetic additive variance of the dispersal-density reaction norm slope
-  V_R_disp_slope ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
-  V_A_logit_disp0 ;; genetic additive variance of logit_disp0
-  V_R_logit_disp0 ;; residual (i.e. environmental) variance of logit disp0
+  past_front       ;; position of the front before dispersal
+  present_front    ;; position of the front after dispersal
+  new_front        ;; if "yes", the position of the front have advanced
+  V_A_disp_slope   ;; genetic additive variance of the dispersal-density reaction norm slope
+  V_R_disp_slope   ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
+  V_A_logit_disp0  ;; genetic additive variance of logit_disp0
+  V_R_logit_disp0  ;; residual (i.e. environmental) variance of logit disp0
 
 ]
 
 turtles-own [
   ;;dispersal
-  disp ;; actual dispersal probability; inverse logit of (logit_disp0 + disp_slope * population_size)
-  logit_disp0 ;; logit of (hypothetical) dispersal probability at population size = 0
-  disp0 ;; (hypothetical) dispersal probability at population size = 0
-  disp_slope ;;slope of the dispersal-density reaction norm (logit scale)
-  available_moves ;; a list of all possible movements if one disperses (in 1D spaces, typically -1 or +1 unless landscape boundary is reached)
+  disp                 ;; actual dispersal probability; inverse logit of (logit_disp0 + disp_slope * population_size)
+  has_dispersed        ;; "yes" if the individual has dispersed, "no" if not
+  logit_disp0          ;; logit of (hypothetical) dispersal probability at population size = 0
+  disp0                ;; (hypothetical) dispersal probability at population size = 0
+  disp_slope           ;; slope of the dispersal-density reaction norm (logit scale)
+  available_moves      ;; a list of all possible movements if one disperses (in 1D spaces, typically -1 or +1 unless landscape boundary is reached)
   genotype_logit_disp0 ;; the genetic value of logit_disp0
-  noise_logit_disp0 ;; noise altering the genetic value of logit_disp0
-  genotype_disp_slope ;; the genetic value of disp_slope
-  noise_disp_slope ;; noise added to the genetic value of disp_slope
+  noise_logit_disp0    ;; noise altering the genetic value of logit_disp0
+  genotype_disp_slope  ;; the genetic value of disp_slope
+  noise_disp_slope     ;; noise added to the genetic value of disp_slope
 
   ;;growth and reproduction
-  adult ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
+  adult          ;; a 0/1 flag indicating if the individual is adult (reproductive phase)
   has_reproduced ;; a 0/1 flag indicating if the individual has reproduced (individuals can only reproduce once)
-  ind_fecundity ;; actual individual fecundity
+  ind_fecundity  ;; actual individual fecundity
 
   ;neutral genetic diversity
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
 
   ;;misc.
-  momID ;; [sexual] unique Netlogo-created ID of the mother, useful for pedigree. [clonal] momID set and kept to the unique ID of the starting individual of the clonal line
+  momID      ;; [sexual] unique Netlogo-created ID of the mother, useful for pedigree. [clonal] momID set and kept to the unique ID of the starting individual of the clonal line
   PgrandmaID ;; [sexual] unique ID of the paternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
   MgrandmaID ;; [sexual] unique ID of the maternal grandmother of the turtle, -999 for the first generation (unknown pedigree). [clonal] Set and kept equal to momID
 ]
@@ -79,15 +80,15 @@ end
 
 
 to define-landscape
-  set-patch-size 3 ;; graphical argument if NetLogo GUI used
-  resize-world 0 300 0 0 ;;generate the correct landscape size ( xmin xmax ymin ymax) ymax = ymin = 0 for 1D landscapes
-  ;;(0 = initial patch, if xmin <0 individuals can move in both direction from release sites, creating two non-independent fronts.
-  ;;To avoid, as it makes data analyses harder after)
+  set-patch-size 3       ;; graphical argument if NetLogo GUI used
+  resize-world 0 300 0 0 ;; generate the correct landscape size ( xmin xmax ymin ymax) ymax = ymin = 0 for 1D landscapes
+  ;; (0 = initial patch, if xmin <0 individuals can move in both direction from release sites, creating two non-independent fronts.
+  ;; To avoid, as it makes data analyses harder after)
   ask patches [set pcolor black] ;; graphical argument if NetLogo GUI used (patches will become whiter as population size increases)
 end
 
 to setup-patches
-  ask patches [set carrying_capacity K]  ;; all patches have the same constant carrying_capacity; extension possible to stochastic spatial variation by using (random-poisson K) instead of K
+  ask patches [set carrying_capacity K]                   ;; all patches have the same constant carrying_capacity; extension possible to stochastic spatial variation by using (random-poisson K) instead of K
   ask patches with [pxcor = 0] [sprout carrying_capacity] ;; we generate individuals only in one initial patch with coordinate (pxcor = 0)
   ask patches [check_population_size]
 end
@@ -113,15 +114,15 @@ to setup-turtles
        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
 
-       ;; At the next generation, individuals draw genotypic values from parent(s) if heritability>0, and redraw the residual noise from the random normal distribution
+       ;; at the next generation, individuals get genotypic values from parent(s), and redraw the residual noise from the random normal distribution
 
-       ;;assigning a line ID ; for clonal reproduction, momID correspond to the unique ID of a clonal line. MgrandmaID and PgrandmaID are equal to momID
+       ;; assigning a line ID ; for clonal reproduction, momID correspond to the unique ID of a clonal line. MgrandmaID and PgrandmaID are equal to momID
        set momID who
        set MgrandmaID who
        set PgrandmaID who
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
-       ;;NB: important: random 2 reports 0 or 1, not 1 or 2 ;
+       ;; NB: important: random 2 reports 0 or 1, not 1 or 2
 
        set genotype_logit_disp0 list (random-normal logit_disp0_mean sqrt(V_A_logit_disp0)) (random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
        set genotype_disp_slope list (random-normal slope_disp_mean sqrt(V_A_disp_slope)) (random-normal slope_disp_mean sqrt(V_A_disp_slope))
@@ -132,18 +133,18 @@ to setup-turtles
        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
 
-      ;;assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
-      set PgrandmaID -999
-      set MgrandmaID -999
-      set momID -999
-      ]
-  )
+       ;; assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
+       set PgrandmaID -999
+       set MgrandmaID -999
+       set momID -999
+       ]
+     )
   ]
 end
 
 to check_population_size
-set population_size count turtles-here
-set pcolor scale-color green population_size 0 (carrying_capacity * 1.1) ;; graphical argument if NetLogo GUI used, updates the patch colour based on current population size
+  set population_size count turtles-here
+  set pcolor scale-color green population_size 0 (carrying_capacity * 1.1) ;; graphical argument if NetLogo GUI used, updates the patch colour based on current population size
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -179,27 +180,28 @@ to go
   ask patches[check_population_size] ;; need a second population size check to update population size for density-dependent dispersal
   ask patches[set N_postdispersal population_size]
 
-  set present_front max( [ pxcor ] of patches with [N_postdispersal > 0] ) ;; find the position of the actual front
+  set present_front max( [ pxcor ] of patches with [N_postdispersal > 0] ) ;; find the position of the actual front; done like that and not with pre/post dispersal count in case of 'holes' in the wave
   ifelse ( present_front > past_front)
   [set new_front "yes"]
   [set new_front "no"]
   set past_front present_front
 
-  ask patches with [N_postdispersal > 0] [ ;;record patch-level allelic frequencies
+  ask patches with [N_postdispersal > 0] [            ;; record patch-level allelic frequencies
     set N_allele1 sum (reduce sentence ([neutral_locus] of turtles-here))
-    (ifelse reproduction = "clonal"
+    ( ifelse reproduction = "clonal"
       [set N_allele0 population_size - N_allele1]
-      [set N_allele0 2 * population_size - N_allele1])  ;;for sexual reproduction, twice as many alleles than individuals
+      [set N_allele0 2 * population_size - N_allele1] ;; for sexual reproduction, twice as many alleles than individuals
+    )
   ]
   tick
 end
 
 
 to move_turtles
-  set available_moves [1 -1] ;;;individuals can only move left or right
+  set available_moves [1 -1] ;; individuals can only move left or right
 
-;; but if animal is at landscape border can only disperse in one direction (but we keep the same total dispersal probability proba)
-;; only relevant for the starting patch in normal use, as usually landscape size is set to be larger than the total movements possible for the duration of the run :
+  ;; but if animal is at landscape border can only disperse in one direction (but we keep the same total dispersal probability proba)
+  ;; only relevant for the starting patch in normal use, as usually landscape size is set to be larger than the total movements possible for the duration of the run :
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
@@ -207,14 +209,16 @@ to move_turtles
   ;; logit linear function, allow negative DDD
   ;; we follow fronhofer et al 2017, poethke et al 2016 and many other by having DDD dependent on relative density (density/K) rather than actual density
 
-  if ( (random-float 1) < (disp) ) ;;sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
-  [set xcor xcor + one-of available_moves] ;; sets where it moves if it does
+  ifelse ( (random-float 1) < (disp) )         ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
+  [set xcor xcor + one-of available_moves      ;; sets where it moves if it does
+   set has_dispersed "yes"]                    ;; indicate if the individual has dispersed or not
+  [set has_dispersed "no"]
 end
 
 
 to reproduce_sexual  ;; sexual reproduction, no mutation
-if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
-    ;;avoid multiple matings as partners of several "focals"
+  if (has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
+    ;; avoid multiple matings as partners of several "focals"
     let mom self
     let mate nobody
     set mate one-of ( (other turtles-here) with [has_reproduced = 0 and adult = 1]) ;; choose one mate among the unmated individuals of the patch
@@ -224,13 +228,14 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
       set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
       ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
       hatch ind_fecundity [ ;; mom reproduce
-        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
+        hide-turtle         ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
         set adult 0
         set has_reproduced 0
 
         ;;neutral alleles
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
+        ;; in case of sexual reproduction, one allele comes from mom, another from mate
 
         ;;misc.
         set momID [who] of mom
@@ -253,14 +258,15 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
 
       ask mate [set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )]
 
-      hatch [ind_fecundity] of mate [ ;;the mate also reproduce
-        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
+      hatch [ind_fecundity] of mate [ ;; the mate also reproduce
+        hide-turtle                   ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
         set adult 0
         set has_reproduced 0
 
         ;;neutral alleles
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
+        ;; in case of sexual reproduction, one allele comes from mom, another from mate
 
         ;;misc.
         set momID [who] of mate
@@ -282,14 +288,14 @@ if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproducti
       ]
 
       set has_reproduced 1
-      ask mate [set has_reproduced 1]
+      ask mate [set has_reproduced 1] ;; the mate  cannot be chosen/reproduce again
     ]
   ]
 end
 
 to reproduce_clonal  ;; clonal reproduction, no mutation
-if ( has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
-    ;;Should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
+  if (has_reproduced = 0 and adult = 1 ) [ ;; safety to avoid multiple reproductions.
+    ;; should not be needed for haploid clonal individuals, as each individual is only "focal" once , but useful if extension to sexual individuals to avoid multiple matings as partners of several "focals"
     let mom self
     set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )
       ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
@@ -544,7 +550,7 @@ heritability
 heritability
 0
 1
-0.15
+0.0
 0.01
 1
 NIL
