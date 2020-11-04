@@ -24,7 +24,7 @@ globals[
 turtles-own [
   ;;dispersal
   disp                 ;; actual dispersal probability; inverse logit of (logit_disp0 + disp_slope * population_size)
-  has_dispersed        ;; "yes" if the individual has dispersed, "no" if not
+  has_dispersed        ;; a 0/1 flag indicating if the individual has dispersed
   logit_disp0          ;; logit of (hypothetical) dispersal probability at population size = 0
   disp0                ;; (hypothetical) dispersal probability at population size = 0
   disp_slope           ;; slope of the dispersal-density reaction norm (logit scale)
@@ -209,10 +209,10 @@ to move_turtles
   ;; logit linear function, allow negative DDD
   ;; we follow fronhofer et al 2017, poethke et al 2016 and many other by having DDD dependent on relative density (density/K) rather than actual density
 
-  ifelse ( (random-float 1) < (disp) )         ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
-  [set xcor xcor + one-of available_moves      ;; sets where it moves if it does
-   set has_dispersed "yes"]                    ;; indicate if the individual has dispersed or not
-  [set has_dispersed "no"]
+  ifelse ( (random-float 1) < (disp) )     ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
+  [set xcor xcor + one-of available_moves  ;; sets where it moves if it does
+   set has_dispersed 1]                    ;; indicate if the individual has dispersed or not
+  [set has_dispersed 0]
 end
 
 
