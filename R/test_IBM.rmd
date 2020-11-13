@@ -62,8 +62,10 @@ trt_grid <- expand_grid(
   variance_pheno=c(0,1),
   reproduction=c("\"clonal\"", "\"sexual\"")  ### note how string variable/csts must be entered to fit in later
   ) %>%
-  filter(-(heritability != 0 & variance_pheno==0)) %>% ##remove "duplicate" cells
+  mutate(duplicate_cells = (heritability != 0 & variance_pheno==0)) %>%
+  filter(duplicate_cells == FALSE) %>% ##remove "duplicate" cells
   #(because if V_P=0, then any h^2 will give the same V_A than h^2=0)
+  select(-duplicate_cells) %>%
   mutate(
     fecundity = 5, ## more or less arbitrary
     K = 500
