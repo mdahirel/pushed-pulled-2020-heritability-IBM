@@ -70,7 +70,7 @@ trt_grid <- expand_grid(
     ) %>%
   mutate(
     v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
-      log(fecundity) * (1 - 1 / K) * (1 - start_allee_thres / 1) * ## fecundity term at N = 1
+      log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
         0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
     ) ## dispersal term at N = 1
   )
