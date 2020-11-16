@@ -35,9 +35,9 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ```{r general-information}
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
-NLVERSION <- "6.1.1"                       # change as needed
-nreplicates <- 1   # test run
-duration <- 10     # test run
+NLVERSION <- "6.1.1" # change as needed
+nreplicates <- 1 # test run
+duration <- 10 # test run
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -45,7 +45,7 @@ We now need to tell R where the actual NetLogo file of the model is (The reader 
 ```{r model-path}
 nl_object <- nl(
   nlversion = NLVERSION, nlpath = NLPATH,
-  modelpath = here("NetLogo_model","range_expansion.nlogo"),
+  modelpath = here("NetLogo_model", "range_expansion.nlogo"),
   jvmmem = 1024
 )
 ```
@@ -58,21 +58,21 @@ Then, let's set the experimental design. <!--to detail-->
 trt_grid <- expand_grid(
   slope_disp_mean = c(-1, 0, 1),
   disp0_mean = c(0.1, 0.2),
-  heritability=c(0, 0.3, 1),
-  variance_pheno=c(0,1),
-  reproduction_nl=c("\"clonal\"")  ### version of the variable for entry in netlogo via nlrx; needs escape characters for the quote chars within quote chars
-  ) %>%
-  mutate(duplicate_cells = (heritability != 0 & variance_pheno==0)) %>%
-  filter(duplicate_cells == FALSE) %>% ##remove "duplicate" cells
-  #(because if V_P=0, then any h^2 will give the same V_A than h^2=0)
+  heritability = c(0, 0.3, 1),
+  variance_pheno = c(0, 1),
+  reproduction_nl = c("\"clonal\"") ### version of the variable for entry in netlogo via nlrx; needs escape characters for the quote chars within quote chars
+) %>%
+  mutate(duplicate_cells = (heritability != 0 & variance_pheno == 0)) %>%
+  filter(duplicate_cells == FALSE) %>% ## remove "duplicate" cells
+  # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   select(-duplicate_cells) %>%
   mutate(
-    reproduction = str_remove_all(reproduction_nl,'\\"'), #it's a mess with the escape characters to escape the escape characters, but it works
+    reproduction = str_remove_all(reproduction_nl, '\\"'), # it's a mess with the escape characters to escape the escape characters, but it works
     variance_pheno_logit_disp0 = variance_pheno,
     variance_pheno_disp_slope = variance_pheno,
     fecundity = 5, ## more or less arbitrary
     K = 500
-    )
+  )
 ```
 
 
@@ -89,16 +89,18 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = duration, #test run
-  metrics = c("ticks","present_front","new_front"),
+  evalticks = duration, # test run
+  metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", "N_predispersal", "N_postdispersal", "N_allele0", "N_allele1"),
   metrics.turtles = list(
-    "turtles"=c("ind_fecundity",
-                "genotype_logit_disp0","noise_logit_disp0",
-                "genotype_disp_slope","noise_disp_slope",
-                "x_birth","disp",
-                "momID","PgrandmaID","MgrandmaID",
-                "pxcor","who") #we save the pxcor of the turtle, rather than the xcor, because it makes patch-turtle joining easier downscript
+    "turtles" = c(
+      "ind_fecundity",
+      "genotype_logit_disp0", "noise_logit_disp0",
+      "genotype_disp_slope", "noise_disp_slope",
+      "x_birth", "disp",
+      "momID", "PgrandmaID", "MgrandmaID",
+      "pxcor", "who"
+    ) # we save the pxcor of the turtle, rather than the xcor, because it makes patch-turtle joining easier downscript
   ),
   ## we need to add the individual metrics to save here
   constants = list(
@@ -107,7 +109,7 @@ nl_object@experiment <- experiment(
   variables = list( ### needs to be a nested list
     "disp0_mean" = list(values = trt_grid$disp0_mean),
     "slope_disp_mean" = list(values = trt_grid$slope_disp_mean),
-    "heritability"=list(values = trt_grid$heritability),
+    "heritability" = list(values = trt_grid$heritability),
     "variance_pheno_logit_disp0" = list(values = trt_grid$variance_pheno_logit_disp0),
     "variance_pheno_disp_slope" = list(values = trt_grid$variance_pheno_disp_slope),
     "fecundity" = list(values = trt_grid$fecundity),
@@ -123,10 +125,10 @@ And we're go for running the simulations! We set a "distinct" simulation design 
 
 ```{r running-simulations}
 
-#set.seed(1989) ## we can set a seed here to guarantee the seeds selected below are the same everytime
+# set.seed(1989) ## we can set a seed here to guarantee the seeds selected below are the same everytime
 nl_object@simdesign <- simdesign_distinct(nl = nl_object, nseeds = nreplicates)
-nl_object@simdesign@simseeds<-1:nreplicates #or we can rewrite the nseeds here (to guarantee they are all different)
-length(unique(nl_object@simdesign@simseeds))==nreplicates #either way, check that all generated seeds are different
+nl_object@simdesign@simseeds <- 1:nreplicates # or we can rewrite the nseeds here (to guarantee they are all different)
+length(unique(nl_object@simdesign@simseeds)) == nreplicates # either way, check that all generated seeds are different
 exp_h2 <- run_nl_all(nl_object)
 ```
 
@@ -137,40 +139,42 @@ We can now process the result for the main analyses:
 ```{r processing-output-presaving}
 
 tab <- exp_h2 %>%
-  dplyr::select(ticks, 
-                slope_disp_mean, disp0_mean, 
-                variance_pheno_logit_disp0,variance_pheno_disp_slope,
-                heritability,
-                fecundity, K, reproduction, seedID = `random-seed`, 
-                metrics.patches, metrics.turtles,
-                present_front,new_front) %>%
+  dplyr::select(ticks,
+    slope_disp_mean, disp0_mean,
+    variance_pheno_logit_disp0, variance_pheno_disp_slope,
+    heritability,
+    fecundity, K, reproduction,
+    seedID = `random-seed`,
+    metrics.patches, metrics.turtles,
+    present_front, new_front
+  ) %>%
   mutate(
     v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
       log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
         0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
     ) ## dispersal term at N = 1
-  )%>%
+  ) %>%
   mutate(metrics.patches = map(metrics.patches,
     .f = ~ .x %>%
-    select(-c(agent,breed)) ## removing variables that could go in the way of correct patch-turtle joining
-  )) %>% 
+      select(-c(agent, breed)) ## removing variables that could go in the way of correct patch-turtle joining
+  )) %>%
   mutate(metrics.turtles = map(metrics.turtles,
     .f = ~ .x %>%
-    select(-c(agent,breed))
-  )) %>% 
-mutate(metrics.all = map2(metrics.patches,metrics.turtles,
-    .f = ~ .x %>% 
-    inner_join(.y, by="pxcor")
-    )) %>% 
-select(-c(metrics.turtles,metrics.patches)) %>% 
-unnest(cols=c(metrics.all)) %>% 
-mutate(replicateID = paste("slope",slope_disp_mean,"d0",disp0_mean,"VP",variance_pheno_disp_slope,"h2", heritability, reproduction, seedID, sep="_")) %>%
-mutate(Location_full = paste(replicateID, pxcor, ticks)) %>% 
-filter(pxcor<=1 | pxcor>= (present_front -1)) #we keep info from (the two) core patch(es) and (the two) edge patch(es)
+      select(-c(agent, breed))
+  )) %>%
+  mutate(metrics.all = map2(metrics.patches, metrics.turtles,
+    .f = ~ .x %>%
+      inner_join(.y, by = "pxcor")
+  )) %>%
+  select(-c(metrics.turtles, metrics.patches)) %>%
+  unnest(cols = c(metrics.all)) %>%
+  mutate(replicateID = paste("slope", slope_disp_mean, "d0", disp0_mean, "VP", variance_pheno_disp_slope, "h2", heritability, reproduction, seedID, sep = "_")) %>%
+  mutate(Location_full = paste(replicateID, pxcor, ticks)) %>%
+  filter(pxcor <= 1 | pxcor >= (present_front - 1)) # we keep info from (the two) core patch(es) and (the two) edge patch(es)
 ```
 
 ```{r saving-output}
-#write_csv(tab, path = here("NetLogo_output","model-output.csv"))
+# write_csv(tab, path = here("NetLogo_output","model-output.csv"))
 ```
 
 We can now use the `ibm-analysis` scripts to analyse the model outputs.
