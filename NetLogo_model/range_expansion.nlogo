@@ -27,7 +27,6 @@ turtles-own[
   disp                 ;; individual dispersal probability; inverse logit of (logit_disp0 + disp_slope * population_size)
   x_birth              ;; x coordinate of birth site; useful to know if indiviuald has dispersed (and how far if dispersal>1 patch allowed)
   logit_disp0          ;; logit of (hypothetical) dispersal probability at population size = 0
-  disp0                ;; (hypothetical) dispersal probability at population size = 0
   disp_slope           ;; slope of the dispersal-density reaction norm (logit scale)
   available_moves      ;; a list of all possible movements if one disperses (in 1D space, typically -1 or +1 unless landscape boundary is reached)
   genotype_logit_disp0 ;; the genetic value of logit_disp0

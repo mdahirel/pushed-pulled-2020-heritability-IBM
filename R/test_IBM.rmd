@@ -60,22 +60,19 @@ trt_grid <- expand_grid(
   disp0_mean = c(0.1, 0.2),
   heritability=c(0, 0.3, 1),
   variance_pheno=c(0,1),
-  reproduction=c("\"clonal\"", "\"sexual\"")  ### note how string variable/csts must be entered to fit in later
+  reproduction_nl=c("\"clonal\"")  ### version of the variable for entry in netlogo via nlrx; needs escape characters for the quote chars within quote chars
   ) %>%
   mutate(duplicate_cells = (heritability != 0 & variance_pheno==0)) %>%
   filter(duplicate_cells == FALSE) %>% ##remove "duplicate" cells
   #(because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   select(-duplicate_cells) %>%
   mutate(
+    reproduction = str_remove_all(reproduction_nl,'\\"'), #it's a mess with the escape characters to escape the escape characters, but it works
+    variance_pheno_logit_disp0 = variance_pheno,
+    variance_pheno_disp_slope = variance_pheno,
     fecundity = 5, ## more or less arbitrary
     K = 500
-    ) %>%
-  mutate(
-    v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
-      log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
-        0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
-    ) ## dispersal term at N = 1
-  )
+    )
 ```
 
 
@@ -95,6 +92,14 @@ nl_object@experiment <- experiment(
   evalticks = duration, #test run
   metrics = c("ticks","present_front","new_front"),
   metrics.patches = c("pxcor", "N_predispersal", "N_postdispersal", "N_allele0", "N_allele1"),
+  metrics.turtles = list(
+    "turtles"=c("ind_fecundity",
+                "genotype_logit_disp0","noise_logit_disp0",
+                "genotype_disp_slope","noise_disp_slope",
+                "x_birth","disp",
+                "momID","PgrandmaID","MgrandmaID",
+                "pxcor","who") #we save the pxcor of the turtle, rather than the xcor, because it makes patch-turtle joining easier downscript
+  ),
   ## we need to add the individual metrics to save here
   constants = list(
     "duration" = duration
@@ -103,11 +108,11 @@ nl_object@experiment <- experiment(
     "disp0_mean" = list(values = trt_grid$disp0_mean),
     "slope_disp_mean" = list(values = trt_grid$slope_disp_mean),
     "heritability"=list(values = trt_grid$heritability),
-    "variance_pheno_logit_disp0" = list(values = trt_grid$variance_pheno),
-    "variance_pheno_disp_slope" = list(values = trt_grid$variance_pheno),
+    "variance_pheno_logit_disp0" = list(values = trt_grid$variance_pheno_logit_disp0),
+    "variance_pheno_disp_slope" = list(values = trt_grid$variance_pheno_disp_slope),
     "fecundity" = list(values = trt_grid$fecundity),
     "K" = list(values = trt_grid$K),
-    "reproduction" = list(values = trt_grid$reproduction)
+    "reproduction" = list(values = trt_grid$reproduction_nl)
   )
 )
 ```
@@ -125,7 +130,6 @@ length(unique(nl_object@simdesign@simseeds))==nreplicates #either way, check tha
 exp_h2 <- run_nl_all(nl_object)
 ```
 
-<!--stop running from here for now, code not yet adapted starting from here-->
 # Output
 
 We can now process the result for the main analyses:
@@ -133,28 +137,40 @@ We can now process the result for the main analyses:
 ```{r processing-output-presaving}
 
 tab <- exp_h2 %>%
-  dplyr::select(ticks, slope_disp_mean, disp0_mean, fecundity, K, seedID = `random-seed`, metrics.patches) %>%
-  mutate(metrics.patches2 = map(metrics.patches,
+  dplyr::select(ticks, 
+                slope_disp_mean, disp0_mean, 
+                variance_pheno_logit_disp0,variance_pheno_disp_slope,
+                heritability,
+                fecundity, K, reproduction, seedID = `random-seed`, 
+                metrics.patches, metrics.turtles,
+                present_front,new_front) %>%
+  mutate(
+    v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
+      log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
+        0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
+    ) ## dispersal term at N = 1
+  )%>%
+  mutate(metrics.patches = map(metrics.patches,
     .f = ~ .x %>%
-      filter(N_postdispersal > 0) %>% ## we only keep populated patches...
-      filter(pxcor == max(pxcor) | pxcor == 0) %>% ## we only keep the edge and the starting patch
-      mutate(is.edge = (pxcor == max(pxcor))) %>%
-      mutate(
-        Hexp = 2 * (N_allele0 / N_postdispersal) * (N_allele1 / N_postdispersal), # expected heterozygosity
-        P0 = (N_allele0 / N_postdispersal),
-        P1 = (N_allele1 / N_postdispersal)
-      )
-  )) %>%
-  left_join(trt_grid) %>%
-  select(-metrics.patches) %>%
-  unnest(cols = c(metrics.patches2)) %>%
-  mutate(replicateID = paste(K, treatment, seedID)) %>%
-  mutate(Location_full = paste(replicateID, pxcor, ticks))
+    select(-c(agent,breed)) ## removing variables that could go in the way of correct patch-turtle joining
+  )) %>% 
+  mutate(metrics.turtles = map(metrics.turtles,
+    .f = ~ .x %>%
+    select(-c(agent,breed))
+  )) %>% 
+mutate(metrics.all = map2(metrics.patches,metrics.turtles,
+    .f = ~ .x %>% 
+    inner_join(.y, by="pxcor")
+    )) %>% 
+select(-c(metrics.turtles,metrics.patches)) %>% 
+unnest(cols=c(metrics.all)) %>% 
+mutate(replicateID = paste("slope",slope_disp_mean,"d0",disp0_mean,"VP",variance_pheno_disp_slope,"h2", heritability, reproduction, seedID, sep="_")) %>%
+mutate(Location_full = paste(replicateID, pxcor, ticks)) %>% 
+filter(pxcor<=1 | pxcor>= (present_front -1)) #we keep info from (the two) core patch(es) and (the two) edge patch(es)
 ```
 
-
 ```{r saving-output}
-write_csv(tab, path = here("NetLogo_output/model-output.csv"))
+#write_csv(tab, path = here("NetLogo_output","model-output.csv"))
 ```
 
 We can now use the `ibm-analysis` scripts to analyse the model outputs.
