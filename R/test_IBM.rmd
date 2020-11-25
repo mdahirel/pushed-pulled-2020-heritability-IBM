@@ -37,7 +37,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
 nreplicates <- 1 # test run
-duration <- 10 # test run
+duration <- 100 # test run
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
