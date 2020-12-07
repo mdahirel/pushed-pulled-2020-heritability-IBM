@@ -37,7 +37,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
 nreplicates <- 1 # test run
-duration <- 10 # test run
+duration <- 100
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -60,7 +60,7 @@ trt_grid <- expand_grid(
   disp0_mean = c(0.1, 0.2),
   heritability = c(0, 0.3, 1),
   variance_pheno = c(0, 1),
-  reproduction = "clonal"   # IMPORTANT: ONE of "sexual" or "clonal"
+  reproduction = "sexual"   # IMPORTANT: ONE of "sexual" or "clonal"
 ) %>%
   mutate(duplicate_cells = (heritability != 0 & variance_pheno == 0)) %>%
   filter(duplicate_cells == FALSE) %>% ## remove "duplicate" cells
@@ -101,8 +101,8 @@ if(unique(repro)[1] == "sexual"){
   metrics.turtles <- list(
     "turtles" = c(
       "ind_fecundity",
-      "mean of genotype_logit_disp0", "noise_logit_disp0",
-      "mean of genotype_disp_slope", "noise_disp_slope",
+      "mean (genotype_logit_disp0)", "noise_logit_disp0",
+      "mean (genotype_disp_slope)", "noise_disp_slope",
       "x_birth", "disp",
       "momID", "PgrandmaID", "MgrandmaID",
       "pxcor", "who"
@@ -115,7 +115,7 @@ return(metrics.turtles)
 }
 ```
 
-
+Now let's set the experiment design itself:
 ```{r set-experiment}
 
 nl_object@experiment <- experiment(
@@ -127,7 +127,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = duration, # test run
+  evalticks = c(1,10,20,30,40,50,60,70,80,90,100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", "N_predispersal", "N_postdispersal", "N_allele0", "N_allele1"),
   metrics.turtles = metrics_turtles(trt_grid$reproduction),
@@ -163,7 +163,7 @@ exp_h2 <- run_nl_all(nl_object)
 
 # Output
 
-We can now process the result for the main analyses. first we start by extracting (and renaming, for `sexual` scenarios) the variables we need:
+We can now process the result for the main analyses. first we start by extracting the variables we need:
 
 ```{r processing-output-presaving1}
 tab <- exp_h2 %>%
@@ -211,7 +211,7 @@ We finish by some name standardisation, if the experiment involved sexual reprod
 if(unique(trt_grid$reproduction)=="sexual"){
 
 tab <- tab %>% 
-  rename(genotype_disp_slope=`mean of genotype_disp_slope`,genotype_logit_disp0=`mean of genotype_logit_disp0`)
+  rename(genotype_disp_slope=`mean (genotype_disp_slope)`,genotype_logit_disp0=`mean (genotype_logit_disp0)`)
 
 }
 ```
