@@ -219,11 +219,11 @@ tab <- tab %>%
 
 ```{r saving-output}
 if(unique(trt_grid$reproduction)=="clonal"){
-write_csv(tab, path = here("NetLogo_output","model-output-clonal.csv"))
+write_csv(tab, file = here("NetLogo_output","model-output-clonal.csv"))
 }
 
 if(unique(trt_grid$reproduction)=="sexual"){
-write_csv(tab, path = here("NetLogo_output","model-output-sexual.csv"))
+write_csv(tab, file = here("NetLogo_output","model-output-sexual.csv"))
 }
 
 ```
