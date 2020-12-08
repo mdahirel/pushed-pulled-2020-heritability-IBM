@@ -226,7 +226,10 @@ to go
 
   ;; postdispersal count here, now that individuals have moved, used to shape reproduction + used for census
   ask patches[check_population_size]
-  ask patches[set N_postdispersal population_size]
+  ask patches[
+    set N_postdispersal population_size
+    set N_sedentary count (turtles-here with [x_birth = pxcor])
+  ]
 
   ;; find the position of the actual front; done like that and not with pre/post dispersal count in case of 'holes' in the wave
   set present_front max( [ pxcor ] of patches with [N_postdispersal > 0] )
