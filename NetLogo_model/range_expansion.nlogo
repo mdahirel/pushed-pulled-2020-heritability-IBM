@@ -54,9 +54,22 @@ patches-own [
   population_size   ;; current population size (actualised frequently through life cycle, as up to date values needed quite often)
   N_predispersal    ;; adult population size right before the dispersal phase
   N_postdispersal   ;; adult population size after the dispersal phase
-  N_allele0         ;; (measured during post-dispersal phase) number of adults with neutral_locus = 0
-  N_allele1         ;; (measured during post-dispersal phase) number of adults with neutral_locus = 1
+  N_allele0_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 0
+  N_allele1_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 1
+  N_allele0_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 0
+  N_allele1_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 1
   N_sedentary       ;; number of turtles who did not move
+
+  ;; patch summaries of dispersal traits (measured pre-dispersal, to be able to compare with %dispersal + to guarantee a variance exists)
+  ;; do N_allele pre too?
+  ;mean_genotype_logit_disp0   ;; average genotypic value for logit(disp0)
+  ;var_genotype_logit_disp0    ;; variance of genotypic values
+  ;mean_noise_logit_disp0      ;; you get the idea...
+  ;var_noise_logit_disp0
+  ;mean_genotype_disp_slope
+  ;var_genotype_disp_slope
+  ;mean_noise_disp_slope
+  ;var_noise_disp_slope
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,6 +185,15 @@ to go
   ask patches[check_population_size]
   ask patches[set N_predispersal population_size]
 
+  ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
+  ask patches with [N_predispersal > 0] [
+    set N_allele1_pre sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
+    ( ifelse reproduction = "clonal"
+      [set N_allele0_pre population_size - N_allele1_pre]
+      [set N_allele0_pre (2 * population_size) - N_allele1_pre]                     ;; for sexual reproduction, twice as many alleles than individuals
+    )
+  ]
+
   ;; dispersal step
   ask turtles[move_turtles]
 
@@ -186,12 +208,12 @@ to go
   [set new_front "no"]
   set past_front present_front ;; for the next generation
 
-  ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
+  ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
   ask patches with [N_postdispersal > 0] [
-    set N_allele1 sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
+    set N_allele1_post sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
     ( ifelse reproduction = "clonal"
-      [set N_allele0 population_size - N_allele1]
-      [set N_allele0 (2 * population_size) - N_allele1]                     ;; for sexual reproduction, twice as many alleles than individuals
+      [set N_allele0_post population_size - N_allele1_post]
+      [set N_allele0_post (2 * population_size) - N_allele1_post]                     ;; for sexual reproduction, twice as many alleles than individuals
     )
   ]
 
