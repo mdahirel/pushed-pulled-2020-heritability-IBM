@@ -36,8 +36,8 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
-nreplicates <- 1 # test run
-duration <- 100
+nreplicates <- 10 # test run
+duration <- 20
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -76,46 +76,8 @@ trt_grid <- expand_grid(
 ```
 
 
-Now we need to add all of this (plus information on the variables that stay constant, which output variables will we save...) to the experiment slot of the NL object (we encourage readers to look at the info pane in the .nlogo model file for details).
+Now we need to add all of this (plus information on the variables that stay constant, which output variables will we save...) to the experiment slot of the NL object (we encourage readers to look at the info pane in the .nlogo model file for details):
 
-First let's just set a quick function to extract the right variable depending on the type of reproduction:
-
-```{r variable-selector}
-metrics_turtles <- function(repro){ 
-  if(length(unique(repro)) > 1){stop("Error: please use only one type of reproduction by experiment. clonal OR sexual")}  
-  
-if(unique(repro)[1] == "clonal"){ 
-  metrics.turtles <- list(
-    "turtles" = c(
-      "ind_fecundity",
-      "genotype_logit_disp0", "noise_logit_disp0",
-      "genotype_disp_slope", "noise_disp_slope",
-      "x_birth", "disp",
-      "momID", "PgrandmaID", "MgrandmaID",
-      "pxcor", "who"
-    ) # we save the pxcor of the turtle, rather than the xcor, because it makes patch-turtle joining easier downscript
-  )
-  }
-
-if(unique(repro)[1] == "sexual"){ 
-  metrics.turtles <- list(
-    "turtles" = c(
-      "ind_fecundity",
-      "mean (genotype_logit_disp0)", "noise_logit_disp0",
-      "mean (genotype_disp_slope)", "noise_disp_slope",
-      "x_birth", "disp",
-      "momID", "PgrandmaID", "MgrandmaID",
-      "pxcor", "who"
-    ) # we save the pxcor of the turtle, rather than the xcor, because it makes patch-turtle joining easier downscript
-  )
-  }
-
-return(metrics.turtles)
-
-}
-```
-
-Now let's set the experiment design itself:
 ```{r set-experiment}
 
 nl_object@experiment <- experiment(
@@ -127,10 +89,16 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1,10,20,30,40,50,60,70,80,90,100),
+  evalticks = duration, #c(1,10,20,30,40,50,60,70,80,90,100),
   metrics = c("ticks", "present_front", "new_front"),
-  metrics.patches = c("pxcor", "N_predispersal", "N_postdispersal", "N_allele0", "N_allele1"),
-  metrics.turtles = metrics_turtles(trt_grid$reproduction),
+  metrics.patches = c("pxcor", 
+                      "N_predispersal", "N_postdispersal",  "N_sedentary",
+                      "N_allele0_pre", "N_allele1_pre",
+                      "N_allele0_post","N_allele1_post",
+                      "mean_genotype_logit_disp0", "var_genotype_logit_disp0",
+                      "mean_noise_logit_disp0", "var_noise_logit_disp0",  
+                      "mean_genotype_disp_slope", "var_genotype_disp_slope",
+                      "mean_noise_disp_slope", "var_noise_disp_slope"),
   ## we need to add the individual metrics to save here
   constants = list(
     "duration" = duration
@@ -165,7 +133,7 @@ exp_h2 <- run_nl_all(nl_object)
 
 We can now process the result for the main analyses. first we start by extracting the variables we need:
 
-```{r processing-output-presaving1}
+```{r processing-output-presaving}
 tab <- exp_h2 %>%
   dplyr::select(ticks,
     slope_disp_mean, disp0_mean,
@@ -173,59 +141,24 @@ tab <- exp_h2 %>%
     heritability,
     fecundity, K, reproduction,
     seedID = `random-seed`,
-    metrics.patches, metrics.turtles,
+    metrics.patches,
     present_front, new_front
-  )
-```
-
-Then we do some processing, to keep only the patches of interest, and to convert the table into a "one row = one individual" table:
-```{r processing-output-presaving2}
-tab <- tab %>%
+  ) %>%
   mutate(
     v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
       log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
         0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
     ) ## dispersal term at N = 1
   ) %>%
-  mutate(metrics.patches = map2(.x = metrics.patches, .y = present_front,
-    .f = ~ .x %>%
-      select(-c(agent, breed)) %>%  ## removing variables that could go in the way of correct patch-turtle joining
-      filter(pxcor <= 1 | pxcor >= (.y - 1)) # we keep info from (the two) core patch(es) and (the two) edge patch(es)
-      )) %>%
-  mutate(metrics.turtles = map(metrics.turtles,
-    .f = ~ .x %>%
-      select(-c(agent, breed))
-  )) %>%
-  mutate(metrics.all = map2(metrics.patches, metrics.turtles,
-    .f = ~ .x %>%
-      inner_join(.y, by = "pxcor")
-  )) %>%
-  select(-c(metrics.turtles, metrics.patches)) %>%
-  unnest(cols = c(metrics.all)) %>%
+  unnest(cols = c(metrics.patches)) %>%
+  filter(N_predispersal > 0 | N_postdispersal > 0) %>% ##we only keep populated patches
   mutate(replicateID = paste("slope", slope_disp_mean, "d0", disp0_mean, "VP", variance_pheno_disp_slope, "h2", heritability, reproduction, seedID, sep = "_")) %>%
   mutate(Location_full = paste(replicateID, pxcor, ticks))
 ```
 
-We finish by some name standardisation, if the experiment involved sexual reproduction, and thus calls to the mean of allelic values during post-processing:
-```{r name-standardisation}
-if(unique(trt_grid$reproduction)=="sexual"){
-
-tab <- tab %>% 
-  rename(genotype_disp_slope=`mean (genotype_disp_slope)`,genotype_logit_disp0=`mean (genotype_logit_disp0)`)
-
-}
-```
-
 
 ```{r saving-output}
-if(unique(trt_grid$reproduction)=="clonal"){
-write_csv(tab, file = here("NetLogo_output","model-output-clonal.csv"))
-}
-
-if(unique(trt_grid$reproduction)=="sexual"){
-write_csv(tab, file = here("NetLogo_output","model-output-sexual.csv"))
-}
-
+write_csv(tab, file = here("NetLogo_output","model-output.csv"))
 ```
 
 We can now use the `ibm-analysis` scripts to analyse the model outputs.

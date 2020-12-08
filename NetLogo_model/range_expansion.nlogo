@@ -294,8 +294,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set MgrandmaID [momID] of mom
 
         ;; trait determination
-        set alleles_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
-        set alleles_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        set alleles_logit_disp0 list (one-of [alleles_logit_disp0] of mom) (one-of [alleles_logit_disp0] of mate)
+        set alleles_disp_slope list (one-of [alleles_disp_slope] of mom) (one-of [alleles_disp_slope] of mate)
 
         set genotype_logit_disp0 mean alleles_logit_disp0
         set genotype_disp_slope mean alleles_disp_slope
@@ -329,8 +329,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set MgrandmaID [momID] of mate
 
         ;; trait determination
-        set alleles_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
-        set alleles_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        set alleles_logit_disp0 list (one-of [alleles_logit_disp0] of mom) (one-of [alleles_logit_disp0] of mate)
+        set alleles_disp_slope list (one-of [alleles_disp_slope] of mom) (one-of [alleles_disp_slope] of mate)
 
         set genotype_logit_disp0 mean alleles_logit_disp0
         set genotype_disp_slope mean alleles_disp_slope
