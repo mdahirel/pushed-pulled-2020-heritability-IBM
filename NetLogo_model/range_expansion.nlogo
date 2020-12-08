@@ -29,9 +29,11 @@ turtles-own[
   logit_disp0          ;; logit of (hypothetical) dispersal probability at population size = 0
   disp_slope           ;; slope of the dispersal-density reaction norm (logit scale)
   available_moves      ;; a list of all possible movements if one disperses (in 1D space, typically -1 or +1 unless landscape boundary is reached)
-  genotype_logit_disp0 ;; the genetic value of logit_disp0
+  alleles_logit_disp0  ;; allele(s) of logit_disp0
+  genotype_logit_disp0 ;; the genetic value of logit_disp0 (average of the alleles)
   noise_logit_disp0    ;; noise added to the genetic value of logit_disp0 to get phenotypic value
-  genotype_disp_slope  ;; the genetic value of disp_slope
+  alleles_disp_slope   ;; allele(s) of disp_slope
+  genotype_disp_slope  ;; the genetic value of disp_slope (average of the alleles)
   noise_disp_slope     ;; noise added to the genetic value of disp_slope to get phenotypic value
 
   ;; growth and reproduction
@@ -50,26 +52,31 @@ turtles-own[
 
 
 patches-own [
+  ;; _pre or _predispersal suffix refers to metrics estimated immediately before the dispersal phase
+  ;; _post or _postdispersal suffix refers to metrics estimated immediately after the dispersal phase
+
+  ;; counts of individuals
   carrying_capacity ;; carrying capacity/ equilibrium pop size of the patch, regulation happens by making growth rate fall below 0 if population size > carrying capacity
   population_size   ;; current population size (actualised frequently through life cycle, as up to date values needed quite often)
   N_predispersal    ;; adult population size right before the dispersal phase
   N_postdispersal   ;; adult population size after the dispersal phase
+  N_sedentary       ;; number of turtles who did not move
+
+  ;; counts of neutral alleles
   N_allele0_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 0
   N_allele1_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 1
   N_allele0_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 0
   N_allele1_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 1
-  N_sedentary       ;; number of turtles who did not move
 
   ;; patch summaries of dispersal traits (measured pre-dispersal, to be able to compare with %dispersal + to guarantee a variance exists)
-  ;; do N_allele pre too?
-  ;mean_genotype_logit_disp0   ;; average genotypic value for logit(disp0)
-  ;var_genotype_logit_disp0    ;; variance of genotypic values
-  ;mean_noise_logit_disp0      ;; you get the idea...
-  ;var_noise_logit_disp0
-  ;mean_genotype_disp_slope
-  ;var_genotype_disp_slope
-  ;mean_noise_disp_slope
-  ;var_noise_disp_slope
+  mean_genotype_logit_disp0   ;; average genotypic value for logit(disp0)
+  var_genotype_logit_disp0    ;; variance of genotypic values
+  mean_noise_logit_disp0      ;; you get the idea...
+  var_noise_logit_disp0
+  mean_genotype_disp_slope
+  var_genotype_disp_slope
+  mean_noise_disp_slope
+  var_noise_disp_slope
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -113,19 +120,15 @@ to setup-turtles
     set ind_fecundity 0
     set x_birth xcor
 
-    ( ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
+    ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
       [set neutral_locus (list random 2) ;; NB: important: random 2 reports 0 or 1, not 1 or 2
 
-       set genotype_logit_disp0 random-normal logit_disp0_mean sqrt(V_A_logit_disp0)
-       set genotype_disp_slope random-normal slope_disp_mean sqrt(V_A_disp_slope)
+       set alleles_logit_disp0 random-normal logit_disp0_mean sqrt(V_A_logit_disp0)
+       set alleles_disp_slope random-normal slope_disp_mean sqrt(V_A_disp_slope)
        ;; assign genotypic trait values from the global means and genetic variance
 
-       set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-       set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
-       ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
-
-       set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
-       set disp_slope genotype_disp_slope + noise_disp_slope
+       set genotype_logit_disp0 alleles_logit_disp0  ;; no need to average anything if clonal
+       set genotype_disp_slope alleles_disp_slope
 
        ;; at the next generation, individuals get genotypic values from parent(s), and redraw the residual noise from the random normal distribution
 
@@ -136,21 +139,26 @@ to setup-turtles
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
 
-       set genotype_logit_disp0 list (random-normal logit_disp0_mean sqrt(V_A_logit_disp0)) (random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
-       set genotype_disp_slope list (random-normal slope_disp_mean sqrt(V_A_disp_slope)) (random-normal slope_disp_mean sqrt(V_A_disp_slope))
+       set alleles_logit_disp0 list (random-normal logit_disp0_mean sqrt(V_A_logit_disp0)) (random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
+       set alleles_disp_slope list (random-normal slope_disp_mean sqrt(V_A_disp_slope)) (random-normal slope_disp_mean sqrt(V_A_disp_slope))
 
-       set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-       set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
-
-       set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
-       set disp_slope mean (genotype_disp_slope) + noise_disp_slope
+       set genotype_logit_disp0 mean (alleles_logit_disp0)
+       set genotype_disp_slope mean (alleles_disp_slope)
 
        ;; assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
        set PgrandmaID -999
        set MgrandmaID -999
        set momID -999
        ]
-     )
+
+    set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
+    set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+    ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
+
+    ;; the trait value for each individual is the sum of the genetic and noise components
+    set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
+    set disp_slope genotype_disp_slope + noise_disp_slope
+
   ]
 end
 
@@ -194,8 +202,27 @@ to go
     )
   ]
 
+  ;; record patch-level averages and variances for dispersal traits
+  ask patches with [N_predispersal > 0] [
+  set mean_genotype_logit_disp0 mean ([genotype_logit_disp0] of turtles-here)
+  set var_genotype_logit_disp0  variance ([genotype_logit_disp0] of turtles-here)
+
+  set mean_noise_logit_disp0   mean ([noise_logit_disp0] of turtles-here)
+  set var_noise_logit_disp0    variance ([noise_logit_disp0] of turtles-here)
+
+  set mean_genotype_disp_slope mean ([genotype_disp_slope] of turtles-here)
+  set var_genotype_disp_slope  variance ([genotype_disp_slope] of turtles-here)
+
+  set mean_noise_disp_slope mean ([noise_disp_slope] of turtles-here)
+  set var_noise_disp_slope variance ([noise_disp_slope] of turtles-here)
+
+  ]
+
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; dispersal step
   ask turtles[move_turtles]
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   ;; postdispersal count here, now that individuals have moved, used to shape reproduction + used for census
   ask patches[check_population_size]
@@ -267,16 +294,19 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set MgrandmaID [momID] of mom
 
         ;; trait determination
-        set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
-        set genotype_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        set alleles_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
+        set alleles_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+
+        set genotype_logit_disp0 mean alleles_logit_disp0
+        set genotype_disp_slope mean alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
         set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
         set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
         ;; draw residual noise again
 
-        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
-        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
+        set logit_disp0 (genotype_logit_disp0 + noise_logit_disp0)
+        set disp_slope (genotype_disp_slope + noise_disp_slope)
         ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
       ]
 
@@ -299,16 +329,19 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set MgrandmaID [momID] of mate
 
         ;; trait determination
-        set genotype_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
-        set genotype_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+        set alleles_logit_disp0 list (one-of [genotype_logit_disp0] of mom) (one-of [genotype_logit_disp0] of mate)
+        set alleles_disp_slope list (one-of [genotype_disp_slope] of mom) (one-of [genotype_disp_slope] of mate)
+
+        set genotype_logit_disp0 mean alleles_logit_disp0
+        set genotype_disp_slope mean alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
         set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
         set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
         ;; draw residual noise again
 
-        set logit_disp0 mean (genotype_logit_disp0) + noise_logit_disp0
-        set disp_slope mean (genotype_disp_slope) + noise_disp_slope
+        set logit_disp0 (genotype_logit_disp0 + noise_logit_disp0)
+        set disp_slope (genotype_disp_slope + noise_disp_slope)
         ;; the phenotypic dispersal traits values correspond to the genetic value plus the residual noise
       ]
 
@@ -341,8 +374,11 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
 
 
         ;;trait determination
-        set genotype_logit_disp0 [genotype_logit_disp0] of mom
-        set genotype_disp_slope  [genotype_disp_slope] of mom
+        set alleles_logit_disp0 [alleles_logit_disp0] of mom
+        set alleles_disp_slope  [alleles_disp_slope] of mom
+
+        set genotype_logit_disp0 alleles_logit_disp0
+        set genotype_disp_slope alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
         set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
