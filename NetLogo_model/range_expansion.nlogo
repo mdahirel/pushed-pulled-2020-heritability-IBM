@@ -193,7 +193,7 @@ to go
   ask patches[check_population_size]
   ask patches[set N_predispersal population_size]
 
-  ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
+  ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
   ask patches with [N_predispersal > 0] [
     set N_allele1_pre sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
     ( ifelse reproduction = "clonal"
@@ -203,21 +203,34 @@ to go
   ]
 
   ;; record patch-level averages and variances for dispersal traits
-  ask patches with [N_predispersal > 0] [
-  set mean_genotype_logit_disp0 mean ([genotype_logit_disp0] of turtles-here)
-  set var_genotype_logit_disp0  variance ([genotype_logit_disp0] of turtles-here)
 
-  set mean_noise_logit_disp0   mean ([noise_logit_disp0] of turtles-here)
-  set var_noise_logit_disp0    variance ([noise_logit_disp0] of turtles-here)
+  ask patches[  ;; reset all patches with our NA placeholder to avoid carryovers from previous gen
+  set mean_genotype_logit_disp0 -999
+  set var_genotype_logit_disp0  -999
 
-  set mean_genotype_disp_slope mean ([genotype_disp_slope] of turtles-here)
-  set var_genotype_disp_slope  variance ([genotype_disp_slope] of turtles-here)
+  set mean_noise_logit_disp0   -999
+  set var_noise_logit_disp0    -999
 
-  set mean_noise_disp_slope mean ([noise_disp_slope] of turtles-here)
-  set var_noise_disp_slope variance ([noise_disp_slope] of turtles-here)
+  set mean_genotype_disp_slope -999
+  set var_genotype_disp_slope  -999
 
+  set mean_noise_disp_slope -999
+  set var_noise_disp_slope -999
   ]
 
+  ask patches with [N_predispersal > 0] [     ;; mean trait values
+  set mean_genotype_logit_disp0 mean ([genotype_logit_disp0] of turtles-here)
+  set mean_noise_logit_disp0   mean ([noise_logit_disp0] of turtles-here)
+  set mean_genotype_disp_slope mean ([genotype_disp_slope] of turtles-here)
+  set mean_noise_disp_slope mean ([noise_disp_slope] of turtles-here)
+  ]
+
+  ask patches with [N_predispersal > 1] [ ;; trait variances; sample variances only meaningful for N > 1
+  set var_genotype_logit_disp0  variance ([genotype_logit_disp0] of turtles-here)
+  set var_noise_logit_disp0    variance ([noise_logit_disp0] of turtles-here)
+  set var_genotype_disp_slope  variance ([genotype_disp_slope] of turtles-here)
+  set var_noise_disp_slope variance ([noise_disp_slope] of turtles-here)
+  ]
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; dispersal step
@@ -228,7 +241,7 @@ to go
   ask patches[check_population_size]
   ask patches[
     set N_postdispersal population_size
-    set N_sedentary count (turtles-here with [x_birth = pxcor])
+    set N_sedentary count turtles-here with [x_birth = pxcor]
   ]
 
   ;; find the position of the actual front; done like that and not with pre/post dispersal count in case of 'holes' in the wave
@@ -285,6 +298,7 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
 
         set adult 0
         set has_reproduced 0
+        set ind_fecundity 0
         set x_birth xcor
 
         ;; neutral alleles
@@ -320,6 +334,7 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
 
         set adult 0
         set has_reproduced 0
+        set ind_fecundity 0
         set x_birth xcor
 
         ;; neutral alleles
@@ -366,6 +381,7 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set adult 0
         set has_reproduced 0
         set ind_fecundity 0
+        set x_birth xcor
 
         ;;neutral alleles
         set neutral_locus [neutral_locus] of mom

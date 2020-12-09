@@ -28,8 +28,6 @@ library(here)
 
 <!--to detail-->
 
-to do: proof netlogo code itself against variance estimates errors if N=1
-
 # Setup
 
 First, let's tell R where is your NetLogo version, what version number it is, for how many generations do we want the model to run, and how many replicates we want for each parameter combination:
@@ -38,7 +36,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
-nreplicates <- 10 # test run
+nreplicates <- 5 # test run
 duration <- 10
 ```
 
@@ -61,7 +59,7 @@ trt_grid <- expand_grid(
   slope_disp_mean = c(-1, 0, 1),
   disp0_mean = c(0.1, 0.2),
   heritability = c(0, 0.3, 1),
-  variance_pheno = c(0, 1),
+  variance_pheno = c(0, 0.5),  # 1 may be too big
   reproduction = "clonal"   # IMPORTANT: ONE of "sexual" or "clonal"
 ) %>%
   mutate(duplicate_cells = (heritability != 0 & variance_pheno == 0)) %>%
@@ -91,7 +89,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1,10,20,30,40,50,60,70,80,90,100),
+  evalticks = 10, ##c(1,10,20,30,40,50,60,70,80,90,100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
                       "N_predispersal", "N_postdispersal",  "N_sedentary",
