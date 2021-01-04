@@ -11,10 +11,10 @@
 globals[
   ;; fixed once set up
   logit_disp0_mean ;; a placeholder global variable used to translate the initial baseline dispersal rate (entered on the probability scale as it's easier) to the logit scale
-  V_A_disp_slope   ;; genetic additive variance of the dispersal-density reaction norm slope
-  V_R_disp_slope   ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
-  V_A_logit_disp0  ;; genetic additive variance of logit_disp0
-  V_R_logit_disp0  ;; residual (i.e. environmental) variance of logit disp0
+  VA_disp_slope   ;; genetic additive variance of the dispersal-density reaction norm slope
+  VR_disp_slope   ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
+  VA_logit_disp0  ;; genetic additive variance of logit_disp0
+  VR_logit_disp0  ;; residual (i.e. environmental) variance of logit disp0
 
   ;; updated every generation
   past_front       ;; position of the front before dispersal
@@ -61,6 +61,7 @@ patches-own [
   N_predispersal    ;; adult population size right before the dispersal phase
   N_postdispersal   ;; adult population size after the dispersal phase
   N_sedentary       ;; number of turtles who did not move
+  N_disp_dead       ;; number of turtles from this patch dead during dispersal
 
   ;; counts of neutral alleles
   N_allele0_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 0
@@ -89,10 +90,10 @@ to setup
   define-landscape
   set logit_disp0_mean ln (disp0_mean / (1 - disp0_mean)) ;; get starting logit(d0) from input d0 (more natural to input baseline dispersal rate on observed scale rather than logit)
   set past_front 0
-  set V_A_disp_slope heritability * variance_pheno_disp_slope  ;; set additive genetic variance VA from input heritability and total phenotypic variance
-  set V_R_disp_slope (1 - heritability) * variance_pheno_disp_slope ;; same with residual variance VR
-  set V_A_logit_disp0 heritability * variance_pheno_logit_disp0
-  set V_R_logit_disp0 (1 - heritability) * variance_pheno_logit_disp0
+  set VA_disp_slope heritability * VP_disp_slope  ;; set additive genetic variance VA from input heritability and total phenotypic variance
+  set VR_disp_slope (1 - heritability) * VP_disp_slope ;; same with residual variance VR
+  set VA_logit_disp0 heritability * VP_logit_disp0
+  set VR_logit_disp0 (1 - heritability) * VP_logit_disp0
   setup-patches
   setup-turtles
   reset-ticks
@@ -123,8 +124,8 @@ to setup-turtles
     ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
       [set neutral_locus (list random 2) ;; NB: important: random 2 reports 0 or 1, not 1 or 2
 
-       set alleles_logit_disp0 random-normal logit_disp0_mean sqrt(V_A_logit_disp0)
-       set alleles_disp_slope random-normal slope_disp_mean sqrt(V_A_disp_slope)
+       set alleles_logit_disp0 random-normal logit_disp0_mean sqrt(VA_logit_disp0)
+       set alleles_disp_slope random-normal disp_slope_mean sqrt(VA_disp_slope)
        ;; assign genotypic trait values from the global means and genetic variance
 
        set genotype_logit_disp0 alleles_logit_disp0  ;; no need to average anything if clonal
@@ -139,21 +140,22 @@ to setup-turtles
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
 
-       set alleles_logit_disp0 list (random-normal logit_disp0_mean sqrt(V_A_logit_disp0)) (random-normal logit_disp0_mean sqrt(V_A_logit_disp0))
-       set alleles_disp_slope list (random-normal slope_disp_mean sqrt(V_A_disp_slope)) (random-normal slope_disp_mean sqrt(V_A_disp_slope))
+       set alleles_logit_disp0 list (random-normal logit_disp0_mean sqrt(VA_logit_disp0)) (random-normal logit_disp0_mean sqrt(VA_logit_disp0))
+       set alleles_disp_slope list (random-normal disp_slope_mean sqrt(VA_disp_slope)) (random-normal disp_slope_mean sqrt(VA_disp_slope))
 
        set genotype_logit_disp0 mean (alleles_logit_disp0)
        set genotype_disp_slope mean (alleles_disp_slope)
 
        ;; assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
-       set PgrandmaID -999
-       set MgrandmaID -999
        set momID -999
+       set MgrandmaID -999
+       set PgrandmaID -999
+
        ]
 
-    set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-    set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
-    ;; assign residual noise value to the dispersal traits ; if V_R = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
+    set noise_logit_disp0 random-normal 0 sqrt(VR_logit_disp0)
+    set noise_disp_slope random-normal 0 sqrt(VR_disp_slope)
+    ;; assign residual noise value to the dispersal traits ; if VR = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
     ;; the trait value for each individual is the sum of the genetic and noise components
     set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
@@ -276,8 +278,11 @@ to move_turtles ;; dispersal
   ;; logit linear function, allow negative DDD
   ;; we follow fronhofer et al 2017, poethke et al 2016 and many other by having DDD dependent on relative density (pop size/K) rather than actual pop size
 
-  if ( (random-float 1) < (disp) )     ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
-  [set xcor xcor + one-of available_moves]  ;; sets where it moves if it does
+  if ( (random-float 1) < (disp) ) [    ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
+    if (random-float 1) < (dispersal_mortality) [
+      set N_disp_dead (N_disp_dead + 1)
+      die]                                      ;; mortality during dispersal
+    set xcor xcor + one-of available_moves]  ;; sets where it moves if it decides to move and survives dispersal
 
 end
 
@@ -318,8 +323,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set genotype_disp_slope mean alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
-        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        set noise_logit_disp0 random-normal 0 sqrt(VR_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(VR_disp_slope)
         ;; draw residual noise again
 
         set logit_disp0 (genotype_logit_disp0 + noise_logit_disp0)
@@ -354,8 +359,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set genotype_disp_slope mean alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
-        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        set noise_logit_disp0 random-normal 0 sqrt(VR_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(VR_disp_slope)
         ;; draw residual noise again
 
         set logit_disp0 (genotype_logit_disp0 + noise_logit_disp0)
@@ -400,8 +405,8 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set genotype_disp_slope alleles_disp_slope
         ;; genotypic value inherited from parent(s)
 
-        set noise_logit_disp0 random-normal 0 sqrt(V_R_logit_disp0)
-        set noise_disp_slope random-normal 0 sqrt(V_R_disp_slope)
+        set noise_logit_disp0 random-normal 0 sqrt(VR_logit_disp0)
+        set noise_disp_slope random-normal 0 sqrt(VR_disp_slope)
         ;; draw residual noise
 
         set logit_disp0 genotype_logit_disp0 + noise_logit_disp0
@@ -499,8 +504,8 @@ SLIDER
 280
 438
 313
-variance_pheno_logit_disp0
-variance_pheno_logit_disp0
+VP_logit_disp0
+VP_logit_disp0
 0
 1
 0.8
@@ -544,8 +549,8 @@ SLIDER
 221
 409
 254
-slope_disp_mean
-slope_disp_mean
+disp_slope_mean
+disp_slope_mean
 -4
 4
 0.0
@@ -559,8 +564,8 @@ SLIDER
 318
 437
 351
-variance_pheno_disp_slope
-variance_pheno_disp_slope
+VP_disp_slope
+VP_disp_slope
 0
 1
 0.0
@@ -644,6 +649,22 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot present_front"
+"pen-1" 1.0 0 -7500403 true "" "plot ticks"
+
+SLIDER
+255
+394
+427
+427
+dispersal_mortality
+dispersal_mortality
+0
+1
+0.0
+0.05
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 # Range expansion model
