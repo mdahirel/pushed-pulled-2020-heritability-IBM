@@ -36,7 +36,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
-nreplicates <- 5 # test run
+nreplicates <- 2 # test run
 duration <- 20
 ```
 
@@ -56,9 +56,10 @@ Then, let's set the experimental design. <!--to detail-->
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- expand_grid(
-  slope_disp_mean = c(-1, 0, 1),
+  disp_slope_mean = c(-1, 0, 1),
   disp0_mean = c(0.1, 0.2),
-  heritability = c(0, 0.3, 1),
+  heritability = c(0, 0.33, 0.66, 1),
+  dispersal_mortality = c(0, 0.1),
   variance_pheno = c(0, 0.5),  # 1 may be too big
   reproduction = c("sexual","clonal"),   
 ) %>%
@@ -68,8 +69,8 @@ trt_grid <- expand_grid(
   select(-duplicate_cells) %>%
   mutate(
     reproduction_nl = paste('\"',reproduction,'\"',sep=""),# adds the quote and escape needed to export the string to Netlogo
-    variance_pheno_logit_disp0 = variance_pheno,
-    variance_pheno_disp_slope = variance_pheno,
+    VP_logit_disp0 = variance_pheno,
+    VP_disp_slope = variance_pheno,
     fecundity = 5, ## more or less arbitrary
     K = 500
   )
@@ -92,7 +93,7 @@ nl_object@experiment <- experiment(
   evalticks = 20, ##c(1,10,20,30,40,50,60,70,80,90,100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
-                      "N_predispersal", "N_postdispersal",  "N_sedentary",
+                      "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
                       "N_allele0_pre", "N_allele1_pre",
                       "N_allele0_post","N_allele1_post",
                       "mean_genotype_logit_disp0", "var_genotype_logit_disp0",
@@ -105,13 +106,14 @@ nl_object@experiment <- experiment(
   ),
   variables = list( ### needs to be a nested list
     "disp0_mean" = list(values = trt_grid$disp0_mean),
-    "slope_disp_mean" = list(values = trt_grid$slope_disp_mean),
+    "disp_slope_mean" = list(values = trt_grid$disp_slope_mean),
     "heritability" = list(values = trt_grid$heritability),
-    "variance_pheno_logit_disp0" = list(values = trt_grid$variance_pheno_logit_disp0),
-    "variance_pheno_disp_slope" = list(values = trt_grid$variance_pheno_disp_slope),
+    "VP_logit_disp0" = list(values = trt_grid$VP_logit_disp0),
+    "VP_disp_slope" = list(values = trt_grid$VP_disp_slope),
     "fecundity" = list(values = trt_grid$fecundity),
     "K" = list(values = trt_grid$K),
-    "reproduction" = list(values = trt_grid$reproduction_nl)
+    "reproduction" = list(values = trt_grid$reproduction_nl),
+    "dispersal_mortality" = list(values = trt_grid$dispersal_mortality)
   )
 )
 ```
@@ -136,9 +138,9 @@ We can now process the result for the main analyses. first we start by extractin
 ```{r processing-output-presaving}
 tab <- exp_h2 %>%
   dplyr::select(ticks,
-    slope_disp_mean, disp0_mean,
-    variance_pheno_logit_disp0, variance_pheno_disp_slope,
-    heritability,
+    disp_slope_mean, disp0_mean,
+    VP_logit_disp0, VP_disp_slope,
+    heritability, dispersal_mortality,
     fecundity, K, reproduction,
     seedID = `random-seed`,
     metrics.patches,
@@ -147,12 +149,23 @@ tab <- exp_h2 %>%
   mutate(
     v_f = 2 * sqrt( ## v_f = expected velocity of "equivalent" pulled wave:
       log(fecundity) * (1 - 1 / K) * ## fecundity term at N = 1
-        0.5 * invlogit(logit(disp0_mean) + (1 / K) * slope_disp_mean)
+        0.5 * invlogit(logit(disp0_mean) + (1 / K) * disp_slope_mean)
     ) ## dispersal term at N = 1
   ) %>%
   unnest(cols = c(metrics.patches)) %>%
+  mutate( 
+  #### IMPORTANT: replace the -999 by actual NAs
+  mean_genotype_logit_disp0 = na_if(mean_genotype_logit_disp0, -999),
+  mean_genotype_disp_slope = na_if(mean_genotype_disp_slope, -999),
+  mean_noise_logit_disp0 = na_if(mean_noise_logit_disp0, -999),
+  mean_noise_disp_slope = na_if(mean_noise_disp_slope, -999),
+  var_genotype_logit_disp0 = na_if(var_genotype_logit_disp0, -999),
+  var_genotype_disp_slope = na_if(var_genotype_disp_slope, -999),
+  var_noise_logit_disp0 = na_if(var_noise_logit_disp0, -999),
+  var_noise_disp_slope = na_if(var_noise_disp_slope, -999),
+  ) %>% 
   filter(N_predispersal > 0 | N_postdispersal > 0) %>% ##we only keep populated patches
-  mutate(replicateID = paste("slope", slope_disp_mean, "d0", disp0_mean, "VP", variance_pheno_disp_slope, "h2", heritability, reproduction, seedID, sep = "_")) %>%
+  mutate(replicateID = paste("slope", disp_slope_mean, "d0", disp0_mean, "VP", VP_disp_slope, "h2", heritability, reproduction, seedID, sep = "_")) %>%
   mutate(Location_full = paste(replicateID, pxcor, ticks))
 ```
 
