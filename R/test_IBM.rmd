@@ -36,8 +36,8 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
-nreplicates <- 2 # test run
-duration <- 20
+nreplicates <- 5 # test run
+duration <- 100
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -60,7 +60,8 @@ trt_grid <- expand_grid(
   disp0_mean = c(0.1, 0.2),
   heritability = c(0, 0.33, 0.66, 1),
   dispersal_mortality = c(0, 0.1),
-  variance_pheno = c(0, 0.5),  # 1 may be too big
+  variance_pheno = c(0, 0.5),  # 1 may be too big, in any case, choose by looking at initial distribution
+  # of density-disp function; all range should be covered
   reproduction = c("sexual","clonal"),   
 ) %>%
   mutate(duplicate_cells = (heritability != 0 & variance_pheno == 0)) %>%
@@ -90,7 +91,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = 20, ##c(1,10,20,30,40,50,60,70,80,90,100),
+  evalticks = c(1,10,20,30,40,50,60,70,80,90,100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
                       "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
