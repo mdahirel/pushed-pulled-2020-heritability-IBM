@@ -203,9 +203,9 @@ to setup-turtles
     set midpoint (1 / (1 + exp( - (genotype_logit_midpoint + noise_logit_midpoint) ) ) ) ;; reminder: midpoint is coded in % of K/carrying capacity; this is accounted for in the move_turtles block
 
     ;; set "secondary" traits
-    set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
-    set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
-    set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+    set d0 dmax / (1 + exp(- slope * (0 - (midpoint * K) )))
+    set d1 dmax / (1 + exp(- slope * (1 - (midpoint * K) )))
+    set dK dmax / (1 + exp(- slope * (K - (midpoint * K) )))
     set maxslope (slope * dmax ) / 4
     set avgslope0_K (dK - d0) / K
     set avgslope1_K (dK - d1) / K
@@ -352,7 +352,7 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax / (1 + exp (- slope * (population_size - (midpoint * K) ))) ;; sets the individual dispersal probability based on its trait and current population size
+  set disp dmax / (1 + exp(- slope * (population_size - (midpoint * K) ))) ;; sets the individual dispersal probability based on its trait and current population size
   ;; based on travis et al 2009 doi:10.1016/j.jtbi.2009.03.008, themselves based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
   ;; with one very, very, very important change: contrary to both of them, we allow negative slope values, so negative density-dependent dispersal
 
@@ -619,7 +619,7 @@ VP_logit_dmax
 VP_logit_dmax
 0
 2
-0.8
+1.5
 0.1
 1
 NIL
@@ -634,7 +634,7 @@ dmax_median
 dmax_median
 0.01
 0.99
-0.2
+0.5
 0.01
 1
 NIL
@@ -664,7 +664,7 @@ slope_mean
 slope_mean
 -4
 4
-0.0
+0.9
 0.1
 1
 NIL
@@ -771,7 +771,7 @@ dispersal_mortality
 dispersal_mortality
 0
 1
-0.0
+0.1
 0.05
 1
 NIL
@@ -801,7 +801,7 @@ VP_logit_midpoint
 VP_logit_midpoint
 0
 2
-0.8
+1.5
 0.1
 1
 NIL
