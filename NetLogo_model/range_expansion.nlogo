@@ -43,6 +43,13 @@ turtles-own[
   alleles_logit_midpoint  ;; and same for midpoint
   genotype_logit_midpoint ;; ...
   noise_logit_midpoint    ;; ...
+  ;; dispersal, summary/derived traits
+  d0                      ;; dispersal probability at N = 0
+  d1                      ;; dispersal probability at N = 1
+  dK                      ;; dispersal probability at N = K
+  maxslope                ;; maximal absolute slope (ie slope at the inflection point)
+  avgslope0_K             ;; absolute slope over the range 0-K
+  avgslope1_K             ;; absolute slope over the range 1-K
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -78,6 +85,8 @@ patches-own [
   N_allele1_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 1
 
   ;; patch summaries of dispersal traits (measured pre-dispersal, to be able to compare with %dispersal + to guarantee a variance exists)
+
+  ;; heritable traits - split in genetic and non-genetic components
   mean_genotype_logit_dmax   ;; average genotypic value for logit(dmax)
   var_genotype_logit_dmax    ;; variance of genotypic values
   mean_noise_logit_dmax      ;; you get the idea...
@@ -90,6 +99,17 @@ patches-own [
   var_genotype_logit_midpoint
   mean_noise_logit_midpoint
   var_noise_logit_midpoint
+  ;; on observed scale for dmax and midpoint
+  mean_dmax
+  mean_midpoint
+
+  ;; other summary traits
+  mean_d0                    ;; mean dispersal probability at N = 0
+  mean_d1                    ;; mean dispersal probability at N = 1
+  mean_dK                    ;; mean dispersal probability at N = K
+  mean_maxslope              ;; maximal absolute slope (ie slope at the inflection point)
+  mean_avgslope0_K           ;; average absolute slope over the range 0-K
+  mean_avgslope1_K           ;; average absolute slope over the range 1-K
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -182,6 +202,13 @@ to setup-turtles
     set slope genotype_slope + noise_slope
     set midpoint (1 / (1 + exp( - (genotype_logit_midpoint + noise_logit_midpoint) ) ) ) ;; reminder: midpoint is coded in % of K/carrying capacity; this is accounted for in the move_turtles block
 
+    ;; set "secondary" traits
+    set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
+    set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
+    set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+    set maxslope (slope * dmax ) / 4
+    set avgslope0_K (dK - d0) / K
+    set avgslope1_K (dK - d1) / K
   ]
 end
 
@@ -245,6 +272,16 @@ to go
 
   set mean_noise_logit_midpoint -999
   set var_noise_logit_midpoint -999
+
+  set mean_dmax -999
+  set mean_midpoint -999
+
+  set mean_d0 -999
+  set mean_d1 -999
+  set mean_dK -999
+  set mean_maxslope -999
+  set mean_avgslope0_K -999
+  set mean_avgslope1_K -999
   ]
 
   ask patches with [N_predispersal > 0] [     ;; mean trait values
@@ -254,6 +291,16 @@ to go
   set mean_noise_slope mean ([noise_slope] of turtles-here)
   set mean_genotype_logit_midpoint mean ([genotype_logit_midpoint] of turtles-here)
   set mean_noise_logit_midpoint mean ([noise_logit_midpoint] of turtles-here)
+
+  set mean_dmax mean ([dmax] of turtles-here)
+  set mean_midpoint mean ([midpoint] of turtles-here)
+
+  set mean_d0 mean ([d0] of turtles-here)
+  set mean_d1 mean ([d1] of turtles-here)
+  set mean_dK mean ([dK] of turtles-here)
+  set mean_maxslope mean ([maxslope] of turtles-here)
+  set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
+  set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
   ]
 
   ask patches with [N_predispersal > 1] [ ;; trait variances; sample variances only meaningful for N > 1
@@ -365,6 +412,13 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set slope genotype_slope + noise_slope
         set midpoint (1 / (1 + exp( - (genotype_logit_midpoint + noise_logit_midpoint) ) ) ) ;; reminder: midpoint is coded in % of K/carrying capacity; this is accounted for in the move_turtles block
 
+        ;; set "secondary" traits
+        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
+        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
+        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set maxslope (slope * dmax ) / 4
+        set avgslope0_K (dK - d0) / K
+        set avgslope1_K (dK - d1) / K
       ]
 
       ask mate [set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )]
@@ -405,6 +459,13 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set slope genotype_slope + noise_slope
         set midpoint (1 / (1 + exp( - (genotype_logit_midpoint + noise_logit_midpoint) ) ) ) ;; reminder: midpoint is coded in % of K/carrying capacity; this is accounted for in the move_turtles block
 
+        ;; set "secondary" traits
+        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
+        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
+        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set maxslope (slope * dmax ) / 4
+        set avgslope0_K (dK - d0) / K
+        set avgslope1_K (dK - d1) / K
       ]
 
       set has_reproduced 1
@@ -455,6 +516,13 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set slope genotype_slope + noise_slope
         set midpoint (1 / (1 + exp( - (genotype_logit_midpoint + noise_logit_midpoint) ) ) ) ;; reminder: midpoint is coded in % of K/carrying capacity; this is accounted for in the move_turtles block
 
+        ;; set "secondary" traits
+        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
+        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
+        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set maxslope (slope * dmax ) / 4
+        set avgslope0_K (dK - d0) / K
+        set avgslope1_K (dK - d1) / K
       ]
       set has_reproduced 1
     ]
