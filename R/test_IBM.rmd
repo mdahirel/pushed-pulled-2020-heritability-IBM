@@ -56,14 +56,14 @@ Then, let's set the experimental design. <!--to detail-->
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- tibble(
-   VP_logit_dmax = c(0, 1.5,1.5,1.5),
-   VP_logit_slope = c(0, 1.5, 1.5, 1.5),
-   VP_logit_midpoint =c(0, 1.5,1.5,1.5),
-   heritability = c(0, 0.33, 0.66, 1)
+   VP_logit_dmax = c(0, 1.5, 1.5, 1.5, 1.5),
+   VP_logit_slope = c(0, 1.5, 1.5, 1.5, 1.5),
+   VP_logit_midpoint =c(0, 1.5, 1.5, 1.5, 1.5),
+   heritability = c(0, 0, 0.33, 0.66, 1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   ) %>% 
   expand_grid(
-  dmax_median = c(0.25,0.5),
+  dmax_median = 0.5,
   slope_median = c(-0.25, 0, 0.25),
   midpoint_median = c(0.05, 0.5, 0.95),
   dispersal_mortality = c(0.05, 0.5),  
@@ -90,7 +90,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1,10,20,30,40,50,60,70,80,90,100),
+  evalticks = c(1,10,50,100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
                       "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
