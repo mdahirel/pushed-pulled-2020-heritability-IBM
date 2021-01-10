@@ -66,7 +66,7 @@ trt_grid <- tibble(
   dmax_median = 0.5,
   slope_median = c(-0.25, 0, 0.25),
   midpoint_median = c(0.05, 0.5, 0.95),
-  dispersal_mortality = c(0.05, 0.5),  
+  dispersal_mortality = c(0.1),  # test 0.5 ?
   reproduction = c("sexual","clonal"),   
 ) %>%
   mutate(
