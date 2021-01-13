@@ -37,7 +37,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
 nreplicates <- 5 # test run
-duration <- 100 #100
+duration <- 10 #100
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -56,17 +56,17 @@ Then, let's set the experimental design. <!--to detail-->
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- tibble(
-   VP_logit_dmax = c(0, 1.5, 1.5, 1.5, 1.5),
-   VP_logit_slope = c(0, 1.5, 1.5, 1.5, 1.5),
-   VP_logit_midpoint =c(0, 1.5, 1.5, 1.5, 1.5),
-   heritability = c(0, 0, 0.33, 0.66, 1)
+   VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2),
+   VP_slope = c(0, 0.012^2, 0.012^2, 0.012^2),
+   VP_midpoint =c(0, 0.25^2, 0.25^2, 0.25^2), # and here????
+   heritability = c(0, 0, 0.33, 1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   ) %>% 
   expand_grid(
   dmax_median = 0.5,
-  slope_median = c(-0.25, 0, 0.25),
-  midpoint_median = c(0.05, 0.5, 0.95),
-  dispersal_mortality = c(0.1),  # test 0.5 ?
+  slope_median = c(-0.012, 0, 0.012),
+  midpoint_median = c(0.25, 0.5, 0.75),
+  dispersal_mortality = c(0.1, 0.5),  # test 0.5 ?
   reproduction = c("sexual","clonal"),   
 ) %>%
   mutate(
@@ -90,7 +90,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1,10,50,100),
+  evalticks = c(10),#100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
                       "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
@@ -98,10 +98,10 @@ nl_object@experiment <- experiment(
                       "N_allele0_post","N_allele1_post",
                       "mean_genotype_logit_dmax", "var_genotype_logit_dmax",
                       "mean_noise_logit_dmax", "var_noise_logit_dmax",  
-                      "mean_genotype_logit_slope", "var_genotype_logit_slope",
-                      "mean_noise_logit_slope", "var_noise_logit_slope",
-                      "mean_genotype_logit_midpoint", "var_genotype_logit_midpoint",
-                      "mean_noise_logit_midpoint", "var_noise_logit_midpoint",
+                      "mean_genotype_slope", "var_genotype_slope",
+                      "mean_noise_slope", "var_noise_slope",
+                      "mean_genotype_midpoint", "var_genotype_midpoint",
+                      "mean_noise_midpoint", "var_noise_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_d1","mean_dK",
                       "mean_maxslope","mean_avgslope0_K","mean_avgslope1_K"),
@@ -114,8 +114,8 @@ nl_object@experiment <- experiment(
     "slope_median" = list(values = trt_grid$slope_median),
     "midpoint_median" = list(values = trt_grid$midpoint_median),
     "VP_logit_dmax" = list(values = trt_grid$VP_logit_dmax),
-    "VP_logit_slope" = list(values = trt_grid$VP_logit_slope),
-    "VP_logit_midpoint" = list(values = trt_grid$VP_logit_midpoint),
+    "VP_slope" = list(values = trt_grid$VP_slope),
+    "VP_midpoint" = list(values = trt_grid$VP_midpoint),
     "heritability" = list(values = trt_grid$heritability),
     "dispersal_mortality" = list(values = trt_grid$dispersal_mortality),
     "fecundity" = list(values = trt_grid$fecundity),
@@ -146,7 +146,7 @@ We can now process the result for the main analyses. first we start by extractin
 tab <- exp_h2 %>%
   dplyr::select(ticks,
     dmax_median,slope_median, midpoint_median,
-    VP_logit_dmax, VP_logit_slope, VP_logit_midpoint,
+    VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
     fecundity, K, reproduction,
     seedID = `random-seed`,
@@ -166,17 +166,17 @@ tab <- exp_h2 %>%
   mean_avgslope0_K = na_if(mean_avgslope0_K, -999),
   mean_avgslope1_K = na_if(mean_avgslope1_K, -999),
   mean_genotype_logit_dmax = na_if(mean_genotype_logit_dmax, -999),
-  mean_genotype_logit_slope = na_if(mean_genotype_logit_slope, -999),
-  mean_genotype_logit_midpoint = na_if(mean_genotype_logit_midpoint, -999),
+  mean_genotype_slope = na_if(mean_genotype_slope, -999),
+  mean_genotype_midpoint = na_if(mean_genotype_midpoint, -999),
   mean_noise_logit_dmax = na_if(mean_noise_logit_dmax, -999),
-  mean_noise_logit_slope = na_if(mean_noise_logit_slope, -999),
-  mean_noise_logit_midpoint = na_if(mean_noise_logit_midpoint, -999),
+  mean_noise_slope = na_if(mean_noise_slope, -999),
+  mean_noise_midpoint = na_if(mean_noise_midpoint, -999),
   var_genotype_logit_dmax = na_if(var_genotype_logit_dmax, -999),
-  var_genotype_logit_slope = na_if(var_genotype_logit_slope, -999),
-  var_genotype_logit_midpoint = na_if(var_genotype_logit_midpoint, -999),
+  var_genotype_slope = na_if(var_genotype_slope, -999),
+  var_genotype_midpoint = na_if(var_genotype_midpoint, -999),
   var_noise_logit_dmax = na_if(var_noise_logit_dmax, -999),
-  var_noise_logit_slope = na_if(var_noise_logit_slope, -999),
-  var_noise_logit_midpoint = na_if(var_noise_logit_midpoint, -999),
+  var_noise_slope = na_if(var_noise_slope, -999),
+  var_noise_midpoint = na_if(var_noise_midpoint, -999),
   ) %>% 
   filter(N_predispersal > 0 | N_postdispersal > 0) %>% ##we only keep populated patches
   mutate(replicateID = paste("dmax", dmax_median, "slope", slope_median, "midpoint", midpoint_median, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
