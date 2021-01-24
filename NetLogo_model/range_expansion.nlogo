@@ -220,9 +220,9 @@ to setup-turtles
     set midpoint genotype_midpoint + noise_midpoint
 
     ;; set "secondary" traits
-    set d0 dmax / (1 + exp(- slope * (0 - (midpoint * K) )))
-    set d1 dmax / (1 + exp(- slope * (1 - (midpoint * K) )))
-    set dK dmax / (1 + exp(- slope * (K - (midpoint * K) )))
+    set d0 dmax / (1 + exp(- slope * (0 - midpoint)))
+    set d1 dmax / (1 + exp(- slope * ((1 / K) - midpoint)))
+    set dK dmax / (1 + exp(- slope * (1 - midpoint)))
     set maxslope (slope * dmax ) / 4
     set avgslope0_K (dK - d0) / K
     set avgslope1_K (dK - d1) / K
@@ -417,7 +417,7 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax / (1 + exp(- slope * (population_size - (midpoint * K) ))) ;; sets the individual dispersal probability based on its trait and current population size
+  set disp dmax / (1 + exp(- slope * ((population_size / K) - midpoint))) ;; sets the individual dispersal probability based on its trait and current population size
   ;; based on travis et al 2009 doi:10.1016/j.jtbi.2009.03.008, themselves based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
   ;; with one very, very, very important change: contrary to both of them, we allow negative slope values, so negative density-dependent dispersal
 
@@ -478,9 +478,9 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set midpoint genotype_midpoint + noise_midpoint
 
         ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
-        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
-        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
+        set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
+        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
         set avgslope0_K (dK - d0) / K
         set avgslope1_K (dK - d1) / K
@@ -525,9 +525,9 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set midpoint genotype_midpoint + noise_midpoint
 
         ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
-        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
-        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
+        set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
+        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
         set avgslope0_K (dK - d0) / K
         set avgslope1_K (dK - d1) / K
@@ -582,9 +582,9 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set midpoint genotype_midpoint + noise_midpoint
 
         ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - (midpoint * K) )))
-        set d1 dmax / (1 + exp (- slope * (1 - (midpoint * K) )))
-        set dK dmax / (1 + exp (- slope * (K - (midpoint * K) )))
+        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
+        set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
+        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
         set avgslope0_K (dK - d0) / K
         set avgslope1_K (dK - d1) / K
@@ -684,7 +684,7 @@ VP_logit_dmax
 VP_logit_dmax
 0
 3
-2.25
+1.52
 0.01
 1
 NIL
@@ -727,10 +727,10 @@ SLIDER
 254
 slope_median
 slope_median
--0.05
-0.05
-0.013
-0.001
+-10
+10
+0.0
+0.5
 1
 NIL
 HORIZONTAL
@@ -743,9 +743,9 @@ SLIDER
 VP_slope
 VP_slope
 0
-0.01
-0.001
-0.001
+10
+5.0
+0.1
 1
 NIL
 HORIZONTAL
@@ -866,7 +866,7 @@ VP_midpoint
 VP_midpoint
 0
 0.5
-0.06
+0.25
 0.01
 1
 NIL
