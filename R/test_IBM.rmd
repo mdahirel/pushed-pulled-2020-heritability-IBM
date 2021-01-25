@@ -36,8 +36,8 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
-nreplicates <- 10 # test run
-duration <- 150 #100
+nreplicates <- 20
+duration <- 100 #100
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -57,22 +57,22 @@ Then, let's set the experimental design. <!--to detail-->
 ### designing the experiment
 trt_grid <- tibble(
    VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2),
-   VP_slope = c(0, 0.012^2, 0.012^2, 0.012^2),
+   VP_slope = c(0, 6^2, 6^2, 6^2),
    VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2), #maybe 0.33 rather than 0.5? adjust medians below if so
    heritability = c(0, 0, 0.33, 1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   ) %>% 
   expand_grid(
-  dmax_median = 0.5, #median + VP here give relatively uniform distri over ]0-1[
-  slope_median = c(-0.012, 0, 0.012), #0, and + or -1SD from 0
-  midpoint_median = c(0, 0.5, 1),#same logic here
+  dmax_start = 0.5, #median + VP here give relatively uniform distri over ]0-1[
+  slope_start = c(-6, 0, 6), #0, and + or -1SD from 0
+  midpoint_start = c(0, 0.5, 1),#same logic here
   dispersal_mortality = c(0.1, 0.5),  # test 0.5 ?
   reproduction = c("sexual","clonal"),   
 ) %>%
   mutate(
     reproduction_nl = paste('\"',reproduction,'\"',sep=""),# adds the quote and escape needed to export the string to Netlogo
     fecundity = 5, ## more or less arbitrary
-    K = 500
+    K = 250
   )
 ```
 
@@ -90,7 +90,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(10, 50, 100, 150), #c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150),#100),#150), ## do we only pick those from the start, or save every 10s and filter dataset after (would help see if speed and evo have converged)
+  evalticks = c(1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100),
   metrics = c("ticks", "present_front", "new_front"),
   metrics.patches = c("pxcor", 
                       "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
@@ -104,15 +104,20 @@ nl_object@experiment <- experiment(
                       "mean_noise_midpoint", "var_noise_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_d1","mean_dK",
-                      "mean_maxslope","mean_avgslope0_K","mean_avgslope1_K"),
-  ## we need to add the individual metrics to save here
+                      "mean_maxslope","mean_avgslope0_K","mean_avgslope1_K",
+                      "median_dmax","median_slope","median_midpoint",
+                      "median_d0","median_d1","median_dK",
+                      "median_maxslope","median_avgslope0_K","median_avgslope1_K",
+                      "var_dmax","var_slope","var_midpoint",
+                      "var_d0","var_d1","var_dK",
+                      "var_maxslope","var_avgslope0_K","var_avgslope1_K"),
   constants = list(
     "duration" = duration
   ),
   variables = list( ### needs to be a nested list
-    "dmax_median" = list(values = trt_grid$dmax_median),
-    "slope_median" = list(values = trt_grid$slope_median),
-    "midpoint_median" = list(values = trt_grid$midpoint_median),
+    "dmax_start" = list(values = trt_grid$dmax_start),
+    "slope_start" = list(values = trt_grid$slope_start),
+    "midpoint_start" = list(values = trt_grid$midpoint_start),
     "VP_logit_dmax" = list(values = trt_grid$VP_logit_dmax),
     "VP_slope" = list(values = trt_grid$VP_slope),
     "VP_midpoint" = list(values = trt_grid$VP_midpoint),
@@ -136,6 +141,8 @@ nl_object@simdesign <- simdesign_distinct(nl = nl_object, nseeds = nreplicates)
 nl_object@simdesign@simseeds <- 1:nreplicates # or we can rewrite the nseeds here (to guarantee they are all different)
 length(unique(nl_object@simdesign@simseeds)) == nreplicates # either way, check that all generated seeds are different
 exp_h2 <- run_nl_all(nl_object)
+
+save(list=c("exp_h2"),file = here("Netlogo_output","raw_output.Rdata"))
 ```
 
 # Output
@@ -145,7 +152,7 @@ We can now process the result for the main analyses. first we start by extractin
 ```{r processing-output-presaving}
 tab <- exp_h2 %>%
   dplyr::select(ticks,
-    dmax_median,slope_median, midpoint_median,
+    dmax_start,slope_start, midpoint_start,
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
     fecundity, K, reproduction,
@@ -165,6 +172,24 @@ tab <- exp_h2 %>%
   mean_maxslope = na_if(mean_maxslope, -999),
   mean_avgslope0_K = na_if(mean_avgslope0_K, -999),
   mean_avgslope1_K = na_if(mean_avgslope1_K, -999),
+  median_dmax = na_if(median_dmax, -999),
+  median_slope = na_if(median_slope, -999),
+  median_midpoint = na_if(mean_midpoint,-999),
+  median_d0 = na_if(median_d0, -999),
+  median_d1 = na_if(median_d1, -999),
+  median_dK = na_if(median_dK, -999),
+  median_maxslope = na_if(median_maxslope, -999),
+  median_avgslope0_K = na_if(median_avgslope0_K, -999),
+  median_avgslope1_K = na_if(median_avgslope1_K, -999),
+  var_dmax = na_if(var_dmax, -999),
+  var_slope = na_if(var_slope, -999),
+  var_midpoint = na_if(var_midpoint,-999),
+  var_d0 = na_if(var_d0, -999),
+  var_d1 = na_if(var_d1, -999),
+  var_dK = na_if(var_dK, -999),
+  var_maxslope = na_if(mean_maxslope, -999),
+  var_avgslope0_K = na_if(mean_avgslope0_K, -999),
+  var_avgslope1_K = na_if(mean_avgslope1_K, -999),
   mean_genotype_logit_dmax = na_if(mean_genotype_logit_dmax, -999),
   mean_genotype_slope = na_if(mean_genotype_slope, -999),
   mean_genotype_midpoint = na_if(mean_genotype_midpoint, -999),
@@ -179,7 +204,7 @@ tab <- exp_h2 %>%
   var_noise_midpoint = na_if(var_noise_midpoint, -999),
   ) %>% 
   filter(N_predispersal > 0 | N_postdispersal > 0) %>% ##we only keep populated patches
-  mutate(replicateID = paste("dmax", dmax_median, "slope", slope_median, "midpoint", midpoint_median, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
+  mutate(replicateID = paste("dmax", dmax_start, "slope", slope_start, "midpoint", midpoint_start, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
   mutate(Location_full = paste(replicateID, pxcor, ticks))
 ```
 

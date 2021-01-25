@@ -10,7 +10,7 @@
 
 globals[
   ;; fixed once set up
-  logit_dmax_median     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
+  logit_dmax_start     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
   VA_logit_dmax         ;; initial genetic additive variance of logit(dmax)
   VR_logit_dmax         ;; residual (i.e. environmental) variance of logit(dmax)
   VA_slope              ;; initial genetic additive variance of the dispersal-density reaction norm slope
@@ -138,7 +138,7 @@ patches-own [
 to setup
   clear-all
   define-landscape
-  set logit_dmax_median ln (dmax_median / (1 - dmax_median)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
+  set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
   set past_front 0
   set VA_logit_dmax heritability * VP_logit_dmax       ;; set additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
@@ -176,9 +176,9 @@ to setup-turtles
     ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
       [set neutral_locus (list random 2) ;; NB: important: random 2 reports 0 or 1, not 1 or 2
 
-       set alleles_logit_dmax random-normal logit_dmax_median sqrt(VA_logit_dmax)
-       set alleles_slope random-normal slope_median sqrt(VA_slope)
-       set alleles_midpoint random-normal midpoint_median sqrt(VA_midpoint)
+       set alleles_logit_dmax random-normal logit_dmax_start sqrt(VA_logit_dmax)
+       set alleles_slope random-normal slope_start sqrt(VA_slope)
+       set alleles_midpoint random-normal midpoint_start sqrt(VA_midpoint)
        ;; assign genotypic trait values from the global means and genetic variance
 
        set genotype_logit_dmax alleles_logit_dmax  ;; no need to average anything if clonal
@@ -194,9 +194,9 @@ to setup-turtles
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
 
-       set alleles_logit_dmax list (random-normal logit_dmax_median sqrt(VA_logit_dmax)) (random-normal logit_dmax_median sqrt(VA_logit_dmax))
-       set alleles_slope list (random-normal slope_median sqrt(VA_slope)) (random-normal slope_median sqrt(VA_slope))
-       set alleles_midpoint list (random-normal midpoint_median sqrt(VA_midpoint)) (random-normal midpoint_median sqrt(VA_midpoint))
+       set alleles_logit_dmax list (random-normal logit_dmax_start sqrt(VA_logit_dmax)) (random-normal logit_dmax_start sqrt(VA_logit_dmax))
+       set alleles_slope list (random-normal slope_start sqrt(VA_slope)) (random-normal slope_start sqrt(VA_slope))
+       set alleles_midpoint list (random-normal midpoint_start sqrt(VA_midpoint)) (random-normal midpoint_start sqrt(VA_midpoint))
 
        set genotype_logit_dmax mean (alleles_logit_dmax)
        set genotype_slope mean (alleles_slope)
@@ -669,7 +669,7 @@ K
 K
 10
 1000
-500.0
+250.0
 10
 1
 NIL
@@ -695,8 +695,8 @@ SLIDER
 174
 409
 207
-dmax_median
-dmax_median
+dmax_start
+dmax_start
 0.01
 0.99
 0.5
@@ -725,8 +725,8 @@ SLIDER
 221
 409
 254
-slope_median
-slope_median
+slope_start
+slope_start
 -10
 10
 0.0
@@ -847,8 +847,8 @@ SLIDER
 265
 409
 298
-midpoint_median
-midpoint_median
+midpoint_start
+midpoint_start
 -0.5
 1.5
 0.51
