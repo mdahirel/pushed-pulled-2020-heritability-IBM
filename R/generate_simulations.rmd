@@ -76,6 +76,7 @@ trt_grid <- tibble(
   )
 ```
 
+<!--to consider, for sensitivity: test a range of lower fecundities, test a more continuous range of h2 or mortalities, test narrower VPs?-->
 
 Now we need to add all of this (plus information on the variables that stay constant, which output variables will we save...) to the experiment slot of the NL object (we encourage readers to look at the info pane in the .nlogo model file for details):
 
@@ -132,7 +133,7 @@ nl_object@experiment <- experiment(
 
 
 And we're go for running the simulations! We set a "distinct" simulation design (see `nlrx` help).
-(Careful, script is not parallelized, so running <!--the final version--> is expected to take up to a few hours)
+(Careful, script is not parallelized, so running <!--the final version--> is expected to take up to a few hours <!-- about 30 hours on my laptop-->)
 
 ```{r running-simulations}
 
@@ -160,51 +161,13 @@ tab <- exp_h2 %>%
     metrics.patches,
     present_front, new_front
   )  %>%
+  mutate(replicateID = paste("dmax", dmax_start, "slope", slope_start, "midpoint", midpoint_start, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
   unnest(cols = c(metrics.patches)) %>%
+  filter(pxcor <= present_front | N_postdispersal>0 | N_predispersal >0) %>% 
   mutate( 
   #### IMPORTANT: replace the -999 by actual NAs
-  mean_dmax = na_if(mean_dmax, -999),
-  mean_slope = na_if(mean_slope, -999),
-  mean_midpoint = na_if(mean_midpoint,-999),
-  mean_d0 = na_if(mean_d0, -999),
-  mean_d1 = na_if(mean_d1, -999),
-  mean_dK = na_if(mean_dK, -999),
-  mean_maxslope = na_if(mean_maxslope, -999),
-  mean_avgslope0_K = na_if(mean_avgslope0_K, -999),
-  mean_avgslope1_K = na_if(mean_avgslope1_K, -999),
-  median_dmax = na_if(median_dmax, -999),
-  median_slope = na_if(median_slope, -999),
-  median_midpoint = na_if(mean_midpoint,-999),
-  median_d0 = na_if(median_d0, -999),
-  median_d1 = na_if(median_d1, -999),
-  median_dK = na_if(median_dK, -999),
-  median_maxslope = na_if(median_maxslope, -999),
-  median_avgslope0_K = na_if(median_avgslope0_K, -999),
-  median_avgslope1_K = na_if(median_avgslope1_K, -999),
-  var_dmax = na_if(var_dmax, -999),
-  var_slope = na_if(var_slope, -999),
-  var_midpoint = na_if(var_midpoint,-999),
-  var_d0 = na_if(var_d0, -999),
-  var_d1 = na_if(var_d1, -999),
-  var_dK = na_if(var_dK, -999),
-  var_maxslope = na_if(mean_maxslope, -999),
-  var_avgslope0_K = na_if(mean_avgslope0_K, -999),
-  var_avgslope1_K = na_if(mean_avgslope1_K, -999),
-  mean_genotype_logit_dmax = na_if(mean_genotype_logit_dmax, -999),
-  mean_genotype_slope = na_if(mean_genotype_slope, -999),
-  mean_genotype_midpoint = na_if(mean_genotype_midpoint, -999),
-  mean_noise_logit_dmax = na_if(mean_noise_logit_dmax, -999),
-  mean_noise_slope = na_if(mean_noise_slope, -999),
-  mean_noise_midpoint = na_if(mean_noise_midpoint, -999),
-  var_genotype_logit_dmax = na_if(var_genotype_logit_dmax, -999),
-  var_genotype_slope = na_if(var_genotype_slope, -999),
-  var_genotype_midpoint = na_if(var_genotype_midpoint, -999),
-  var_noise_logit_dmax = na_if(var_noise_logit_dmax, -999),
-  var_noise_slope = na_if(var_noise_slope, -999),
-  var_noise_midpoint = na_if(var_noise_midpoint, -999),
+  across(.cols=everything(),na_if,-999)
   ) %>% 
-  filter(N_predispersal > 0 | N_postdispersal > 0) %>% ##we only keep populated patches
-  mutate(replicateID = paste("dmax", dmax_start, "slope", slope_start, "midpoint", midpoint_start, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
   mutate(Location_full = paste(replicateID, pxcor, ticks))
 ```
 
