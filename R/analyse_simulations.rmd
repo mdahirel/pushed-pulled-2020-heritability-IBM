@@ -26,7 +26,168 @@ library(here)
 
 # Introduction
 
-```{r}
+<!--to consider, for sensitivity: test a range of lower fecundities, test a more continuous range of h2 or mortalities, test narrower VPs?, or zero variability in dmax?-->
 
+```{r}
+data <- read_csv(here("NetLogo_output","model-output.csv"))
+```
+
+
+```{r}
+data %>% filter(pxcor== (present_front-1) & ticks==100) %>% ggplot()+
+  geom_boxplot(aes(factor(slope_start),mean_avgslope0_K,col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(dispersal_mortality,reproduction),
+             cols=vars(heritability,VP_slope>0))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & ticks==100) %>% ggplot()+
+  geom_boxplot(aes(factor(slope_start),present_front/ticks/median_dmax,col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(dispersal_mortality,reproduction),
+             cols=vars(heritability,VP_slope>0))+
+  coord_cartesian(ylim=c(0,2))
+```
+
+
+```{r}
+data %>% filter(pxcor> (present_front-5) & ticks==100) %>% ggplot()+
+  geom_boxplot(aes(factor(slope_start),var_genotype_logit_dmax,col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(0,1))+
+  facet_grid(rows=vars(dispersal_mortality,reproduction),
+             cols=vars(heritability,VP_slope>0))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & ticks==100) %>% ggplot()+
+  geom_point(aes(mean_midpoint,mean_avgslope0_K,col=factor(paste(slope_start,midpoint_start))))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(dispersal_mortality,reproduction),
+             cols=vars(heritability,VP_slope>0))
+```
+
+
+```{r}
+data %>% filter(pxcor> (present_front-5) & ticks==100 & heritability==1) %>% ggplot()+
+  geom_point(aes(mean_midpoint+3*mean_slope,mean_avgslope0_K,col=factor(dispersal_mortality)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(slope_start),
+             cols=vars(midpoint_start))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & ticks==100 & heritability==1) %>% ggplot()+
+  geom_boxplot(aes(factor(pxcor-present_front),N_predispersal,col=factor(dispersal_mortality)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(slope_start),
+             cols=vars(midpoint_start))
+```
+
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & ticks==100 & heritability==1) %>% ggplot()+
+  geom_point(aes(mean_avgslope0_K,N_predispersal,col=factor(dispersal_mortality)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(slope_start),
+             cols=vars(midpoint_start))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & heritability==1) %>%
+  group_by(reproduction,ticks,dispersal_mortality,heritability,slope_start,midpoint_start) %>% 
+  mutate(H = 2*(N_allele1_pre/(N_allele1_pre+N_allele0_pre))*(N_allele0_pre/(N_allele1_pre+N_allele0_pre))) %>% 
+  summarise(meanH=mean(H,na.rm=TRUE)) %>% 
+  ggplot()+
+  geom_line(aes(ticks,meanH,col=factor(paste(reproduction,dispersal_mortality))))+
+  facet_grid(rows=vars(slope_start),
+             cols=vars(midpoint_start))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-10) & heritability==1 & ticks==100) %>%
+  group_by(reproduction,ticks,dispersal_mortality,heritability,slope_start,midpoint_start) %>% 
+  ggplot()+
+  geom_point(aes(present_front,mean_avgslope0_K,col=factor(paste(reproduction,dispersal_mortality))))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(slope_start),
+             cols=vars(midpoint_start))
+```
+
+```{r}
+data %>% filter(pxcor> (present_front-5) & ticks==100 & slope_start==6) %>% 
+  expand_grid(x=c(0:10/10)) %>% 
+  ggplot()+
+  geom_line(aes(x,median_dmax/(1+exp(-median_slope*(x-median_midpoint))),group=paste(replicateID,pxcor),col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(dispersal_mortality,reproduction),
+             cols=vars(heritability,VP_slope>0))
+```
+
+
+```{r}
+data %>% filter(pxcor== (present_front-1)) %>% 
+  ggplot()+
+  geom_boxplot(aes(factor(ticks),mean_avgslope0_K,col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(0))+
+  facet_grid(rows=vars(dispersal_mortality,slope_start),
+             cols=vars(heritability,VP_slope>0))
+```
+
+
+```{r}
+data %>% filter(pxcor== (present_front-1)) %>%
+  mutate(v=present_front/ticks) %>% 
+  mutate(vf= 2*sqrt(
+    median_d0*(1-dispersal_mortality)*0.5*
+    log(5*(1-median_d0*dispersal_mortality))
+  )) %>% 
+  ggplot()+
+  geom_boxplot(aes(factor(ticks),v/vf,col=factor(midpoint_start)))+
+  geom_hline(yintercept=c(1,1.06))+
+  facet_grid(rows=vars(dispersal_mortality,slope_start),
+             cols=vars(heritability,VP_slope>0))+
+  coord_cartesian(ylim=c(0,2))
+```
+
+```{r}
+test=data %>% select(replicateID,ticks,pxcor) %>% 
+  filter(ticks==50 |ticks==100) %>% 
+  group_by(replicateID,ticks) %>% 
+  summarise(front=max(pxcor)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from=ticks,values_from = front) %>% 
+  mutate(v50_100=(`100`-`50`)/50) %>% 
+  select(replicateID,v50_100)
+```
+
+```{r}
+data %>% filter(pxcor== (present_front-1) & ticks ==50) %>% 
+  left_join(test) %>% 
+  ggplot()+
+  geom_point(aes(1-N_sedentary/N_predispersal,mean_d0,col=mean_avgslope0_K))+
+  facet_grid(rows=vars(dispersal_mortality,mean_avgslope0_K>0),
+             cols=vars(heritability,VP_slope>0))+
+  geom_abline(intercept=0,slope=1)
+```
+
+```{r}
+test2<-data %>% 
+  group_by(dispersal_mortality,reproduction,heritability,VP_slope,replicateID,slope_start,midpoint_start,ticks) %>% 
+  filter(N_postdispersal>(0.5*K)) %>% 
+  summarise(midfront=max(pxcor),front=max(present_front)) %>% 
+  ungroup()
+```
+
+```{r}
+data %>% filter(pxcor== (present_front-1) & ticks ==100) %>% 
+  left_join(test2) %>% 
+  ggplot()+
+  geom_point(aes(mean_avgslope0_K,(front-midfront)/(front/ticks),col=factor(midpoint_start)))+
+  facet_grid(rows=vars(dispersal_mortality,slope_start),
+             cols=vars(heritability,VP_slope>0))+
+  geom_abline(intercept=0,slope=1)+
+  coord_cartesian(ylim=c(-5,10))
+```
 ```
 

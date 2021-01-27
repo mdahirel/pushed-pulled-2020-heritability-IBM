@@ -76,8 +76,6 @@ trt_grid <- tibble(
   )
 ```
 
-<!--to consider, for sensitivity: test a range of lower fecundities, test a more continuous range of h2 or mortalities, test narrower VPs?-->
-
 Now we need to add all of this (plus information on the variables that stay constant, which output variables will we save...) to the experiment slot of the NL object (we encourage readers to look at the info pane in the .nlogo model file for details):
 
 ```{r set-experiment}
