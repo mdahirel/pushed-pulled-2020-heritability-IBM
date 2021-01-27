@@ -1,0 +1,32 @@
+---
+title: 'Pushed expansions and heritability- individual-based model, data analysis'
+author: "Maxime Dahirel & Chloé Guicharnaud"
+date:
+output:
+  html_document:
+    theme: yeti
+    toc: TRUE
+    toc_float: TRUE
+    code_download: TRUE
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALSE)
+```
+
+```{r load-packages}
+library(nlrx)
+library(arm)
+library(tidyverse)
+library(cowplot)
+library(here)
+```
+
+# Introduction
+
+```{r}
+
+```
+
