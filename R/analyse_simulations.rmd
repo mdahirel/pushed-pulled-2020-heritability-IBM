@@ -32,13 +32,14 @@ library(here)
 data <- read_csv(here("NetLogo_output","model-output.csv"))
 ```
 
-
+<!--the classical result that costs = more DDD was in contexts where dmax and midpoint did not evolve-->
+<!-- hyper important to understand eco-evo dynamics: check that N=0 cells within pops are not deleted-->
 ```{r}
 data %>% filter(pxcor== (present_front-1) & ticks==100) %>% ggplot()+
-  geom_boxplot(aes(factor(slope_start),mean_avgslope0_K,col=factor(midpoint_start)))+
+  geom_boxplot(aes(factor(slope_start),N_predispers,col=factor(midpoint_start)))+
   geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,reproduction),
-             cols=vars(heritability,VP_slope>0))
+  facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
+                       cols=vars(heritability,VP_slope>0))
 ```
 
 ```{r}
@@ -181,11 +182,10 @@ test2<-data %>%
 
 ```{r}
 data %>% filter(pxcor== (present_front-1) & ticks ==100) %>% 
-  left_join(test2) %>% 
   ggplot()+
-  geom_point(aes(mean_avgslope0_K,(front-midfront)/(front/ticks),col=factor(midpoint_start)))+
-  facet_grid(rows=vars(dispersal_mortality,slope_start),
-             cols=vars(heritability,VP_slope>0))+
+  geom_boxplot(aes(factor(slope_start),N_postdispersal,col=factor(midpoint_start)))+
+  facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
+                       cols=vars(heritability,VP_slope>0))
   geom_abline(intercept=0,slope=1)+
   coord_cartesian(ylim=c(-5,10))
 ```

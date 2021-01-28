@@ -322,6 +322,8 @@ to go
   set var_maxslope -999
   set var_avgslope0_K -999
   set var_avgslope1_K -999
+
+  set N_disp_dead 0
   ]
 
   ask patches with [N_predispersal > 0] [     ;; mean trait values
