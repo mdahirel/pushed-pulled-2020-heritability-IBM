@@ -34,9 +34,92 @@ data <- read_csv(here("NetLogo_output","model-output.csv"))
 
 <!--the classical result that costs = more DDD was in contexts where dmax and midpoint did not evolve-->
 <!-- hyper important to understand eco-evo dynamics: check that N=0 cells within pops are not deleted-->
+
+<!--for genetic diversity: try to analyse at replicate level to do correlation with adaptive traits? so need to use binomial model on p to manage fixation
+with h as latent variable // use "solve h=2*p*(1-p) for p" in wolfram to find an expression for p=f(h)// and use this in a nonlinear brms model???
+nope: won't work, because two solutions: one that gives p, one that gives 1-p-->
+<!--go back to h, but either with gaussian for 0 (bounded??)
+with ordered bins or censoring (https://discourse.mc-stan.org/t/zero-one-inflated-beta-as-censored-beta/8468/3) or waiting for the "marginal" approach (https://github.com/paul-buerkner/brms/issues/641)-->
+
+v = alpha*vf, where alpha the pushiness ratio
+vf = 2 * sqrt ( 0.5 * d0 * r0) + epsilon
+
+v = alpha * 2 * sqrt(r0) * sqrt(0.5 * d0) + epsilon
+
+v = a sqrt(0.5 * d0) + b (still works even if there are multiplicative constants I ignore, as long as they are constant)
+
+linear regression where the slope is proportional to the pushiness ratio (not necessary =)
+should work because r0 is constant, K is constant (see for how the "correction" depends on K only if the noise is f(K) as it is in poisson; in brunet derrida)
+and large variation in d0 due to evol
+
+v/sqrt(0.5*d0) potentially enough to use as a pushiness index to a transfo
+
+look at v/sqrt(0.5*d0) ~ mean_avgslope0_K
+
+hopefully good (not necessarily linear) correlation
+
+treat speed as a binomial variable in analyses, the % of patches available visited
+
+front = binomial(speed, generations)
+(works only because speed<=1, and allow correct prediction (no >1))
+
+
+```{r}
+test<-data %>% 
+    mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
+           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
+    filter(pxcor ==(present_front -1) & ticks==100) %>% 
+  mutate(mortality=factor(dispersal_mortality))
+
+mod=gam(cbind(present_front,100-present_front)~s(mean_d0,mean_avgslope0_K)+mortality,family=binomial,data=test)
+
+gratia::draw(mod)
+
+mod=glm(cbind(present_front,100-present_front)~scale(mean_d0)*scale(mean_avgslope0_K)*mortality,family=binomial,data=test)
+
+## extremely simple model, but explains a lot, confirms association between synthetic slope post evol and end speed, confirm slope as measure of pushiness
+```
+
+
+
+```{r}
+data %>% 
+  mutate(is.VP_dmax=VP_logit_dmax >0,
+         is.VP_DDD=VP_slope >0) %>% 
+  filter(ticks==100 & pxcor ==(present_front -1)) %>% 
+  ggplot()+
+  geom_boxplot(aes(factor(slope_start),mean_avgslope0_K,col=factor(midpoint_start)))+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+
+  geom_hline(yintercept = 0)
+```
+
+```{r}
+data %>% 
+  mutate(is.VP_dmax=VP_logit_dmax >0,
+         is.VP_DDD=VP_slope >0) %>% 
+  filter(pxcor ==(present_front -1)) %>% 
+  ggplot()+
+  geom_point(aes(sqrt(0.5*mean_d0),present_front/ticks,col=factor(mean_avgslope0_K>0)))+
+  geom_hline(yintercept = 0)+
+  facet_wrap(~ticks)
+```
+
+```{r}
+data %>% 
+  mutate(is.VP_dmax=VP_logit_dmax >0,
+         is.VP_DDD=VP_slope >0) %>% 
+  filter(pxcor ==(present_front -1)) %>% 
+  ggplot()+
+  geom_point(aes(mean_d0,mean_avgslope0_K, col = present_front/ticks))+
+  geom_hline(yintercept = 0)+
+  facet_wrap(~ticks)
+```
+
+
 ```{r}
 data %>% filter(pxcor== (present_front-1) & ticks==100) %>% ggplot()+
-  geom_boxplot(aes(factor(slope_start),N_predispers,col=factor(midpoint_start)))+
+  geom_boxplot(aes(factor(slope_start),mean_avgslope0_K,col=factor(midpoint_start)))+
   geom_hline(yintercept=c(0))+
   facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
                        cols=vars(heritability,VP_slope>0))

@@ -56,10 +56,10 @@ Then, let's set the experimental design. <!--to detail-->
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- tibble(
-   VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2),
-   VP_slope = c(0, 6^2, 6^2, 6^2),
-   VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2), #maybe 0.33 rather than 0.5? adjust medians below if so
-   heritability = c(0, 0, 0.33, 1)
+   VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2,0,0,0,1.5^2,1.5^2,1.5^2),
+   VP_slope = c(0, 6^2, 6^2, 6^2, 6^2, 6^2, 6^2,0,0,0),
+   VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2,0,0,0), #maybe 0.33 rather than 0.5? adjust medians below if so
+   heritability = c(0, 0, 0.33, 1, 0, 0.33, 1,0,0.33,1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   ) %>% 
   expand_grid(
@@ -67,7 +67,7 @@ trt_grid <- tibble(
   slope_start = c(-6, 0, 6), #0, and + or -1SD from 0
   midpoint_start = c(0, 0.5, 1),#same logic here
   dispersal_mortality = c(0.1, 0.5),  # test 0.5 ?
-  reproduction = c("sexual","clonal"),   
+  reproduction = c("clonal"),   
 ) %>%
   mutate(
     reproduction_nl = paste('\"',reproduction,'\"',sep=""),# adds the quote and escape needed to export the string to Netlogo
@@ -131,7 +131,7 @@ nl_object@experiment <- experiment(
 
 
 And we're go for running the simulations! We set a "distinct" simulation design (see `nlrx` help).
-(Careful, script is not parallelized, so running <!--the final version--> is expected to take up to a few hours <!-- about 30 hours on my laptop-->)
+(Careful, script is not parallelized, so running <!--the final version--> is expected to take up to a few hours <!-- about 20 hours on my laptop-->)
 
 ```{r running-simulations}
 
@@ -155,15 +155,15 @@ tab <- exp_h2 %>%
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
     fecundity, K, reproduction,
-    seedID = `random-seed`,
+    seedID = `random-seed`,siminputrow,
     metrics.patches,
-    present_front, new_front
+    present_front
   )  %>%
-  mutate(replicateID = paste("dmax", dmax_start, "slope", slope_start, "midpoint", midpoint_start, "VP", (VP_logit_dmax > 0),"mortality", (dispersal_mortality >0), "h2", heritability, reproduction, seedID, sep = "_")) %>%
+  mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
   unnest(cols = c(metrics.patches)) %>%
-  filter(pxcor <= present_front | N_postdispersal>0 | N_predispersal >0) %>% 
+  filter(N_postdispersal>0 | N_predispersal >0 | pxcor < present_front) %>% # excluding never-populated patches
   mutate( 
-  #### IMPORTANT: replace the -999 by actual NAs
+  #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
   across(.cols=everything(),na_if,-999)
   ) %>% 
   mutate(Location_full = paste(replicateID, pxcor, ticks))
