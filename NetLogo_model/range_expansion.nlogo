@@ -98,6 +98,8 @@ patches-own [
   var_genotype_midpoint
   mean_noise_midpoint
   var_noise_midpoint
+
+
   ;; overall trait on observed scale
   mean_dmax
   var_dmax
@@ -251,102 +253,16 @@ to go
   ask patches[check_population_size]
   ask patches[set N_predispersal population_size]
 
-  ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
-  ask patches with [N_predispersal > 0] [
-    set N_allele1_pre sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
-    ( ifelse reproduction = "clonal"
-      [set N_allele0_pre population_size - N_allele1_pre]
-      [set N_allele0_pre (2 * population_size) - N_allele1_pre]                     ;; for sexual reproduction, twice as many alleles than individuals
-    )
-  ]
+  ;; record patch-level summaries for traits and allelic frequencies
 
-  ;; record patch-level averages and variances for dispersal traits
+  ask patches[reset_summaries]
 
-  ask patches[  ;; reset all patches with our NA placeholder to avoid carryovers from previous gen
-  set mean_genotype_logit_dmax -999
-  set var_genotype_logit_dmax  -999
+    ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
+  ask patches with [N_predispersal > 0] [update_alleles_pre]
 
-  set mean_noise_logit_dmax   -999
-  set var_noise_logit_dmax    -999
+  ask patches with [N_predispersal > 0] [update_summaries_means]
 
-  set mean_genotype_slope -999
-  set var_genotype_slope  -999
-
-  set mean_noise_slope -999
-  set var_noise_slope -999
-
-  set mean_genotype_midpoint -999
-  set var_genotype_midpoint  -999
-
-  set mean_noise_midpoint -999
-  set var_noise_midpoint -999
-
-  set mean_dmax -999
-  set mean_midpoint -999
-  set mean_slope -999
-
-  set mean_d0 -999
-  set mean_d1 -999
-  set mean_dK -999
-  set mean_maxslope -999
-  set mean_avgslope0_K -999
-  set mean_avgslope1_K -999
-
-  set var_dmax -999
-  set var_midpoint -999
-  set var_slope -999
-
-  set var_d0 -999
-  set var_d1 -999
-  set var_dK -999
-  set var_maxslope -999
-  set var_avgslope0_K -999
-  set var_avgslope1_K -999
-
-  set N_disp_dead 0
-  ]
-
-  ask patches with [N_predispersal > 0] [     ;; mean trait values
-  set mean_genotype_logit_dmax mean ([genotype_logit_dmax] of turtles-here)
-  set mean_noise_logit_dmax   mean ([noise_logit_dmax] of turtles-here)
-  set mean_genotype_slope mean ([genotype_slope] of turtles-here)
-  set mean_noise_slope mean ([noise_slope] of turtles-here)
-  set mean_genotype_midpoint mean ([genotype_midpoint] of turtles-here)
-  set mean_noise_midpoint mean ([noise_midpoint] of turtles-here)
-
-  set mean_dmax mean ([dmax] of turtles-here)
-  set mean_midpoint mean ([midpoint] of turtles-here)
-  set mean_slope mean ([slope] of turtles-here)
-
-  set mean_d0 mean ([d0] of turtles-here)
-  set mean_d1 mean ([d1] of turtles-here)
-  set mean_dK mean ([dK] of turtles-here)
-  set mean_maxslope mean ([maxslope] of turtles-here)
-  set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
-  set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
-
-  ]
-
-  ask patches with [N_predispersal > 1] [ ;; trait variances; sample variances only meaningful for N > 1
-  set var_genotype_logit_dmax  variance ([genotype_logit_dmax] of turtles-here)
-  set var_noise_logit_dmax    variance ([noise_logit_dmax] of turtles-here)
-  set var_genotype_slope  variance ([genotype_slope] of turtles-here)
-  set var_noise_slope variance ([noise_slope] of turtles-here)
-  set var_genotype_midpoint  variance ([genotype_midpoint] of turtles-here)
-  set var_noise_midpoint    variance ([noise_midpoint] of turtles-here)
-
-  set var_dmax variance ([dmax] of turtles-here)
-  set var_midpoint variance ([midpoint] of turtles-here)
-  set var_slope variance ([slope] of turtles-here)
-
-  set var_d0 variance ([d0] of turtles-here)
-  set var_d1 variance ([d1] of turtles-here)
-  set var_dK variance ([dK] of turtles-here)
-  set var_maxslope variance ([maxslope] of turtles-here)
-  set var_avgslope0_K variance ([avgslope0_K] of turtles-here)
-  set var_avgslope1_K variance ([avgslope1_K] of turtles-here)
-
-  ]
+  ask patches with [N_predispersal > 1] [update_summaries_variances]
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; dispersal step
@@ -368,16 +284,11 @@ to go
   set past_front present_front ;; for the next generation
 
   ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
-  ask patches with [N_postdispersal > 0] [
-    set N_allele1_post sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
-    ( ifelse reproduction = "clonal"
-      [set N_allele0_post population_size - N_allele1_post]
-      [set N_allele0_post (2 * population_size) - N_allele1_post]                     ;; for sexual reproduction, twice as many alleles than individuals
-    )
-  ]
+  ask patches with [N_postdispersal > 0] [update_alleles_post]
 
   tick
 end
+
 
 
 to move_turtles ;; dispersal
@@ -562,6 +473,114 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
       ]
       set has_reproduced 1
     ]
+end
+
+to reset_summaries
+;; reset all patches with our NA placeholder to avoid carryovers from previous gen
+  set mean_genotype_logit_dmax -999
+  set var_genotype_logit_dmax  -999
+
+  set mean_noise_logit_dmax   -999
+  set var_noise_logit_dmax    -999
+
+  set mean_genotype_slope -999
+  set var_genotype_slope  -999
+
+  set mean_noise_slope -999
+  set var_noise_slope -999
+
+  set mean_genotype_midpoint -999
+  set var_genotype_midpoint  -999
+
+  set mean_noise_midpoint -999
+  set var_noise_midpoint -999
+
+  set mean_dmax -999
+  set mean_midpoint -999
+  set mean_slope -999
+
+  set mean_d0 -999
+  set mean_d1 -999
+  set mean_dK -999
+  set mean_maxslope -999
+  set mean_avgslope0_K -999
+  set mean_avgslope1_K -999
+
+  set var_dmax -999
+  set var_midpoint -999
+  set var_slope -999
+
+  set var_d0 -999
+  set var_d1 -999
+  set var_dK -999
+  set var_maxslope -999
+  set var_avgslope0_K -999
+  set var_avgslope1_K -999
+
+  set N_disp_dead 0
+  set N_allele0_pre 0
+  set N_allele1_pre 0
+  set N_allele0_post 0
+  set N_allele1_post 0
+end
+
+to update_alleles_pre
+    set N_allele1_pre sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
+    ( ifelse reproduction = "clonal"
+      [set N_allele0_pre population_size - N_allele1_pre]
+      [set N_allele0_pre (2 * population_size) - N_allele1_pre]                     ;; for sexual reproduction, twice as many alleles than individuals
+    )
+end
+
+to update_summaries_means
+ ;; mean trait values
+  set mean_genotype_logit_dmax mean ([genotype_logit_dmax] of turtles-here)
+  set mean_noise_logit_dmax   mean ([noise_logit_dmax] of turtles-here)
+  set mean_genotype_slope mean ([genotype_slope] of turtles-here)
+  set mean_noise_slope mean ([noise_slope] of turtles-here)
+  set mean_genotype_midpoint mean ([genotype_midpoint] of turtles-here)
+  set mean_noise_midpoint mean ([noise_midpoint] of turtles-here)
+
+  set mean_dmax mean ([dmax] of turtles-here)
+  set mean_midpoint mean ([midpoint] of turtles-here)
+  set mean_slope mean ([slope] of turtles-here)
+
+  set mean_d0 mean ([d0] of turtles-here)
+  set mean_d1 mean ([d1] of turtles-here)
+  set mean_dK mean ([dK] of turtles-here)
+  set mean_maxslope mean ([maxslope] of turtles-here)
+  set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
+  set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
+end
+
+to update_summaries_variances
+ ;; trait variances; sample variances only meaningful for N > 1
+  set var_genotype_logit_dmax  variance ([genotype_logit_dmax] of turtles-here)
+  set var_noise_logit_dmax    variance ([noise_logit_dmax] of turtles-here)
+  set var_genotype_slope  variance ([genotype_slope] of turtles-here)
+  set var_noise_slope variance ([noise_slope] of turtles-here)
+  set var_genotype_midpoint  variance ([genotype_midpoint] of turtles-here)
+  set var_noise_midpoint    variance ([noise_midpoint] of turtles-here)
+
+  set var_dmax variance ([dmax] of turtles-here)
+  set var_midpoint variance ([midpoint] of turtles-here)
+  set var_slope variance ([slope] of turtles-here)
+
+  set var_d0 variance ([d0] of turtles-here)
+  set var_d1 variance ([d1] of turtles-here)
+  set var_dK variance ([dK] of turtles-here)
+  set var_maxslope variance ([maxslope] of turtles-here)
+  set var_avgslope0_K variance ([avgslope0_K] of turtles-here)
+  set var_avgslope1_K variance ([avgslope1_K] of turtles-here)
+
+end
+
+to update_alleles_post
+    set N_allele1_post sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
+    ( ifelse reproduction = "clonal"
+      [set N_allele0_post population_size - N_allele1_post]
+      [set N_allele0_post (2 * population_size) - N_allele1_post]                     ;; for sexual reproduction, twice as many alleles than individuals
+    )
 end
 
 to check_death
