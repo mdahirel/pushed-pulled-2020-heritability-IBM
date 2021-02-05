@@ -100,33 +100,24 @@ patches-own [
   var_noise_midpoint
   ;; overall trait on observed scale
   mean_dmax
-  median_dmax
   var_dmax
   mean_midpoint
-  median_midpoint
   var_midpoint
   mean_slope
-  median_slope
   var_slope
 
   ;; other summary traits
   mean_d0                    ;; mean dispersal probability at N = 0
-  median_d0
   var_d0
   mean_d1                    ;; mean dispersal probability at N = 1
-  median_d1
   var_d1
   mean_dK                    ;; mean dispersal probability at N = K
-  median_dK
   var_dK
   mean_maxslope              ;; maximal absolute slope (ie slope at the inflection point)
-  median_maxslope
   var_maxslope
   mean_avgslope0_K           ;; average absolute slope over the range 0-K
-  median_avgslope0_K
   var_avgslope0_K
   mean_avgslope1_K           ;; average absolute slope over the range 1-K
-  median_avgslope1_K
   var_avgslope1_K
 ]
 
@@ -224,8 +215,8 @@ to setup-turtles
     set d1 dmax / (1 + exp(- slope * ((1 / K) - midpoint)))
     set dK dmax / (1 + exp(- slope * (1 - midpoint)))
     set maxslope (slope * dmax ) / 4
-    set avgslope0_K (dK - d0) / K
-    set avgslope1_K (dK - d1) / K
+    set avgslope0_K (dK - d0)
+    set avgslope1_K (dK - d1)
   ]
 end
 
@@ -301,17 +292,6 @@ to go
   set mean_avgslope0_K -999
   set mean_avgslope1_K -999
 
-  set median_dmax -999
-  set median_midpoint -999
-  set median_slope -999
-
-  set median_d0 -999
-  set median_d1 -999
-  set median_dK -999
-  set median_maxslope -999
-  set median_avgslope0_K -999
-  set median_avgslope1_K -999
-
   set var_dmax -999
   set var_midpoint -999
   set var_slope -999
@@ -344,17 +324,6 @@ to go
   set mean_maxslope mean ([maxslope] of turtles-here)
   set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
   set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
-
-  set median_dmax median ([dmax] of turtles-here)
-  set median_midpoint median ([midpoint] of turtles-here)
-  set median_slope median ([slope] of turtles-here)
-
-  set median_d0 median ([d0] of turtles-here)
-  set median_d1 median ([d1] of turtles-here)
-  set median_dK median ([dK] of turtles-here)
-  set median_maxslope median ([maxslope] of turtles-here)
-  set median_avgslope0_K median ([avgslope0_K] of turtles-here)
-  set median_avgslope1_K median ([avgslope1_K] of turtles-here)
 
   ]
 
@@ -484,8 +453,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0) / K
-        set avgslope1_K (dK - d1) / K
+        set avgslope0_K (dK - d0)
+        set avgslope1_K (dK - d1)
       ]
 
       ask mate [set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )]
@@ -531,8 +500,8 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0) / K
-        set avgslope1_K (dK - d1) / K
+        set avgslope0_K (dK - d0)
+        set avgslope1_K (dK - d1)
       ]
 
       set has_reproduced 1
@@ -588,8 +557,8 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0) / K
-        set avgslope1_K (dK - d1) / K
+        set avgslope0_K (dK - d0)
+        set avgslope1_K (dK - d1)
       ]
       set has_reproduced 1
     ]
