@@ -66,6 +66,9 @@ turtles-own[
 
 
 patches-own [
+
+  founding ;; generation/tick in which the patch was *first* populated
+
   ;; _pre or _predispersal suffix refers to metrics estimated immediately before the dispersal phase
   ;; _post or _postdispersal suffix refers to metrics estimated immediately after the dispersal phase
 
@@ -154,7 +157,9 @@ end
 
 to setup-patches
   ask patches [set carrying_capacity K]                   ;; all patches have the same constant carrying_capacity; extension possible to stochastic spatial variation by using (random-poisson K) instead of K
+  ask patches [set founding -999]
   ask patches with [pxcor = 0] [sprout carrying_capacity] ;; we generate individuals only in one initial patch with coordinate (pxcor = 0)
+  ask patches with [pxcor = 0] [set founding 0]
   ask patches [check_population_size]
 end
 
@@ -238,6 +243,8 @@ to go
   if (ticks > 0 ) [
     ;; the cycle starts with reproduction and ends after dispersal, to make saving data easier _ only adults are alive at the end of a cycle i.e. when data are saved
     ;; but because of that, some steps must be omitted during the first round, or else model doesn't work _ like killing all adults before reproduction
+
+    ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks] ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
 
     ;; reproduction step
     ( ifelse reproduction = "clonal"
