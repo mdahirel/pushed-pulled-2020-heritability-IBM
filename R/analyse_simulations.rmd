@@ -1,5 +1,5 @@
 ---
-title: 'Pushed expansions and heritability- individual-based model, data analysis'
+title: 'Pushed expansions and sources of variation- individual-based model, data analysis'
 author: "Maxime Dahirel & Chloé Guicharnaud"
 date:
 output:
@@ -21,6 +21,7 @@ library(nlrx)
 library(arm)
 library(matrixStats)
 library(tidyverse)
+library(mgcv)
 library(gratia)
 library(cowplot)
 
@@ -33,9 +34,15 @@ options(mc.cores=2)
 library(here)
 ```
 
-# Introduction
+discussion thread to follow:
+sources of evo available as constraints
+compatibility between "yes, evo favours mostly DID over the range" BUT "still DDD+ over all, so still open to pushiness, especially if dmax increase", despite apparent paradox
+general result still loss of pushiness in many cases, but only if genet div in matching traits (vs enhancing traits)
+dispersal costs and heritability influence the dynamics
+the DDD+ to DDD- pattern seen in a few studies is not recovered here (well it is, but not in a systematic way)
+what's missing? obvious answer: evolution of life history, trade-offs...
 
-<!--to consider, for sensitivity: test a range of lower fecundities, test a more continuous range of h2 or mortalities, test narrower VPs?, or zero variability in dmax?-->
+# Introduction
 
 ```{r}
 data <- read_csv(here("NetLogo_output","model-output.csv"))
@@ -44,36 +51,7 @@ data <- read_csv(here("NetLogo_output","model-output.csv"))
 <!--the classical result that costs = more DDD was in contexts where dmax and midpoint did not evolve-->
 <!-- hyper important to understand eco-evo dynamics: check that N=0 cells within pops are not deleted-->
 
-<!--for genetic diversity: try to analyse at replicate level to do correlation with adaptive traits? so need to use binomial model on p to manage fixation
-with h as latent variable // use "solve h=2*p*(1-p) for p" in wolfram to find an expression for p=f(h)// and use this in a nonlinear brms model???
-nope: won't work, because two solutions: one that gives p, one that gives 1-p-->
-<!--go back to h, but either with gaussian for 0 (bounded??)
-with ordered bins or censoring (https://discourse.mc-stan.org/t/zero-one-inflated-beta-as-censored-beta/8468/3) or waiting for the "marginal" approach (https://github.com/paul-buerkner/brms/issues/641)-->
-<!--OR OR we don't model the % of one allele, but the % of the majority/minority allele,
-whichever it is at the tick-->
-<!-- indeed one of the 2 solutions works for the minority allele, the other for the majority-->
-
-v = alpha*vf, where alpha the pushiness ratio
-vf = 2 * sqrt ( 0.5 * d0 * r0) + epsilon
-
-v = alpha * 2 * sqrt(r0) * sqrt(0.5 * d0) + epsilon
-
-v = a sqrt(0.5 * d0) + b (still works even if there are multiplicative constants I ignore, as long as they are constant)
-
-linear regression where the slope is proportional to the pushiness ratio (not necessary =)
-should work because r0 is constant, K is constant (see for how the "correction" depends on K only if the noise is f(K) as it is in poisson; in brunet derrida)
-and large variation in d0 due to evol
-
-v/sqrt(0.5*d0) potentially enough to use as a pushiness index to a transfo
-
-look at v/sqrt(0.5*d0) ~ mean_avgslope0_K
-
-hopefully good (not necessarily linear) correlation
-
-treat speed as a binomial variable in analyses, the % of patches available visited
-
-front = binomial(speed, generations)
-(works only because speed<=1, and allow correct prediction (no >1))
+<!--key thing to do, check that the effect of absolute slope on speed/diversity is the same independently of source of variation (dmax only, matching only, both) or else difficult to compare their evol dynamics-->
 
 
 ```{r}
@@ -89,141 +67,35 @@ test<-data %>%
   mutate(front_lag=min(c(front_0,front_1)),
          front=max(c(front_0,front_1))) %>% 
   ungroup() %>% 
-    filter(ticks==100 |ticks==50) %>% 
-  select(ticks,
-         is.VP_DDD,is.VP_dmax,
-         mean_d0,mean_avgslope0_K,mean_dK,
-         mean_dmax,mean_slope,mean_midpoint,median_avgslope0_K,
-         var_d0,var_avgslope0_K, VP_slope,VP_midpoint,VP_logit_dmax,
-         dispersal_mortality,mortality,
-         heritability,
-         replicateID,seedID,
-         slope_start,midpoint_start,
-         front_lag,front) %>% 
-  pivot_wider(names_from=ticks,values_from = c(front,front_lag,mean_d0,mean_dK,mean_avgslope0_K,var_d0,var_avgslope0_K,median_avgslope0_K,
-         mean_dmax,mean_slope,mean_midpoint)) %>% 
+    filter(ticks==120) %>% 
   mutate(vartype=factor(paste("vP",is.VP_DDD>0 |is.VP_dmax>0,
                               "h",heritability)))
 
-test<-test %>% 
-  mutate(rnorm_slope_start=map2(.x=slope_start,.y=sqrt(VP_slope),.f=~rnorm(1000,.x,.y))) %>% 
-  mutate(rnorm_midpoint_start=map2(.x=midpoint_start,.y=sqrt(VP_midpoint),.f=~rnorm(1000,.x,.y))) %>% 
-  mutate(rnorm_dmax_start=map2(.x=0,.y=sqrt(VP_logit_dmax),.f=~rnorm(1000,.x,.y) %>% invlogit())) %>% 
-  mutate(rnorm_function_start0=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
-                                    .f=function(.x,.y){
-                                      1/(1+exp(-.x*(0-.y)))
-                                    })) %>% 
-  mutate(rnorm_function_start0=map2(.x=rnorm_dmax_start,.y=rnorm_function_start0,
-                                    .f=function(.x,.y){
-                                      .x*.y
-                                    }))%>% 
-  mutate(rnorm_function_startK=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
-                                    .f=function(.x,.y){
-                                      1/(1+exp(-.x*(1-.y)))
-                                    })) %>% 
-  mutate(rnorm_function_startK=map2(.x=rnorm_dmax_start,.y=rnorm_function_startK,
-                                    .f=function(.x,.y){
-                                      .x*.y
-                                    })) %>% 
-  mutate(start_avgslope=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
-                             .f=function(.x,.y){
-                               mean((.x-.y)/250) ##arrange to keep K and code it correctly
-                             })) %>% 
-  unnest(start_avgslope)
 
-
-
-
-test$convex=(test$mean_dmax_100/(1+exp(-test$mean_slope_100*(0.5-test$mean_midpoint_100))))/((test$mean_d0_100+test$mean_dK_100)/2)
-
-
-#latency=data %>% 
-#  group_by(ticks,is.VP_DDD,is.VP_dmax,
-#           dispersal_mortality,heritability,replicateID,slope_start,midpoint_start) %>% 
-#  summarise(front=max(pxcor)) %>% 
-#  group_by(is.VP_DDD,is.VP_dmax,
-#           dispersal_mortality,heritability,replicateID,slope_start,midpoint_start) %>% 
-#  filter(front>0) %>% 
-#  summarise(expansion_start=min(ticks)) %>% 
-#  ungroup()
-
-
-
-mod=glm(cbind(front_100,100-front_100)~(scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,family=binomial,data=test)
+mod=glm(cbind(front,ticks-front)~(scale(mean_d0)+scale(mean_avgslope0_K))*mortality,family=binomial,data=test)
 ## very basic: ignore possible effects of sources of variances
 
-mod_div=glm(cbind(front_lag_100,front_100-front_lag_100)~(scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,family=binomial,data=test)
+mod_div=glm(cbind(front_lag,front-front_lag)~(scale(mean_d0)+scale(mean_avgslope0_K))*mortality,family=binomial,data=test)
 ## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
 
-ggplot(test) +
-  geom_point(aes(mean_avgslope0_K_100,(front_100/100)/predict(mod),col=slope_start))+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+
-  geom_hline(yintercept=mean(test$front_lag_100/test$front_100))+
-  geom_vline(xintercept = 0)
-### use beta binomial for the overdispersion?????
-### is phi (here intereplicate variability) something predictable???
-
-library(mgcv)
-library(gratia)
-mod=gam(cbind(front_100,100-front_100)~s(mean_d0_100, by = mortality,k=10)+s(mean_avgslope0_K_100,by=mortality,k=10)+mortality,
+#gam version?
+mod=gam(cbind(front,ticks-front)~s(mean_d0, by = mortality,k=10)+s(mean_avgslope0_K,by=mortality,k=10)+mortality,
         family=binomial,data=test,method="REML")
-
-test %>% 
-  mutate(original_slope=mean_avgslope0_K_100) %>% 
-  mutate(mean_avgslope0_K_100=0) %>% 
-  mutate(fit_vf=invlogit(predict(mod,newdata=.))*100) %>% 
-  ggplot() +
-  geom_point(aes(original_slope,front_100/fit_vf)) +
-  scale_x_continuous("pente absolue moyenne") +
-  scale_y_continuous("ratio v observée / v prédite si pente = 0")
-
-
 
 mod_div=gam(cbind(front_lag_100,front_100-front_lag_100)~s(mean_d0_100, by = mortality)+s(mean_avgslope0_K_100,by=mortality)+mortality,
         family=binomial,data=test,method="REML")
 
-
-
-
-
-gam.check(mod)
+gam.check(mod) #
 draw(mod)
 appraise(mod)
 
-### compare r2 of models using mean_d0 and slope from earlier generations
-
-#subset(test,heritability==0 & VP_slope==0 & VP_logit_dmax==0))
-#suing subset()shows you slope works whether heritable or not
-## extremely simple model, but explains a lot, confirms association between synthetic slope post evol and end speed, confirm slope as measure of pushiness
-
-test$init=paste(test$slope_start,test$midpoint_start)
-
-mod=brm(front_100|trials(100)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality+vartype,
+# bayesian versions (use penalising priors? spike and slab?)
+mod=brm(front|trials(ticks)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
         data=test,family=binomial,
         chains=4,iter=2000,warmup=1000,
         prior=c(set_prior("normal(0,1)",class="Intercept"),
                 set_prior("normal(0,1)",class="b")),
         seed=42,backend = "cmdstanr")
-
-
-
-test$slope=250*test$mean_avgslope0_K_100
-test$se_slope=250*sqrt(test$var_avgslope0_K_100)+0.001 ##need to add a little error to make estimable
-
-bf_speed<-bf(front_100|trials(100)~scale(mean_d0_100)*mortality+(1|p|replicateID),family=binomial)
-bf_slope<-bf(slope~mortality+(1|p|replicateID))
-
-mod2=brm(mvbf(bf_speed+bf_slope),
-        data=test,
-        chains=4,iter=2000,warmup=1000,
-        prior=c(set_prior("normal(0,1)",class="Intercept",resp=c("front100","slope")),
-                set_prior("normal(0,1)",class="b",resp=c("front100","slope")),
-                set_prior("normal(0,1)",class="sd",resp=c("front100","slope")),
-                set_prior("constant(0.0001)",class="sigma",resp="slope"),
-                set_prior("lkj(2)",class="cor")),
-        seed=42,backend = "cmdstanr",control=list(adapt_delta=0.9))
-
 
 
 
@@ -234,51 +106,34 @@ mod_div=brm(front_lag_100|trials(front_100)~ (scale(mean_d0_100)+scale(mean_avgs
                 set_prior("normal(0,1)",class="b")),
         seed=42,backend = "cmdstanr")
 
-bayes_R2(mod)
-bayes_R2(mod_div)
 
-beta_binomial2 <- custom_family(
-  "beta_binomial2", dpars = c("mu", "phi"),
-  links = c("logit", "log"), lb = c(NA, 0),
-  type = "int", vars = "vint1[n]"
-)
-
-stan_funs <- "
-  real beta_binomial2_lpmf(int y, real mu, real phi, int T) {
-    return beta_binomial_lpmf(y | T, mu * phi, (1 - mu) * phi);
-  }
-  int beta_binomial2_rng(real mu, real phi, int T) {
-    return beta_binomial_rng(T, mu * phi, (1 - mu) * phi);
-  }
-"
-stanvars <- stanvar(scode = stan_funs, block = "functions")
-
-mod2=brm(front_100|vint(100)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
-        data=test,family=beta_binomial2,
-        chains=4,iter=2000,warmup=1000,
-        prior=c(set_prior("normal(0,1)",class="Intercept"),
-                set_prior("normal(0,1)",class="b")),
-        seed=42,stanvars=stanvars,backend="cmdstanr")
-
-mod2bis=brm(bf(front_100|vint(100)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
-               phi~(scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality),
-        data=test,family=beta_binomial2,
-        chains=4,iter=2000,warmup=1000,
-        prior=c(set_prior("normal(0,1)",class="Intercept"),
-                set_prior("normal(0,1)",class="b")),
-        seed=42,stanvars=stanvars,backend="cmdstanr")
-
-mod_div2=brm(front_lag_100|vint(front_100)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
-        data=test,family=beta_binomial2,
-        chains=4,iter=2000,warmup=1000,
-        prior=c(set_prior("normal(0,1)",class="Intercept"),
-                set_prior("normal(0,1)",class="b")),
-        seed=42,stanvars=stanvars,backend="cmdstanr")
-
-expose_functions(mod_div2, vectorize = TRUE) ## model fitted with rstan backend needed for this
-### and other postproc in custom distri
-### but probs with rstan, reinstall???
+# use of beta-binomial maybe more appropriate? but would need to use rstan at least in the expose function stage
 ```
+
+
+```{r}
+data %>% 
+  mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
+           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
+  mutate(mortality=factor(dispersal_mortality)) %>% 
+  mutate(is.evo=as.numeric(heritability>0)) %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front_0=max(pxcor*(N_allele0_post>0)),
+         front_1=max(pxcor*(N_allele1_post>0))) %>% 
+  filter(pxcor == present_front-5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
+  mutate(front_lag=min(c(front_0,front_1)),
+         front=max(c(front_0,front_1))) %>% 
+  ungroup() %>% 
+  group_by(replicateID) %>% 
+  arrange(ticks) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_line(aes(ticks,mean_midpoint,group=replicateID,col=ticks))+
+  facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
+               cols=vars(heritability,VP_slope>0))
+```
+
+
 
 ```{r}
 data %>% filter(pxcor==present_front-1 & slope_start==-6) %>% 
@@ -296,10 +151,10 @@ test2<-data %>%
            is.VP_DDD=as.numeric(VP_slope >0)) %>% 
   mutate(is.evo=as.numeric(heritability>0)) %>% 
   filter(pxcor == present_front - 5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
-  filter(ticks==100) %>% 
+  filter(ticks==120) %>% 
   select(is.VP_DDD,is.VP_dmax,
          mean_avgslope0_K,
-         VP_slope,VP_midpoint,VP_logit_dmax,
+         VP_slope,VP_midpoint,VP_logit_dmax,mean_dmax,
          dispersal_mortality,
          heritability,
          replicateID,seedID,
@@ -325,11 +180,11 @@ test2<-data %>%
                                     })) %>% 
   mutate(start_avgslope=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
                              .f=function(.x,.y){
-                               mean((.x-.y)/250) ##arrange to keep K and code it correctly
+                               mean((.x-.y)) ##arrange to keep K and code it correctly
                              })) %>% 
   unnest(start_avgslope) %>% 
-  mutate(start_avgslope=start_avgslope*250,
-         mean_avgslope0_K=mean_avgslope0_K*250)
+  mutate(start_avgslope=start_avgslope,
+         mean_avgslope0_K=mean_avgslope0_K)
 
  
   ggplot(test2)+
@@ -381,186 +236,4 @@ data %>%
 mmm... mayyyybe? but very dependent on what pxcor we whoose (front-1, front -2...), because N varies quickly. potentially interesting to look at d=f(distance from front)
 
 
-
-
-
-```{r}
-data %>% 
-  mutate(is.VP_dmax=VP_logit_dmax >0,
-         is.VP_DDD=VP_slope >0) %>% 
-  filter(pxcor ==(present_front -1)) %>% 
-  ggplot()+
-  geom_point(aes(sqrt(0.5*mean_d0),present_front/ticks,col=factor(mean_avgslope0_K>0)))+
-  geom_hline(yintercept = 0)+
-  facet_wrap(~ticks)
-```
-
-```{r}
-data %>% 
-  mutate(is.VP_dmax=VP_logit_dmax >0,
-         is.VP_DDD=VP_slope >0) %>% 
-  filter(pxcor ==(present_front -1)) %>% 
-  ggplot()+
-  geom_point(aes(mean_d0,mean_avgslope0_K, col = present_front/ticks))+
-  geom_hline(yintercept = 0)+
-  facet_wrap(~ticks)
-```
-
-
-```{r}
-data %>% filter(pxcor== (present_front-1) & ticks==100) %>% ggplot()+
-  geom_boxplot(aes(factor(slope_start),mean_avgslope0_K,col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
-                       cols=vars(heritability,VP_slope>0))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & ticks==100) %>% ggplot()+
-  geom_boxplot(aes(factor(slope_start),present_front/ticks/median_dmax,col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,reproduction),
-             cols=vars(heritability,VP_slope>0))+
-  coord_cartesian(ylim=c(0,2))
-```
-
-
-```{r}
-data %>% filter(pxcor> (present_front-5) & ticks==100) %>% ggplot()+
-  geom_boxplot(aes(factor(slope_start),var_genotype_logit_dmax,col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(0,1))+
-  facet_grid(rows=vars(dispersal_mortality,reproduction),
-             cols=vars(heritability,VP_slope>0))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & ticks==100) %>% ggplot()+
-  geom_point(aes(mean_midpoint,mean_avgslope0_K,col=factor(paste(slope_start,midpoint_start))))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,reproduction),
-             cols=vars(heritability,VP_slope>0))
-```
-
-
-```{r}
-data %>% filter(pxcor> (present_front-5) & ticks==100 & heritability==1) %>% ggplot()+
-  geom_point(aes(mean_midpoint+3*mean_slope,mean_avgslope0_K,col=factor(dispersal_mortality)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(slope_start),
-             cols=vars(midpoint_start))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & ticks==100 & heritability==1) %>% ggplot()+
-  geom_boxplot(aes(factor(pxcor-present_front),N_predispersal,col=factor(dispersal_mortality)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(slope_start),
-             cols=vars(midpoint_start))
-```
-
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & ticks==100 & heritability==1) %>% ggplot()+
-  geom_point(aes(mean_avgslope0_K,N_predispersal,col=factor(dispersal_mortality)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(slope_start),
-             cols=vars(midpoint_start))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & heritability==1) %>%
-  group_by(reproduction,ticks,dispersal_mortality,heritability,slope_start,midpoint_start) %>% 
-  mutate(H = 2*(N_allele1_pre/(N_allele1_pre+N_allele0_pre))*(N_allele0_pre/(N_allele1_pre+N_allele0_pre))) %>% 
-  summarise(meanH=mean(H,na.rm=TRUE)) %>% 
-  ggplot()+
-  geom_line(aes(ticks,meanH,col=factor(paste(reproduction,dispersal_mortality))))+
-  facet_grid(rows=vars(slope_start),
-             cols=vars(midpoint_start))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-10) & heritability==1 & ticks==100) %>%
-  group_by(reproduction,ticks,dispersal_mortality,heritability,slope_start,midpoint_start) %>% 
-  ggplot()+
-  geom_point(aes(present_front,mean_avgslope0_K,col=factor(paste(reproduction,dispersal_mortality))))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(slope_start),
-             cols=vars(midpoint_start))
-```
-
-```{r}
-data %>% filter(pxcor> (present_front-5) & ticks==100 & slope_start==6) %>% 
-  expand_grid(x=c(0:10/10)) %>% 
-  ggplot()+
-  geom_line(aes(x,median_dmax/(1+exp(-median_slope*(x-median_midpoint))),group=paste(replicateID,pxcor),col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,reproduction),
-             cols=vars(heritability,VP_slope>0))
-```
-
-
-```{r}
-data %>% filter(pxcor== (present_front-1)) %>% 
-  ggplot()+
-  geom_boxplot(aes(factor(ticks),mean_avgslope0_K,col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(0))+
-  facet_grid(rows=vars(dispersal_mortality,slope_start),
-             cols=vars(heritability,VP_slope>0))
-```
-
-
-```{r}
-data %>% filter(pxcor== (present_front-1)) %>%
-  mutate(v=present_front/ticks) %>% 
-  mutate(vf= 2*sqrt(
-    median_d0*(1-dispersal_mortality)*0.5*
-    log(5*(1-median_d0*dispersal_mortality))
-  )) %>% 
-  ggplot()+
-  geom_boxplot(aes(factor(ticks),v/vf,col=factor(midpoint_start)))+
-  geom_hline(yintercept=c(1,1.06))+
-  facet_grid(rows=vars(dispersal_mortality,slope_start),
-             cols=vars(heritability,VP_slope>0))+
-  coord_cartesian(ylim=c(0,2))
-```
-
-```{r}
-test=data %>% select(replicateID,ticks,pxcor) %>% 
-  filter(ticks==50 |ticks==100) %>% 
-  group_by(replicateID,ticks) %>% 
-  summarise(front=max(pxcor)) %>% 
-  ungroup() %>% 
-  pivot_wider(names_from=ticks,values_from = front) %>% 
-  mutate(v50_100=(`100`-`50`)/50) %>% 
-  select(replicateID,v50_100)
-```
-
-```{r}
-data %>% filter(pxcor== (present_front-1) & ticks ==50) %>% 
-  left_join(test) %>% 
-  ggplot()+
-  geom_point(aes(1-N_sedentary/N_predispersal,mean_d0,col=mean_avgslope0_K))+
-  facet_grid(rows=vars(dispersal_mortality,mean_avgslope0_K>0),
-             cols=vars(heritability,VP_slope>0))+
-  geom_abline(intercept=0,slope=1)
-```
-
-```{r}
-test2<-data %>% 
-  group_by(dispersal_mortality,reproduction,heritability,VP_slope,replicateID,slope_start,midpoint_start,ticks) %>% 
-  filter(N_postdispersal>(0.5*K)) %>% 
-  summarise(midfront=max(pxcor),front=max(present_front)) %>% 
-  ungroup()
-```
-
-```{r}
-data %>% filter(pxcor== (present_front-1) & ticks ==100) %>% 
-  ggplot()+
-  geom_boxplot(aes(factor(slope_start),N_postdispersal,col=factor(midpoint_start)))+
-  facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax>0),
-                       cols=vars(heritability,VP_slope>0))
-  geom_abline(intercept=0,slope=1)+
-  coord_cartesian(ylim=c(-5,10))
-```
-```
 

@@ -1,5 +1,5 @@
 ---
-title: 'Pushed expansions and heritability- individual-based model, model creation'
+title: 'Pushed expansions and sources of variation- individual-based model, model creation'
 author: "Maxime Dahirel & Chloé Guicharnaud"
 date:
 output:
@@ -37,7 +37,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
 NLVERSION <- "6.1.1" # change as needed
 nreplicates <- 20
-duration <- 100 #100
+duration <- 120 #100
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -134,7 +134,7 @@ And we're go for running the simulations! We set a "distinct" simulation design 
 
 # set.seed(1989) ## we can set a seed here to guarantee the seeds selected below are the same everytime
 nl_object@simdesign <- simdesign_distinct(nl = nl_object, nseeds = nreplicates)
-nl_object@simdesign@simseeds <- 1:nreplicates # or we can rewrite the nseeds here (to guarantee they are all different)
+nl_object@simdesign@simseeds <- 1:nreplicates # or we can force rewrite the nseeds here (to guarantee they are all actually different)
 length(unique(nl_object@simdesign@simseeds)) == nreplicates # either way, check that all generated seeds are different
 exp_h2 <- run_nl_all(nl_object)
 
