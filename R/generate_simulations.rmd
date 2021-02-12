@@ -103,13 +103,13 @@ nl_object@experiment <- experiment(
                       "mean_noise_midpoint", "var_noise_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_d1","mean_dK",
-                      "mean_maxslope","mean_avgslope0_K","mean_avgslope1_K",
-                      "mean_relslope0_K","mean_relslope1_K",
+                      "mean_maxslope","mean_slopeA_0_K","mean_slopeA_1_K","mean_slopeA_0_avg","mean_slopeA_1_avg",
+                      "mean_slopeR_0_K","mean_slopeR_1_K",
                       "mean_uncond0_K","mean_uncond1_K",
                       "var_dmax","var_slope","var_midpoint",
                       "var_d0","var_d1","var_dK",
-                      "var_maxslope","var_avgslope0_K","var_avgslope1_K",
-                      "var_relslope0_K","var_relslope1_K",
+                      "var_maxslope","var_slopeA_0_K","var_slopeA_1_K","var_slopeA_0_avg","var_slopeA_1_avg",
+                      "var_slopeR_0_K","var_slopeR_1_K",
                       "var_uncond0_K","var_uncond1_K"),
   constants = list(
     "duration" = duration
