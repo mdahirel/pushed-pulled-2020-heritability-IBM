@@ -154,7 +154,7 @@ test2<-data %>%
   filter(ticks==120) %>% 
   select(is.VP_DDD,is.VP_dmax,
          mean_avgslope0_K,
-         VP_slope,VP_midpoint,VP_logit_dmax,mean_dmax,
+         VP_slope,VP_midpoint,VP_logit_dmax,mean_dmax,mean_slope,mean_midpoint,mean_d0,mean_dK,
          dispersal_mortality,
          heritability,
          replicateID,seedID,
@@ -182,9 +182,30 @@ test2<-data %>%
                              .f=function(.x,.y){
                                mean((.x-.y)) ##arrange to keep K and code it correctly
                              })) %>% 
-  unnest(start_avgslope) %>% 
+  mutate(start_integral=map2(.x=slope_start,.y=midpoint_start,
+                             .f=function(.x,.y){integrate(f=function(N){1/(1+exp(-.x*(N-.y)))},0,1)$value})) %>% 
+  mutate(mean_integral=map2(.x=mean_slope,.y=mean_midpoint,
+                             .f=function(.x,.y){integrate(f=function(N){1/(1+exp(-.x*(N-.y)))},0,1)$value})) %>%
+  mutate(start_max0_K = map2(.x=rnorm_function_start0,.y=rnorm_function_startK,
+                             .f=function(.x,.y){
+                               a<- mean(.x/0.5)
+                               b<- mean(.y/0.5)
+                               return(max(a,b))
+                             })) %>% 
+  mutate(mean_max0_K = map2(.x=mean_d0/mean_dmax,.y=mean_dK/mean_dmax,
+                             .f=function(.x,.y){
+                               max(.x,.y)
+                             })) %>% 
+  unnest(c(start_avgslope,start_integral,mean_integral,start_max0_K,mean_max0_K)) %>%
+  mutate(start_unconditional=start_integral/start_max0_K,
+         mean_unconditional=mean_integral/mean_max0_K) %>% 
   mutate(start_avgslope=start_avgslope,
          mean_avgslope0_K=mean_avgslope0_K)
+### the unconditionalness index is very very far from perfect (problems with means of means? how to solve) but contains the right idea
+### move all the start pars you can to globals in the NL model
+#-> d0/dmax, dK/dmax, max(the last two),dhalfK/last one, mean(start_avgslope)
+# AND mean_avgslope, but standardized by dmax
+
 
  
   ggplot(test2)+

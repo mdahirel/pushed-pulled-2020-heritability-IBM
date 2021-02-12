@@ -18,7 +18,6 @@ globals[
   VA_midpoint           ;; same for midpoint
   VR_midpoint           ;; same for midpoint
 
-
   ;; updated every generation
   past_front       ;; position of the front before dispersal
   present_front    ;; position of the front after dispersal
@@ -48,7 +47,11 @@ turtles-own[
   dK                      ;; dispersal probability at N = K
   maxslope                ;; maximal absolute slope (ie slope at the inflection point)
   avgslope0_K             ;; absolute slope over the range 0-K
-  avgslope1_K             ;; absolute slope over the range 1-K
+  avgslope1_K             ;; same over the range 1-K
+  relslope0_K             ;; same but expressed in proportion of dmax
+  relslope1_K             ;;
+  uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over the range (!= dmax)
+  uncond1_K               ;; same over range 1-K
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -124,6 +127,14 @@ patches-own [
   var_avgslope0_K
   mean_avgslope1_K           ;; average absolute slope over the range 1-K
   var_avgslope1_K
+  mean_relslope0_K           ;;
+  var_relslope0_K
+  mean_relslope1_K           ;;
+  var_relslope1_K
+  mean_uncond0_K             ;;
+  var_uncond0_K
+  mean_uncond1_K             ;;
+  var_uncond1_K
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -212,19 +223,32 @@ to setup-turtles
     set noise_midpoint random-normal 0 sqrt(VR_midpoint)
     ;; assign residual noise value to the dispersal traits ; if VR = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
-    ;; the trait value for each individual is the sum of the genetic and noise components
-    set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
-    set slope genotype_slope + noise_slope
-    set midpoint genotype_midpoint + noise_midpoint
-
-    ;; set "secondary" traits
-    set d0 dmax / (1 + exp(- slope * (0 - midpoint)))
-    set d1 dmax / (1 + exp(- slope * ((1 / K) - midpoint)))
-    set dK dmax / (1 + exp(- slope * (1 - midpoint)))
-    set maxslope (slope * dmax ) / 4
-    set avgslope0_K (dK - d0)
-    set avgslope1_K (dK - d1)
+   set_individual_traits
   ]
+end
+
+to set_individual_traits
+        set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
+        set slope genotype_slope + noise_slope
+        set midpoint genotype_midpoint + noise_midpoint
+
+        ;; set "secondary" traits
+        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
+        set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
+        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
+        set maxslope (slope * dmax ) / 4
+        set avgslope0_K (dK - d0)
+        set avgslope1_K (dK - d1)
+        set relslope0_K avgslope0_K / dmax
+        set relslope1_K avgslope1_K / dmax
+
+        let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
+        set uncond0_K mean (X0) / max (list d0 dK)
+
+        let X1 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range (1 / K) (1.01 + (1 / K)) 0.1)
+        set uncond1_K mean (X1) / max (list d1 dK)
+
+
 end
 
 to check_population_size
@@ -362,17 +386,7 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set noise_midpoint random-normal 0 sqrt(VR_midpoint)
         ;; draw residual noise again
 
-        set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
-        set slope genotype_slope + noise_slope
-        set midpoint genotype_midpoint + noise_midpoint
-
-        ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
-        set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
-        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
-        set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0)
-        set avgslope1_K (dK - d1)
+        set_individual_traits
       ]
 
       ask mate [set ind_fecundity random-poisson exp(ln(fecundity) * (1 - population_size / carrying_capacity) )]
@@ -409,17 +423,7 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set noise_midpoint random-normal 0 sqrt(VR_midpoint)
         ;; draw residual noise again
 
-        set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
-        set slope genotype_slope + noise_slope
-        set midpoint genotype_midpoint + noise_midpoint
-
-        ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
-        set d1 dmax / (1 + exp (- slope * ((1 / K) - midpoint)))
-        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
-        set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0)
-        set avgslope1_K (dK - d1)
+        set_individual_traits
       ]
 
       set has_reproduced 1
@@ -466,17 +470,7 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set noise_midpoint random-normal 0 sqrt(VR_midpoint)
         ;; draw residual noise
 
-        set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
-        set slope genotype_slope + noise_slope
-        set midpoint genotype_midpoint + noise_midpoint
-
-        ;; set "secondary" traits
-        set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
-        set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
-        set dK dmax / (1 + exp (- slope * (1 - midpoint)))
-        set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0)
-        set avgslope1_K (dK - d1)
+        set_individual_traits
       ]
       set has_reproduced 1
     ]
@@ -512,6 +506,10 @@ to reset_summaries
   set mean_maxslope -999
   set mean_avgslope0_K -999
   set mean_avgslope1_K -999
+  set mean_relslope0_K -999
+  set mean_relslope1_K -999
+  set mean_uncond0_K -999
+  set mean_uncond1_K -999
 
   set var_dmax -999
   set var_midpoint -999
@@ -523,6 +521,10 @@ to reset_summaries
   set var_maxslope -999
   set var_avgslope0_K -999
   set var_avgslope1_K -999
+  set var_relslope0_K -999
+  set var_relslope1_K -999
+  set var_uncond0_K -999
+  set var_uncond1_K -999
 
   set N_disp_dead 0
   set N_allele0_pre 0
@@ -558,6 +560,10 @@ to update_summaries_means
   set mean_maxslope mean ([maxslope] of turtles-here)
   set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
   set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
+  set mean_relslope0_K mean ([relslope0_K] of turtles-here)
+  set mean_relslope1_K mean ([relslope1_K] of turtles-here)
+  set mean_uncond0_K mean ([uncond0_K] of turtles-here)
+  set mean_uncond1_K mean ([uncond1_K] of turtles-here)
 end
 
 to update_summaries_variances
@@ -579,6 +585,10 @@ to update_summaries_variances
   set var_maxslope variance ([maxslope] of turtles-here)
   set var_avgslope0_K variance ([avgslope0_K] of turtles-here)
   set var_avgslope1_K variance ([avgslope1_K] of turtles-here)
+  set var_relslope0_K variance ([relslope0_K] of turtles-here)
+  set var_relslope1_K variance ([relslope1_K] of turtles-here)
+  set var_uncond0_K variance ([uncond0_K] of turtles-here)
+  set var_uncond1_K variance ([uncond1_K] of turtles-here)
 
 end
 

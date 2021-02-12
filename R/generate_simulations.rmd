@@ -104,9 +104,13 @@ nl_object@experiment <- experiment(
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_d1","mean_dK",
                       "mean_maxslope","mean_avgslope0_K","mean_avgslope1_K",
+                      "mean_relslope0_K","mean_relslope1_K",
+                      "mean_uncond0_K","mean_uncond1_K",
                       "var_dmax","var_slope","var_midpoint",
                       "var_d0","var_d1","var_dK",
-                      "var_maxslope","var_avgslope0_K","var_avgslope1_K"),
+                      "var_maxslope","var_avgslope0_K","var_avgslope1_K",
+                      "var_relslope0_K","var_relslope1_K",
+                      "var_uncond0_K","var_uncond1_K"),
   constants = list(
     "duration" = duration
   ),
