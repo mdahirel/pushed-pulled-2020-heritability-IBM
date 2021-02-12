@@ -46,10 +46,12 @@ turtles-own[
   d1                      ;; dispersal probability at N = 1
   dK                      ;; dispersal probability at N = K
   maxslope                ;; maximal absolute slope (ie slope at the inflection point)
-  avgslope0_K             ;; absolute slope over the range 0-K
-  avgslope1_K             ;; same over the range 1-K
-  relslope0_K             ;; same but expressed in proportion of dmax
-  relslope1_K             ;;
+  slopeA_0_K             ;; absolute slope over the range 0-K
+  slopeA_1_K             ;; same over the range 1-K
+  slopeR_0_K             ;; same but expressed in proportion of dmax
+  slopeR_1_K             ;;
+  slopeA_0_avg           ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
+  slopeA_1_avg           ;;
   uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over the range (!= dmax)
   uncond1_K               ;; same over range 1-K
 
@@ -123,14 +125,18 @@ patches-own [
   var_dK
   mean_maxslope              ;; maximal absolute slope (ie slope at the inflection point)
   var_maxslope
-  mean_avgslope0_K           ;; average absolute slope over the range 0-K
-  var_avgslope0_K
-  mean_avgslope1_K           ;; average absolute slope over the range 1-K
-  var_avgslope1_K
-  mean_relslope0_K           ;;
-  var_relslope0_K
-  mean_relslope1_K           ;;
-  var_relslope1_K
+  mean_slopeA_0_K           ;; average absolute slope over the range 0-K
+  var_slopeA_0_K
+  mean_slopeA_1_K           ;; average absolute slope over the range 1-K
+  var_slopeA_1_K
+  mean_slopeA_0_avg           ;;
+  var_slopeA_0_avg
+  mean_slopeA_1_avg           ;;
+  var_slopeA_1_avg
+  mean_slopeR_0_K           ;;
+  var_slopeR_0_K
+  mean_slopeR_1_K           ;;
+  var_slopeR_1_K
   mean_uncond0_K             ;;
   var_uncond0_K
   mean_uncond1_K             ;;
@@ -237,10 +243,10 @@ to set_individual_traits
         set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set maxslope (slope * dmax ) / 4
-        set avgslope0_K (dK - d0)
-        set avgslope1_K (dK - d1)
-        set relslope0_K avgslope0_K / dmax
-        set relslope1_K avgslope1_K / dmax
+        set slopeA_0_K (dK - d0)
+        set slopeA_1_K (dK - d1)
+        set slopeR_0_K slopeA_0_K / dmax
+        set slopeR_1_K slopeA_1_K / dmax
 
         let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
         set uncond0_K mean (X0) / max (list d0 dK)
@@ -248,6 +254,8 @@ to set_individual_traits
         let X1 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range (1 / K) (1.01 + (1 / K)) 0.1)
         set uncond1_K mean (X1) / max (list d1 dK)
 
+        set slopeA_0_avg mean (x0) - d0
+        set slopeA_1_avg mean (x1) - d1
 
 end
 
@@ -504,10 +512,12 @@ to reset_summaries
   set mean_d1 -999
   set mean_dK -999
   set mean_maxslope -999
-  set mean_avgslope0_K -999
-  set mean_avgslope1_K -999
-  set mean_relslope0_K -999
-  set mean_relslope1_K -999
+  set mean_slopeA_0_K -999
+  set mean_slopeA_1_K -999
+  set mean_slopeA_0_avg -999
+  set mean_slopeA_1_avg -999
+  set mean_slopeR_0_K -999
+  set mean_slopeR_1_K -999
   set mean_uncond0_K -999
   set mean_uncond1_K -999
 
@@ -519,10 +529,12 @@ to reset_summaries
   set var_d1 -999
   set var_dK -999
   set var_maxslope -999
-  set var_avgslope0_K -999
-  set var_avgslope1_K -999
-  set var_relslope0_K -999
-  set var_relslope1_K -999
+  set var_slopeA_0_K -999
+  set var_slopeA_1_K -999
+  set var_slopeA_0_avg -999
+  set var_slopeA_1_avg -999
+  set var_slopeR_0_K -999
+  set var_slopeR_1_K -999
   set var_uncond0_K -999
   set var_uncond1_K -999
 
@@ -558,10 +570,12 @@ to update_summaries_means
   set mean_d1 mean ([d1] of turtles-here)
   set mean_dK mean ([dK] of turtles-here)
   set mean_maxslope mean ([maxslope] of turtles-here)
-  set mean_avgslope0_K mean ([avgslope0_K] of turtles-here)
-  set mean_avgslope1_K mean ([avgslope1_K] of turtles-here)
-  set mean_relslope0_K mean ([relslope0_K] of turtles-here)
-  set mean_relslope1_K mean ([relslope1_K] of turtles-here)
+  set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
+  set mean_slopeA_1_K mean ([slopeA_1_K] of turtles-here)
+  set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
+  set mean_slopeA_1_avg mean ([slopeA_1_avg] of turtles-here)
+  set mean_slopeR_0_K mean ([slopeR_0_K] of turtles-here)
+  set mean_slopeR_1_K mean ([slopeR_1_K] of turtles-here)
   set mean_uncond0_K mean ([uncond0_K] of turtles-here)
   set mean_uncond1_K mean ([uncond1_K] of turtles-here)
 end
@@ -583,10 +597,12 @@ to update_summaries_variances
   set var_d1 variance ([d1] of turtles-here)
   set var_dK variance ([dK] of turtles-here)
   set var_maxslope variance ([maxslope] of turtles-here)
-  set var_avgslope0_K variance ([avgslope0_K] of turtles-here)
-  set var_avgslope1_K variance ([avgslope1_K] of turtles-here)
-  set var_relslope0_K variance ([relslope0_K] of turtles-here)
-  set var_relslope1_K variance ([relslope1_K] of turtles-here)
+  set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
+  set var_slopeA_1_K variance ([slopeA_1_K] of turtles-here)
+  set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
+  set var_slopeA_1_avg variance ([slopeA_1_avg] of turtles-here)
+  set var_slopeR_0_K variance ([slopeR_0_K] of turtles-here)
+  set var_slopeR_1_K variance ([slopeR_1_K] of turtles-here)
   set var_uncond0_K variance ([uncond0_K] of turtles-here)
   set var_uncond1_K variance ([uncond1_K] of turtles-here)
 
