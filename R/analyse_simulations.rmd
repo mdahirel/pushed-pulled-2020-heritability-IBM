@@ -72,17 +72,17 @@ test<-data %>%
                               "h",heritability)))
 
 
-mod=glm(cbind(front,ticks-front)~(scale(mean_d0)+scale(mean_avgslope0_K))*mortality,family=binomial,data=test)
+mod=glm(cbind(front,ticks-front)~(scale(mean_d0)+scale(mean_slopeA_0_K))*mortality,family=binomial,data=test)
 ## very basic: ignore possible effects of sources of variances
 
-mod_div=glm(cbind(front_lag,front-front_lag)~(scale(mean_d0)+scale(mean_avgslope0_K))*mortality,family=binomial,data=test)
+mod_div=glm(cbind(front_lag,front-front_lag)~(scale(mean_d0)+scale(mean_slopeA_0_K))*mortality,family=binomial,data=test)
 ## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
 
 #gam version?
-mod=gam(cbind(front,ticks-front)~s(mean_d0, by = mortality,k=10)+s(mean_avgslope0_K,by=mortality,k=10)+mortality,
+mod=gam(cbind(front,ticks-front)~s(mean_d0, by = mortality,k=10)+s(mean_slopeA_0_avg,by=mortality,k=10)+mortality,
         family=binomial,data=test,method="REML")
 
-mod_div=gam(cbind(front_lag_100,front_100-front_lag_100)~s(mean_d0_100, by = mortality)+s(mean_avgslope0_K_100,by=mortality)+mortality,
+mod_div=gam(cbind(front_lag,front_100-front_lag)~s(mean_d0, by = mortality)+s(mean_slopeA_0_K,by=mortality)+mortality,
         family=binomial,data=test,method="REML")
 
 gam.check(mod) #
@@ -90,7 +90,7 @@ draw(mod)
 appraise(mod)
 
 # bayesian versions (use penalising priors? spike and slab?)
-mod=brm(front|trials(ticks)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
+mod=brm(front|trials(ticks)~ (scale(mean_d0)+scale(mean_slopeA_0_K))*mortality,
         data=test,family=binomial,
         chains=4,iter=2000,warmup=1000,
         prior=c(set_prior("normal(0,1)",class="Intercept"),
@@ -99,7 +99,7 @@ mod=brm(front|trials(ticks)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mo
 
 
 
-mod_div=brm(front_lag_100|trials(front_100)~ (scale(mean_d0_100)+scale(mean_avgslope0_K_100))*mortality,
+mod_div=brm(front_lag|trials(front)~ (scale(mean_d0_100)+scale(mean_slopeA_0_K))*mortality,
         data=test,family=binomial,
         chains=4,iter=2000,warmup=1000,
         prior=c(set_prior("normal(0,1)",class="Intercept"),
@@ -153,15 +153,15 @@ test2<-data %>%
   filter(pxcor == present_front - 5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
   filter(ticks==120) %>% 
   select(is.VP_DDD,is.VP_dmax,
-         mean_avgslope0_K,
+         mean_slopeA_0_K, mean_uncond0_K,
          VP_slope,VP_midpoint,VP_logit_dmax,mean_dmax,mean_slope,mean_midpoint,mean_d0,mean_dK,
          dispersal_mortality,
          heritability,
          replicateID,seedID,
          slope_start,midpoint_start) %>%  
-  mutate(rnorm_slope_start=map2(.x=slope_start,.y=sqrt(VP_slope),.f=~rnorm(10000,.x,.y))) %>% 
-  mutate(rnorm_midpoint_start=map2(.x=midpoint_start,.y=sqrt(VP_midpoint),.f=~rnorm(10000,.x,.y))) %>% 
-  mutate(rnorm_dmax_start=map2(.x=0,.y=sqrt(VP_logit_dmax),.f=~rnorm(10000,.x,.y) %>% invlogit())) %>% 
+  mutate(rnorm_slope_start=map2(.x=slope_start,.y=sqrt(VP_slope),.f=~rnorm(1000,.x,.y))) %>% 
+  mutate(rnorm_midpoint_start=map2(.x=midpoint_start,.y=sqrt(VP_midpoint),.f=~rnorm(1000,.x,.y))) %>% 
+  mutate(rnorm_dmax_start=map2(.x=0,.y=sqrt(VP_logit_dmax),.f=~rnorm(1000,.x,.y) %>% invlogit())) %>% 
   mutate(rnorm_function_start0=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
                                     .f=function(.x,.y){
                                       1/(1+exp(-.x*(0-.y)))
@@ -178,44 +178,40 @@ test2<-data %>%
                                     .f=function(.x,.y){
                                       .x*.y
                                     })) %>% 
-  mutate(start_avgslope=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
+  mutate(start_slopeA_0_K=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
                              .f=function(.x,.y){
                                mean((.x-.y)) ##arrange to keep K and code it correctly
                              })) %>% 
-  mutate(start_integral=map2(.x=slope_start,.y=midpoint_start,
-                             .f=function(.x,.y){integrate(f=function(N){1/(1+exp(-.x*(N-.y)))},0,1)$value})) %>% 
-  mutate(mean_integral=map2(.x=mean_slope,.y=mean_midpoint,
-                             .f=function(.x,.y){integrate(f=function(N){1/(1+exp(-.x*(N-.y)))},0,1)$value})) %>%
-  mutate(start_max0_K = map2(.x=rnorm_function_start0,.y=rnorm_function_startK,
+  mutate(start_uncond0_K=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
                              .f=function(.x,.y){
-                               a<- mean(.x/0.5)
-                               b<- mean(.y/0.5)
-                               return(max(a,b))
-                             })) %>% 
-  mutate(mean_max0_K = map2(.x=mean_d0/mean_dmax,.y=mean_dK/mean_dmax,
-                             .f=function(.x,.y){
-                               max(.x,.y)
-                             })) %>% 
-  unnest(c(start_avgslope,start_integral,mean_integral,start_max0_K,mean_max0_K)) %>%
-  mutate(start_unconditional=start_integral/start_max0_K,
-         mean_unconditional=mean_integral/mean_max0_K) %>% 
-  mutate(start_avgslope=start_avgslope,
-         mean_avgslope0_K=mean_avgslope0_K)
-### the unconditionalness index is very very far from perfect (problems with means of means? how to solve) but contains the right idea
-### move all the start pars you can to globals in the NL model
-#-> d0/dmax, dK/dmax, max(the last two),dhalfK/last one, mean(start_avgslope)
-# AND mean_avgslope, but standardized by dmax
+                               N<-matrix(seq(0,1,0.1),ncol=11,nrow=1000,byrow=TRUE)
+                               1/(1+exp(-.x*(N-.y)))}
+                             ))  %>% 
+  mutate(start_uncond0_K=map2(.x=rnorm_dmax_start,.y=start_uncond0_K,
+                              .f=function(.x,.y){
+                                a=.x*.y
+                                return(mean(rowMeans(a)/rowMaxs(a)))
+                              })) %>% 
+  unnest(c(start_slopeA_0_K,start_uncond0_K))
 
 
- 
   ggplot(test2)+
   geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(start_avgslope,mean_avgslope0_K))+
-  geom_smooth(aes(start_avgslope,mean_avgslope0_K),method="lm")+
+  geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K))+
+  geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="lm")+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                        cols=vars(heritability,is.VP_DDD))+ 
   scale_x_continuous("original mean absolute slope",limits = c(-1,1))+
   scale_y_continuous("final mean absolute slope",limits = c(-1,1))
+  
+  ggplot(test2)+
+  geom_abline(intercept = 0,slope=1,lty=2)+
+  geom_point(aes(start_uncond0_K,mean_uncond0_K))+
+  geom_smooth(aes(start_uncond0_K,mean_uncond0_K),method="lm")+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+ 
+  scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
+  scale_y_continuous("final mean unconditionality index",limits = c(0,1.1))
 ```
 
 
