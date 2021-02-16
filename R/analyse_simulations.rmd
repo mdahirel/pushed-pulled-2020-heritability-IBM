@@ -243,7 +243,17 @@ ggplot(test2)+
   scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
   scale_y_continuous("final mean unconditionality index",limits = c(0,1.1))
   
-
+#using the last patch populated 
+  ggplot(test2)+
+  geom_hline(yintercept = 0.5,lty=2)+
+  geom_point(aes(start_slopeA_0_K,N_predispersal))+
+  geom_smooth(aes(start_slopeA_0_K,N_predispersal),method="glm",method.args = list(family = "poisson"))+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))
+  
+  
+  ## you can use the patterns in the no-evol panel to show that even in absence of evol, DDD+ leads to higher mean pop at frot predisp
+  ## whch is the pattern that could favour the maintenance of DDD+ when evol
 ```
 
 
