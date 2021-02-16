@@ -152,16 +152,17 @@ test2<-data %>%
   mutate(is.evo=as.numeric(heritability>0)) %>% 
   filter(pxcor == present_front - 5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
   filter(ticks==120) %>% 
-  select(is.VP_DDD,is.VP_dmax,
+  select(is.VP_DDD,is.VP_dmax,mean_slopeA_0_avg,
          mean_slopeA_0_K, mean_uncond0_K,
          VP_slope,VP_midpoint,VP_logit_dmax,mean_dmax,mean_slope,mean_midpoint,mean_d0,mean_dK,
-         dispersal_mortality,
+         dispersal_mortality,N_predispersal,
          heritability,
          replicateID,seedID,
          slope_start,midpoint_start) %>%  
   mutate(rnorm_slope_start=map2(.x=slope_start,.y=sqrt(VP_slope),.f=~rnorm(1000,.x,.y))) %>% 
   mutate(rnorm_midpoint_start=map2(.x=midpoint_start,.y=sqrt(VP_midpoint),.f=~rnorm(1000,.x,.y))) %>% 
   mutate(rnorm_dmax_start=map2(.x=0,.y=sqrt(VP_logit_dmax),.f=~rnorm(1000,.x,.y) %>% invlogit())) %>% 
+  mutate(mean_dmax_start=map(.x=rnorm_dmax_start,.f=~.x %>% mean())) %>% 
   mutate(rnorm_function_start0=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
                                     .f=function(.x,.y){
                                       1/(1+exp(-.x*(0-.y)))
@@ -182,36 +183,67 @@ test2<-data %>%
                              .f=function(.x,.y){
                                mean((.x-.y)) ##arrange to keep K and code it correctly
                              })) %>% 
-  mutate(start_uncond0_K=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
+    mutate(start_slopeA_0_K_lower=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
+                             .f=function(.x,.y){
+                               quantile((.x-.y),0.025) ##arrange to keep K and code it correctly
+                             })) %>% 
+    mutate(start_slopeA_0_K_upper=map2(.x=rnorm_function_startK,.y=rnorm_function_start0,
+                             .f=function(.x,.y){
+                               quantile((.x-.y),0.975) ##arrange to keep K and code it correctly
+                             })) %>% 
+  mutate(start_avgdisp_std=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
                              .f=function(.x,.y){
                                N<-matrix(seq(0,1,0.1),ncol=11,nrow=1000,byrow=TRUE)
-                               1/(1+exp(-.x*(N-.y)))}
+                               a<-1/(1+exp(-.x*(N-.y)))}
                              ))  %>% 
-  mutate(start_uncond0_K=map2(.x=rnorm_dmax_start,.y=start_uncond0_K,
-                              .f=function(.x,.y){
-                                a=.x*.y
-                                return(mean(rowMeans(a)/rowMaxs(a)))
+  mutate(start_avgdisp=map2(.x=rnorm_dmax_start,.y=start_avgdisp_std,
+                             .f=function(.x,.y){
+                               .x*.y}
+                             ))  %>% 
+  mutate(start_slopeA_0_avg=map2(.x=start_avgdisp,.y=rnorm_function_start0,
+                             .f=function(.x,.y){
+                               mean((.x-.y)) ##arrange to keep K and code it correctly
+                             })) %>% 
+  mutate(start_uncond0_K=map(.x=start_avgdisp_std,
+                              .f=function(.x){
+                                return(mean(rowMeans(.x)/rowMaxs(.x)))
                               })) %>% 
-  unnest(c(start_slopeA_0_K,start_uncond0_K))
+    mutate(start_uncond0_K_lower=map(.x=start_avgdisp_std,
+                              .f=function(.x){
+                                return(quantile(rowMeans(.x)/rowMaxs(.x),0.025))
+                              })) %>% 
+    mutate(start_uncond0_K_upper=map(.x=start_avgdisp_std,
+                              .f=function(.x){
+                                return(quantile(rowMeans(.x)/rowMaxs(.x),0.975))
+                              })) %>% 
+  unnest(c(start_slopeA_0_K,start_uncond0_K,start_slopeA_0_avg,mean_dmax_start,
+           start_slopeA_0_K_upper,start_slopeA_0_K_lower,start_uncond0_K_upper,start_uncond0_K_lower))
 
 
-  ggplot(test2)+
-  geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K))+
-  geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="lm")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("original mean absolute slope",limits = c(-1,1))+
-  scale_y_continuous("final mean absolute slope",limits = c(-1,1))
-  
+ggplot(test2)+
+    geom_abline(intercept = 0,slope=1,lty=2)+
+    geom_hline(yintercept = 0, lty=2)+
+    geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K))+
+    geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="lm")+
+  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_upper),col="red")+
+  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_lower),col="red")+
+    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))+ 
+    scale_x_continuous("original mean absolute slope",limits = c(-1,1))+
+    scale_y_continuous("final mean absolute slope",limits = c(-1,1))
+
   ggplot(test2)+
   geom_abline(intercept = 0,slope=1,lty=2)+
   geom_point(aes(start_uncond0_K,mean_uncond0_K))+
   geom_smooth(aes(start_uncond0_K,mean_uncond0_K),method="lm")+
+    geom_line(aes(start_uncond0_K,start_uncond0_K_upper),col="red")+
+  geom_line(aes(start_uncond0_K,start_uncond0_K_lower),col="red")+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                        cols=vars(heritability,is.VP_DDD))+ 
   scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
   scale_y_continuous("final mean unconditionality index",limits = c(0,1.1))
+  
+
 ```
 
 
