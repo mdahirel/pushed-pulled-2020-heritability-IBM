@@ -34,8 +34,8 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 
 ```{r general-information}
 ####
-NLPATH <- "C:/Program Files/NetLogo 6.1.1" # change as needed
-NLVERSION <- "6.1.1" # change as needed
+NLPATH <- "C:/Program Files/NetLogo 6.2.0" # change as needed
+NLVERSION <- "6.2.0" # change as needed
 nreplicates <- 20
 duration <- 120 #100
 ```
