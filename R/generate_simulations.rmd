@@ -17,11 +17,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(nlrx)
-library(arm)
+library(nlrx)     
+library(arm)      
 library(tidyverse)
-library(cowplot)
-library(here)
+library(cowplot)  
+library(here)     
 ```
 
 # Introduction
@@ -176,3 +176,4 @@ write_csv(tab, file = here("NetLogo_output","model-output.csv"))
 ```
 
 We can now use the `ibm-analysis` scripts to analyse the model outputs.
+
