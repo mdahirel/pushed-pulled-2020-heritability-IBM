@@ -176,6 +176,18 @@ dynamic_data120<-data %>%
   distinct()
   
 tab<-left_join(dynamic_data120,trait_data100)
+
+
+ggplot(tab) +
+  geom_point(aes(x=front100/100,y=(front-front100)/20))+
+  geom_abline(intercept=0,slope=1) +
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))
+## add something about the binomial confidence interval for N=20??
+## any deviation smaller than that can be chalked to the general stochasticity
+## rather than evolution not done or velocity convergence not finished
+
+
   
 mod=glm(cbind((front-front100),20-(front-front100))~(scale(mean_d0)+scale(mean_slopeA_0_avg))*mortality,family=binomial,data=tab)
 ## very basic: ignore possible effects of sources of variances
@@ -279,8 +291,8 @@ tab2 <- tab %>%
 ggplot(tab2)+
     geom_abline(intercept = 0,slope=1,lty=2)+
     geom_hline(yintercept = 0, lty=2)+
-    geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K))+
-    geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="lm")+
+    geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K),col="grey")+
+    geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="gam",formula = y ~ s(x, bs = "cs",k=6))+
   geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_upper),col="red")+
   geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_lower),col="red")+
     facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
@@ -290,8 +302,8 @@ ggplot(tab2)+
 
   ggplot(tab2)+
   geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(start_uncond0_K,mean_uncond0_K))+
-  geom_smooth(aes(start_uncond0_K,mean_uncond0_K),method="lm")+
+  geom_point(aes(start_uncond0_K,mean_uncond0_K),col="grey")+
+  geom_smooth(aes(start_uncond0_K,mean_uncond0_K),method="gam",formula = y ~ s(x, bs = "cs",k=6))+
     geom_line(aes(start_uncond0_K,start_uncond0_K_upper),col="red")+
   geom_line(aes(start_uncond0_K,start_uncond0_K_lower),col="red")+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
@@ -301,8 +313,8 @@ ggplot(tab2)+
   
    ggplot(tab2)+
   geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(mean_d0_start,mean_d0))+
-  geom_smooth(aes(mean_d0_start,mean_d0),method="lm")+
+  geom_point(aes(mean_d0_start,mean_d0),col="grey")+
+  geom_smooth(aes(mean_d0_start,mean_d0))+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                        cols=vars(heritability,is.VP_DDD))+ 
   scale_x_continuous("original mean d0",limits = c(0,1.1))+
