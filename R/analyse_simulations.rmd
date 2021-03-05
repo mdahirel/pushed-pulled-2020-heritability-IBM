@@ -178,16 +178,27 @@ dynamic_data120<-data %>%
 tab<-left_join(dynamic_data120,trait_data100)
 
 
-ggplot(tab) +
-  geom_point(aes(x=front100/100,y=(front-front100)/20))+
-  geom_abline(intercept=0,slope=1) +
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))
+
 ## add something about the binomial confidence interval for N=20??
 ## any deviation smaller than that can be chalked to the general stochasticity
 ## rather than evolution not done or velocity convergence not finished
-
-
+tab %>% 
+  mutate(speed100=front100/100,
+         Npatch=front-front100) %>% 
+  filter(is.na(Npatch)==FALSE) %>% ####WHY NAS? examine
+  mutate(p_null=map2(.x=speed100,.y=round(speed100*20),
+                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$null.value}),
+         p_upper=map2(.x=speed100,.y=round(speed100*20),
+                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$conf.int[2]}),
+         p_lower=map2(.x=speed100,.y=round(speed100*20),
+                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$conf.int[1]})) %>% 
+  unnest(c(p_null,p_upper,p_lower)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_point(aes(x=speed100,y=Npatch/20))+
+  geom_line(aes(x=speed100,y=p_upper),col="red")+
+  geom_line(aes(x=speed100,y=p_lower),col="blue")+
+  geom_abline(intercept=0,slope=1)
   
 mod=glm(cbind((front-front100),20-(front-front100))~(scale(mean_d0)+scale(mean_slopeA_0_avg))*mortality,family=binomial,data=tab)
 ## very basic: ignore possible effects of sources of variances
@@ -320,7 +331,33 @@ ggplot(tab2)+
   scale_x_continuous("original mean d0",limits = c(0,1.1))+
   scale_y_continuous("final mean d0",limits = c(0,1.1))
    
+  ggplot(tab2)+
+  geom_segment(aes(xend=start_uncond0_K,yend=start_slopeA_0_avg,
+                   x=mean_uncond0_K,y=mean_slopeA_0_avg),col="grey80",alpha=0.5)+
+  geom_point(aes(mean_uncond0_K,mean_slopeA_0_avg),col="grey")+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+ 
+  scale_x_continuous("unconditionality index")+
+  scale_y_continuous("slope")
   
+ggplot(tab2)+
+  geom_segment(aes(xend=mean_d0_start,yend=start_slopeA_0_avg,
+                   x=mean_d0,y=mean_slopeA_0_avg),col="grey80",alpha=0.5)+
+  geom_point(aes(mean_d0,mean_slopeA_0_avg),col="grey")+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+ 
+  scale_x_continuous("d0")+
+  scale_y_continuous("slope")
+
+
+ggplot(tab2)+
+  geom_segment(aes(xend=mean_d0_start,yend=start_uncond0_K,
+                   x=mean_d0,y=mean_uncond0_K),col="grey80",alpha=0.5)+
+  geom_point(aes(mean_d0,mean_uncond0_K),col="grey")+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+ 
+  scale_x_continuous("d0")+
+  scale_y_continuous("uncond")
   
   ggplot(tab2)+
     geom_hline(yintercept = 0.5, lty=2)+
