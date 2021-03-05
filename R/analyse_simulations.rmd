@@ -152,7 +152,7 @@ if convergence at g100, then we can make the following assumptions
 trait_data100<-data %>% 
   filter(ticks==100 & pxcor == present_front-5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
   select(replicateID,
-         mean_d0,mean_slopeA_0_avg,mean_slopeA_0_K,mean_slopeA_1_K,mean_slopeA_1_avg,
+         mean_d0,mean_slopeA_0_avg,mean_slopeA_0_K,mean_slopeA_1_K,mean_slopeA_1_avg,mean_dmax,
          mean_uncond0_K,mean_uncond1_K,front100=present_front)
 ##why is it less than 5400?? investigate
 
@@ -226,6 +226,7 @@ tab2 <- tab %>%
                                     .f=function(.x,.y){
                                       .x*.y
                                     }))%>% 
+  mutate(mean_d0_start=map(.x=rnorm_function_start0,.f=~.x %>% mean())) %>% 
   mutate(rnorm_function_startK=map2(.x=rnorm_slope_start,.y=rnorm_midpoint_start,
                                     .f=function(.x,.y){
                                       1/(1+exp(-.x*(1-.y)))
@@ -271,7 +272,7 @@ tab2 <- tab %>%
                               .f=function(.x){
                                 return(quantile(rowMeans(.x)/rowMaxs(.x),0.975))
                               })) %>% 
-  unnest(c(start_slopeA_0_K,start_uncond0_K,start_slopeA_0_avg,mean_dmax_start,
+  unnest(c(start_slopeA_0_K,start_uncond0_K,start_slopeA_0_avg,mean_dmax_start,mean_d0_start,
            start_slopeA_0_K_upper,start_slopeA_0_K_lower,start_uncond0_K_upper,start_uncond0_K_lower))
 
 
@@ -298,6 +299,26 @@ ggplot(tab2)+
   scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
   scale_y_continuous("final mean unconditionality index",limits = c(0,1.1))
   
+   ggplot(tab2)+
+  geom_abline(intercept = 0,slope=1,lty=2)+
+  geom_point(aes(mean_d0_start,mean_d0))+
+  geom_smooth(aes(mean_d0_start,mean_d0),method="lm")+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+                       cols=vars(heritability,is.VP_DDD))+ 
+  scale_x_continuous("original mean d0",limits = c(0,1.1))+
+  scale_y_continuous("final mean d0",limits = c(0,1.1))
+   
+  
+  
+  ggplot(tab2)+
+    geom_hline(yintercept = 0.5, lty=2)+
+    geom_boxplot(aes(y=mean_dmax))+
+    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))+ 
+    scale_x_discrete("")+
+    scale_y_continuous("final mean dmax",limits = c(0,1))
+
+  
 #using the last patch populated 
 #  ggplot(test2)+
 #  geom_hline(yintercept = 0.5,lty=2)+
@@ -321,7 +342,7 @@ tab3<-tab2 %>%
                      "h2",heritability)) %>% 
   select(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,
          mean_slopeA_0_avg,start_slopeA_0_avg,
-         mean_uncond0_K,start_uncond0_K) %>% 
+         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_dmax_start,mean_d0,mean_d0_start) %>% 
   group_by(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability) %>% 
   nest() %>% 
   mutate(lm_ddd=map(.x=data,.f=~lm(mean_slopeA_0_avg~start_slopeA_0_avg,data=.x))) %>% 
@@ -337,9 +358,23 @@ tab3<-tab2 %>%
          slope_uncond_se=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[2,"Std. Error"]}),
          int_uncond=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
          int_uncond_se=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
+         ) %>%   
+  mutate(lm_d0=map(.x=data,.f=~lm(mean_d0~mean_d0_start,data=.x))) %>% 
+  mutate(sigma_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$sigma}),
+         slope_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[2,"Estimate"]}),
+         slope_d0_se=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[2,"Std. Error"]}),
+         int_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
+         int_d0_se=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
          ) %>% 
+  mutate(lm_dmax=map(.x=data,.f=~lm(mean_dmax~1,data=.x))) %>% 
+  mutate(sigma_dmax=map(.x=lm_dmax,.f=function(.x){summary(.x)$sigma}),
+         int_dmax=map(.x=lm_dmax,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
+         int_dmax_se=map(.x=lm_dmax,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
+         ) %>%  
   unnest(c(sigma_ddd,slope_ddd,slope_ddd_se,int_ddd,int_ddd_se,
-           sigma_uncond,slope_uncond,slope_uncond_se,int_uncond,int_uncond_se)) %>% 
+           sigma_uncond,slope_uncond,slope_uncond_se,int_uncond,int_uncond_se,
+           sigma_d0,slope_d0,slope_d0_se,int_d0,int_d0_se,
+           sigma_dmax,int_dmax,int_dmax_se)) %>% 
   mutate(VP_source=case_when(is.VP_dmax==0 & is.VP_DDD==0~"none",
                              is.VP_dmax==1 & is.VP_DDD==0~"dmax only",
                              is.VP_dmax==0 & is.VP_DDD==1~"DDD only",
@@ -347,7 +382,7 @@ tab3<-tab2 %>%
   ungroup()
   
 #### plot for DDD
-ggplot(tab3)+
+p1<-ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_ddd,
                          ymin=slope_ddd-2*slope_ddd_se,ymax=slope_ddd+2*slope_ddd_se,
                    col=VP_source),position = position_dodge(width=0.25),point_size=2)+
@@ -357,7 +392,7 @@ ggplot(tab3)+
   facet_wrap(~heritability)+
   coord_cartesian(ylim=c(0,2.5))
 
-ggplot(tab3)+
+p2<-ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_ddd,
                          ymin=int_ddd-2*int_ddd_se,ymax=int_ddd+2*int_ddd_se,
                    col=VP_source),position = position_dodge(width=0.25),point_size=2)+
@@ -367,16 +402,18 @@ ggplot(tab3)+
   facet_wrap(~heritability)+
   coord_cartesian(ylim=c(-0.25,0.25))
 
-ggplot(tab3)+
+
+p3<-ggplot(tab3)+
   geom_point(aes(x=factor(dispersal_mortality),y=sigma_ddd,col=VP_source),size=2,position = position_dodge(width=0.25))+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_ddd,
                    col=VP_source),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
   facet_wrap(~heritability)
 
+p1/p2/p3
 ### same plots for uncondition
 
-ggplot(tab3)+
+p1<-ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_uncond,
                          ymin=slope_uncond-2*slope_uncond_se,ymax=slope_uncond+2*slope_uncond_se,
                    col=VP_source),position = position_dodge(width=0.25),point_size=2)+
@@ -386,7 +423,7 @@ ggplot(tab3)+
   facet_wrap(~heritability)+
   coord_cartesian(ylim=c(0,2.5))
 
-ggplot(tab3)+
+p2<-ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_uncond,
                          ymin=int_uncond-2*int_uncond_se,ymax=int_uncond+2*int_uncond_se,
                    col=VP_source),position = position_dodge(width=0.25),point_size=2)+
@@ -396,12 +433,63 @@ ggplot(tab3)+
   facet_wrap(~heritability)+
   coord_cartesian(ylim=c(0,1))
 
-ggplot(tab3)+
+p3<-ggplot(tab3)+
   geom_point(aes(x=factor(dispersal_mortality),y=sigma_uncond,col=VP_source),size=2,position = position_dodge(width=0.25))+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_uncond,
                    col=VP_source),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
   facet_wrap(~heritability)
+p1/p2/p3
+### same plots for d0
+
+p1<-ggplot(tab3)+
+  geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_d0,
+                         ymin=slope_d0-2*slope_d0_se,ymax=slope_d0+2*slope_d0_se,
+                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_d0,
+                   col=VP_source),position = position_dodge(width=0.25))+
+  geom_hline(yintercept=1,lty=2)+
+  facet_wrap(~heritability)+
+  coord_cartesian(ylim=c(0,3))
+
+p2<-ggplot(tab3)+
+  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_d0,
+                         ymin=int_d0-2*int_d0_se,ymax=int_d0+2*int_d0_se,
+                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_d0,
+                   col=VP_source),position = position_dodge(width=0.25))+
+  geom_hline(yintercept=0,lty=2)+
+  facet_wrap(~heritability)+
+  coord_cartesian(ylim=c(-1,1))
+
+p3<-ggplot(tab3)+
+  geom_point(aes(x=factor(dispersal_mortality),y=sigma_d0,col=VP_source),size=2,position = position_dodge(width=0.25))+
+  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_d0,
+                   col=VP_source),position = position_dodge(width=0.25))+
+  geom_hline(yintercept=0,lty=2)+
+  facet_wrap(~heritability)
+p1/p2/p3
+####same for dmax
+
+p1<-ggplot(tab3)+
+  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_dmax,
+                         ymin=int_dmax-2*int_dmax_se,ymax=int_dmax+2*int_dmax_se,
+                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_dmax,
+                   col=VP_source),position = position_dodge(width=0.25))+
+  geom_hline(yintercept=0,lty=2)+
+  facet_wrap(~heritability)+
+  coord_cartesian(ylim=c(-1,1))
+
+p2<-ggplot(tab3)+
+  geom_point(aes(x=factor(dispersal_mortality),y=sigma_dmax,col=VP_source),size=2,position = position_dodge(width=0.25))+
+  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_dmax,
+                   col=VP_source),position = position_dodge(width=0.25))+
+  geom_hline(yintercept=0,lty=2)+
+  facet_wrap(~heritability)
+
+p1/p2
+
 ```
 
 the more a trait is heritable the mor eunconditional the dispfunc becomes, and the stronger the slope becomes
@@ -449,5 +537,20 @@ can't look at the dispersal function, since N at the edge varies bw types, need 
 
 mmm... mayyyybe? but very dependent on what pxcor we whoose (front-1, front -2...), because N varies quickly. potentially interesting to look at d=f(distance from front)
 
+```{r}
+tab4<-tab2 %>% 
+  mutate(panel=paste("mort",dispersal_mortality,
+                     "vp_dmax",is.VP_dmax,
+                     "vp_ddd",is.VP_DDD,
+                     "h2",heritability)) %>% 
+  select(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,
+         mean_slopeA_0_avg,start_slopeA_0_avg,
+         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_d0,mean_d0_start) %>% 
+  mutate(dev_slope=mean_slopeA_0_avg-start_slopeA_0_avg,
+         dev_uncond=mean_uncond0_K-start_uncond0_K,
+         dev_d0=mean_d0-mean_d0_start)
+
+cor(tab4[,c("dev_slope","dev_uncond","mean_dmax","dev_d0")],use = "pairwise.complete.obs")
+```
 
 
