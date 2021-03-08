@@ -134,6 +134,7 @@ data %>%
 ```
 
 (we can NOT use "check if vA falls to zero" as a check for evolutionary stability, because in case of branching within a replicate, dynamics can be stable but vA very high, even higher than at t0 if "core" of the genotypic distri has been carved out)
+(well we can, but we have to caveat it)
 
 lots of things to do to strengthen this, but we can carry on assuming convergence at g100 for the enxt steps
 
@@ -151,23 +152,46 @@ if convergence at g100, then we can make the following assumptions
 
 ```{r}
 trait_data100<-data %>% 
-  filter(ticks==100 & pxcor == present_front-5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
-  select(replicateID,
-         mean_d0,mean_slopeA_0_avg,mean_slopeA_0_K,mean_slopeA_1_K,mean_slopeA_1_avg,mean_dmax,
-         mean_uncond0_K,mean_uncond1_K,front100=present_front)
-##why is it less than 5400?? investigate
+  filter(ticks==100 & pxcor >= present_front-5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
+  group_by(replicateID) %>% 
+  summarise(
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slopeA_0_avg=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_slopeA_0_K=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_uncond0_K=weighted.mean(mean_uncond0_K,N_predispersal,na.rm=TRUE),
+    front_100=max(present_front)
+  )
 
+
+pop_data120a <- data %>% 
+  filter(ticks==120) %>% 
+  group_by(replicateID) %>%
+  filter(N_predispersal>0) %>% 
+  mutate(maxpxcor=max(pxcor)) %>% 
+  filter(pxcor==max(pxcor)) %>%
+  select(N_edge=N_predispersal,replicateID)
+
+pop_data120b <- data %>% 
+  filter(ticks==120) %>% 
+  group_by(replicateID) %>%
+  mutate(maxpxcor=max(pxcor)) %>% 
+  filter(N_predispersal==0 & pxcor==maxpxcor) %>% 
+  select(N_founding=N_postdispersal,replicateID)
+  
 dynamic_data120<-data %>% 
     filter(ticks==120) %>% 
     mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
            is.VP_DDD=as.numeric(VP_slope >0)) %>% 
   group_by(replicateID) %>% 
+  mutate(front_50p=max(pxcor*(N_postdispersal>=(0.5*K)))) %>% ##to build williams et al TREE metric 1
   mutate(front_0=max(pxcor*(N_allele0_post>0)),
          front_1=max(pxcor*(N_allele1_post>0))) %>% 
   mutate(front_lag=min(c(front_0,front_1)),
          front=max(c(front_0,front_1))) %>% 
   ungroup() %>% 
-  select(front_lag,front,dispersal_mortality,replicateID,heritability, is.VP_dmax,is.VP_DDD,
+  select(front_lag,front,front_50p,
+         dispersal_mortality,replicateID,heritability, is.VP_dmax,is.VP_DDD,
          VP_slope,VP_midpoint,VP_logit_dmax, #keep for later
          slope_start,midpoint_start) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
@@ -176,7 +200,9 @@ dynamic_data120<-data %>%
                               "h",heritability))) %>% 
   distinct()
   
-tab<-left_join(dynamic_data120,trait_data100)
+tab<-left_join(dynamic_data120,trait_data100) %>% 
+  left_join(pop_data120a) %>% 
+  left_join(pop_data120b)
 ```
 
 Don't forget to look at what happens at the cor for trait!!!!!!
@@ -232,6 +258,17 @@ mod_div=gam(cbind(front_lag,front-front_lag)~
 gam.check(mod_div) #
 draw(mod_div)
 appraise(mod_div)
+
+mod_width=gam(front-front_50p~
+          s(mean_d0, by = mortality,k=10,bs="cr")+
+          s(mean_slopeA_0_avg,by=mortality,k=10,bs="cr")+
+          s(mean_uncond0_K,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=poisson,data=tab,method="REML")
+
+gam.check(mod_width) #
+draw(mod_width)
+appraise(mod_width)
 
 ```
 
