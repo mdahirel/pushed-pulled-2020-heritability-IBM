@@ -152,7 +152,7 @@ if convergence at g100, then we can make the following assumptions
 
 ```{r}
 trait_data100<-data %>% 
-  filter(ticks==100 & pxcor >= present_front-5 ) %>%  # higher N so less noise than front - 1, so estimates of mean more accurate
+  filter(ticks==100 & pxcor >= present_front-5 ) %>%  
   group_by(replicateID) %>% 
   summarise(
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
@@ -160,7 +160,19 @@ trait_data100<-data %>%
     mean_slopeA_0_avg=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_slopeA_0_K=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond0_K=weighted.mean(mean_uncond0_K,N_predispersal,na.rm=TRUE),
-    front_100=max(present_front)
+    front100=max(present_front)
+  )
+
+trait_data100core<-data %>% 
+  filter(ticks==100 & pxcor < 5 ) %>%
+  group_by(replicateID) %>% 
+  summarise(
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slopeA_0_avg=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_slopeA_0_K=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_uncond0_K=weighted.mean(mean_uncond0_K,N_predispersal,na.rm=TRUE),
+    front100=max(present_front)
   )
 
 
@@ -272,12 +284,21 @@ appraise(mod_width)
 
 ```
 
+
 # analyse evolution
 
 our main tool: the plot(y=trait after evol, x=trait at t0), deviation from nthe line y=x indicate evolution
 
 ```{r}
-tab2 <- tab %>%  
+
+trait_edge=trait_data100 %>% 
+  mutate(where="edge")
+
+trait_core=trait_data100core %>% 
+  mutate(where="core")
+
+tab2<- rbind(trait_edge,trait_core) %>% 
+  left_join(dynamic_data120) %>%   
   mutate(rnorm_slope_start=map2(.x=slope_start,.y=sqrt(VP_slope),.f=~rnorm(1000,.x,.y))) %>% 
   mutate(rnorm_midpoint_start=map2(.x=midpoint_start,.y=sqrt(VP_midpoint),.f=~rnorm(1000,.x,.y))) %>% 
   mutate(rnorm_dmax_start=map2(.x=0,.y=sqrt(VP_logit_dmax),.f=~rnorm(1000,.x,.y) %>% invlogit())) %>% 
@@ -341,85 +362,73 @@ tab2 <- tab %>%
 
 
 ggplot(tab2)+
-    geom_abline(intercept = 0,slope=1,lty=2)+
     geom_hline(yintercept = 0, lty=2)+
-    geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K),col="grey")+
-    geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K),method="gam",formula = y ~ s(x, bs = "cs",k=6))+
-  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_upper),col="red")+
-  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_lower),col="red")+
+    #geom_abline(intercept=0,slope=-1,lty=2)+
+    geom_point(aes(start_slopeA_0_avg,
+                   mean_slopeA_0_avg-start_slopeA_0_avg,
+                   col=where),
+               alpha=0.05)+
+    geom_smooth(aes(start_slopeA_0_avg,
+                    mean_slopeA_0_avg-start_slopeA_0_avg,
+                    col=where),
+                method="lm")+
     facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                cols=vars(heritability,is.VP_DDD))+ 
-    scale_x_continuous("original mean absolute slope",limits = c(-1,1))+
-    scale_y_continuous("final mean absolute slope",limits = c(-1,1))
+    scale_x_continuous("original mean absolute slope")+
+    scale_y_continuous("evolutionary change in slope")
 
-  ggplot(tab2)+
-  geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(start_uncond0_K,mean_uncond0_K),col="grey")+
-  geom_smooth(aes(start_uncond0_K,mean_uncond0_K),method="gam",formula = y ~ s(x, bs = "cs",k=6))+
-    geom_line(aes(start_uncond0_K,start_uncond0_K_upper),col="red")+
-  geom_line(aes(start_uncond0_K,start_uncond0_K_lower),col="red")+
+### presenting this way (y-x~x rather than y~x) helps interpret:
+### in the case of DDD, the main conclusion of erm phillips seems to apply only 
+### for a narrow set of scenarios:
+### low cost of dispersal, no/low variation in enhancing/enabling trait, only in matching trait sensu cote 2017
+### because of spatial sorting, if matching trait, response may even be the reverse (pushed become more pushed)
+### the exact balance probably depends on the relative amounts of variance in the two types of traits
+### and the actual fitness benefits of dispersing in the expanding context
+### which would likely depend on trade-off between dispersal/life-history (pace of life)
+### and their own DDD, things we haven't tackled here
+
+### hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
+### runaway effect of spatial sorting if dmax variable?
+
+
+ggplot(tab2)+
+  geom_hline(yintercept = 0,lty=2)+
+  geom_point(aes(start_uncond0_K,mean_uncond0_K-start_uncond0_K,col=where),alpha=0.1)+
+  geom_smooth(aes(start_uncond0_K,mean_uncond0_K-start_uncond0_K,col=where),method="lm")+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                        cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
-  scale_y_continuous("final mean unconditionality index",limits = c(0,1.1))
+  scale_x_continuous("original mean unconditionality index",limits = c(0,1))+
+  scale_y_continuous("evolutionary change in unconditionality",limits = c(-1,1))+
+  cowplot::theme_half_open(11) +
+  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
+
+### consistent evolution towards unconditionality, in line with travis 09
+### less strong if mortality +++
+### plus nuance that unconditionality does not mean no DDD (depends on N at edge???)
+
   
-   ggplot(tab2)+
-  geom_abline(intercept = 0,slope=1,lty=2)+
-  geom_point(aes(mean_d0_start,mean_d0),col="grey")+
-  geom_smooth(aes(mean_d0_start,mean_d0))+
+ggplot(tab2)+
+  geom_hline(yintercept = 0,lty=2)+
+  geom_point(aes(mean_d0_start,mean_d0-mean_d0_start,col=where),alpha=0.1)+
+  geom_smooth(aes(mean_d0_start,mean_d0-mean_d0_start,col=where),method="lm")+
   facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                        cols=vars(heritability,is.VP_DDD))+ 
   scale_x_continuous("original mean d0",limits = c(0,1.1))+
-  scale_y_continuous("final mean d0",limits = c(0,1.1))
+  scale_y_continuous("evolutionary change in d0",limits = c(-1,1))+
+  cowplot::theme_half_open(11) +
+  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
    
-  ggplot(tab2)+
-  geom_segment(aes(xend=start_uncond0_K,yend=start_slopeA_0_avg,
-                   x=mean_uncond0_K,y=mean_slopeA_0_avg),col="grey80",alpha=0.5)+
-  geom_point(aes(mean_uncond0_K,mean_slopeA_0_avg),col="grey")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("unconditionality index")+
-  scale_y_continuous("slope")
-  
-ggplot(tab2)+
-  geom_segment(aes(xend=mean_d0_start,yend=start_slopeA_0_avg,
-                   x=mean_d0,y=mean_slopeA_0_avg),col="grey80",alpha=0.5)+
-  geom_point(aes(mean_d0,mean_slopeA_0_avg),col="grey")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("d0")+
-  scale_y_continuous("slope")
-
 
 ggplot(tab2)+
-  geom_segment(aes(xend=mean_d0_start,yend=start_uncond0_K,
-                   x=mean_d0,y=mean_uncond0_K),col="grey80",alpha=0.5)+
-  geom_point(aes(mean_d0,mean_uncond0_K),col="grey")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("d0")+
-  scale_y_continuous("uncond")
-  
-  ggplot(tab2)+
     geom_hline(yintercept = 0.5, lty=2)+
-    geom_boxplot(aes(y=mean_dmax))+
+    geom_boxplot(aes(y=mean_dmax,col=where))+
     facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                cols=vars(heritability,is.VP_DDD))+ 
     scale_x_discrete("")+
-    scale_y_continuous("final mean dmax",limits = c(0,1))
+    scale_y_continuous("final mean dmax",limits = c(0,1))+
+  cowplot::theme_half_open(11) +
+  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
 
-  
-#using the last patch populated 
-#  ggplot(test2)+
-#  geom_hline(yintercept = 0.5,lty=2)+
-#  geom_point(aes(start_slopeA_0_K,N_predispersal))+
-#  geom_smooth(aes(start_slopeA_0_K,N_predispersal),method="glm",method.args = list(family = "poisson"))+
-#  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-#                       cols=vars(heritability,is.VP_DDD))
-#  
-#  
-#  ## you can use the patterns in the no-evol panel to show that even in absence of evol, DDD+ leads to higher mean #pop at frot predisp
-#  ## whch is the pattern that could favour the maintenance of DDD+ when evol
 ```
 
 
@@ -432,8 +441,8 @@ tab3<-tab2 %>%
                      "h2",heritability)) %>% 
   select(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,
          mean_slopeA_0_avg,start_slopeA_0_avg,
-         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_dmax_start,mean_d0,mean_d0_start) %>% 
-  group_by(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability) %>% 
+         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_dmax_start,mean_d0,mean_d0_start,where) %>% 
+  group_by(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,where) %>% 
   nest() %>% 
   mutate(lm_ddd=map(.x=data,.f=~lm(mean_slopeA_0_avg~start_slopeA_0_avg,data=.x))) %>% 
   mutate(sigma_ddd=map(.x=lm_ddd,.f=function(.x){summary(.x)$sigma}),
@@ -472,64 +481,66 @@ tab3<-tab2 %>%
   ungroup()
   
 #### plot for DDD
-p1<-ggplot(tab3)+
+ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_ddd,
                          ymin=slope_ddd-2*slope_ddd_se,ymax=slope_ddd+2*slope_ddd_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+                   col=where),position = position_dodge(width=0.25),point_size=2)+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_ddd,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                   col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=1,lty=2)+
-  facet_wrap(~heritability)+
+  facet_grid(cols=vars(heritability),rows=vars(VP_source))+
   coord_cartesian(ylim=c(0,2.5))
 
-p2<-ggplot(tab3)+
+ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_ddd,
                          ymin=int_ddd-2*int_ddd_se,ymax=int_ddd+2*int_ddd_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+                   col=where),position = position_dodge(width=0.25),point_size=2)+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_ddd,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                   col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)+
+  facet_grid(cols=vars(heritability),rows=vars(VP_source))+
   coord_cartesian(ylim=c(-0.25,0.25))
 
 
-p3<-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_ddd,col=VP_source),size=2,position = position_dodge(width=0.25))+
+ggplot(tab3)+
+  geom_point(aes(x=factor(dispersal_mortality),y=sigma_ddd,col=where),size=2,position = position_dodge(width=0.25))+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_ddd,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                   col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)
+  facet_grid(cols=vars(heritability),rows=vars(VP_source))
+  
 
-p1/p2/p3
 ### same plots for uncondition
 
-p1<-ggplot(tab3)+
+ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_uncond,
                          ymin=slope_uncond-2*slope_uncond_se,ymax=slope_uncond+2*slope_uncond_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+                   col=where),position = position_dodge(width=0.25),point_size=2)+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_uncond,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                   col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=1,lty=2)+
-  facet_wrap(~heritability)+
+    facet_grid(cols=vars(heritability),rows=vars(VP_source))+
   coord_cartesian(ylim=c(0,2.5))
 
-p2<-ggplot(tab3)+
+ggplot(tab3)+
   geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_uncond,
                          ymin=int_uncond-2*int_uncond_se,ymax=int_uncond+2*int_uncond_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
+                   col=where),position = position_dodge(width=0.25),point_size=2)+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_uncond,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                   col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)+
+    facet_grid(cols=vars(heritability),rows=vars(VP_source))+
   coord_cartesian(ylim=c(0,1))
 
-p3<-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_uncond,col=VP_source),size=2,position = position_dodge(width=0.25))+
+ggplot(tab3)+
+  geom_point(aes(x=factor(dispersal_mortality),y=sigma_uncond,col=where),size=2,position = position_dodge(width=0.25))+
   geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_uncond,
-                   col=VP_source),position = position_dodge(width=0.25))+
+                    col=where),position = position_dodge(width=0.25))+
   geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)
-p1/p2/p3
+    facet_grid(cols=vars(heritability),rows=vars(VP_source))
+
+
+
 ### same plots for d0
 
 p1<-ggplot(tab3)+
