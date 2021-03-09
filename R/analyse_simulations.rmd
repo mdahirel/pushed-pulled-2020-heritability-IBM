@@ -387,6 +387,13 @@ ggplot(tab2)+
 ### which would likely depend on trade-off between dispersal/life-history (pace of life)
 ### and their own DDD, things we haven't tackled here
 
+### no shift to DDD-: incomplete
+
+### our model is clearly incomplete (trade-offs, phenotypic syndromes, sexual repro, differences in variance and h2 bw enhancing and matching traits), but it does suggest that the parts of the dimension space that allow for the evolutionary maintenance of pushiness
+### is bigge rthan previously thought
+
+### consistency with experiments: when matching only evolve, we find results qualitatively compatible with Trichogramma experiments: from initial DDD+, shift to less DDD+ (or even DDD- in the study) when costs are low, but maintenance of DDD when costs are hhigh (suggest limited evolution of across the board dispersal in trichogramma, something that is again compatible with experiments)
+
 ### hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
 ### runaway effect of spatial sorting if dmax variable?
 
