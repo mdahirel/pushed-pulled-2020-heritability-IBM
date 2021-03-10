@@ -37,7 +37,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.2.0" # change as needed
 NLVERSION <- "6.2.0" # change as needed
 nreplicates <- 20
-duration <- 120 #100
+duration <- 120
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -89,28 +89,25 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1, 5, 10, 15, 20, 40, 60, 80, 100, 120),
-  metrics = c("ticks", "present_front", "new_front"),
-  metrics.patches = c("pxcor", 
+  evalticks = c(10, 20, 40, 60, 80, 100, 120),
+  metrics = c("ticks",
+              "start_d0", "start_slopeA_0_K","start_slopeR_0_K",
+              "start_slopeA_0_avg","start_uncond_0_K"),
+  metrics.patches = c("pxcor", "founding",
                       "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
                       "N_allele0_pre", "N_allele1_pre",
                       "N_allele0_post","N_allele1_post",
                       "mean_genotype_logit_dmax", "var_genotype_logit_dmax",
                       "mean_noise_logit_dmax", "var_noise_logit_dmax",  
                       "mean_genotype_slope", "var_genotype_slope",
-                      "mean_noise_slope", "var_noise_slope",
-                      "mean_genotype_midpoint", "var_genotype_midpoint",
-                      "mean_noise_midpoint", "var_noise_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
-                      "mean_d0","mean_d1","mean_dK",
-                      "mean_maxslope","mean_slopeA_0_K","mean_slopeA_1_K","mean_slopeA_0_avg","mean_slopeA_1_avg",
-                      "mean_slopeR_0_K","mean_slopeR_1_K",
-                      "mean_uncond0_K","mean_uncond1_K",
                       "var_dmax","var_slope","var_midpoint",
-                      "var_d0","var_d1","var_dK",
-                      "var_maxslope","var_slopeA_0_K","var_slopeA_1_K","var_slopeA_0_avg","var_slopeA_1_avg",
-                      "var_slopeR_0_K","var_slopeR_1_K",
-                      "var_uncond0_K","var_uncond1_K"),
+                      "mean_d0","mean_dK",
+                      "var_d0","var_dK",
+                      "mean_slopeA_0_K", "mean_slopeA_0_avg",
+                      "mean_slopeR_0_K", "mean_uncond_0_K",
+                      "var_slopeA_0_K", "var_slopeA_0_avg",
+                      "var_slopeR_0_K", "var_uncond_0_K"),
   constants = list(
     "duration" = duration
   ),
@@ -158,11 +155,12 @@ tab <- exp_h2 %>%
     fecundity, K, reproduction,
     seedID = `random-seed`,siminputrow,
     metrics.patches,
-    present_front
+    start_d0,start_slopeA_0_K, start_slopeR_0_K, 
+    start_slopeA_0_avg, start_uncond_0_K
   )  %>%
   mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
   unnest(cols = c(metrics.patches)) %>%
-  filter(N_postdispersal>0 | N_predispersal >0 | pxcor < present_front) %>% # excluding never-populated patches
+  filter(founding >= 0) %>% # excluding never-populated patches
   mutate( 
   #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
   across(.cols=everything(),na_if,-999)

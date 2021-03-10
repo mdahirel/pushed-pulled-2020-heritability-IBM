@@ -10,6 +10,8 @@
 
 globals[
   ;; fixed once set up
+
+  ;; parameters shaping the initial distributions of traits
   logit_dmax_start     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
   VA_logit_dmax         ;; initial genetic additive variance of logit(dmax)
   VR_logit_dmax         ;; residual (i.e. environmental) variance of logit(dmax)
@@ -17,6 +19,13 @@ globals[
   VR_slope              ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
   VA_midpoint           ;; same for midpoint
   VR_midpoint           ;; same for midpoint
+
+  ;; mean initial values (t=0) for some patch-level summaries
+  start_d0
+  start_slopeA_0_K
+  start_slopeR_0_K
+  start_slopeA_0_avg
+  start_uncond_0_K
 ]
 
 turtles-own[
@@ -41,7 +50,7 @@ turtles-own[
   slopeA_0_K              ;; absolute slope over the range 0-K
   slopeR_0_K              ;; same but expressed in proportion of dmax
   slopeA_0_avg            ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
-  uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
+  uncond_0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -109,8 +118,8 @@ patches-own [
   var_slopeA_0_avg
   mean_slopeR_0_K            ;;
   var_slopeR_0_K
-  mean_uncond0_K             ;;
-  var_uncond0_K
+  mean_uncond_0_K             ;;
+  var_uncond_0_K
   ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,6 +139,7 @@ to setup
   set VR_midpoint (1 - heritability) * VP_midpoint
   setup-patches
   setup-turtles
+  setup-initial-summaries
   reset-ticks
 end
 
@@ -211,7 +221,7 @@ to set_individual_traits
         set slopeR_0_K slopeA_0_K / dmax
 
         let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
-        set uncond0_K mean (X0) / max (list d0 dK)
+        set uncond_0_K mean (X0) / max (list d0 dK)
 
         set slopeA_0_avg mean (x0) - d0
 
@@ -220,6 +230,14 @@ end
 to check_population_size
   set population_size count turtles-here
   set pcolor scale-color green population_size 0 (carrying_capacity * 1.1) ;; graphical argument if NetLogo GUI used, updates the patch colour based on current population size
+end
+
+to setup-initial-summaries
+  set start_d0 mean ([d0] of turtles)
+  set start_slopeA_0_K mean ([slopeA_0_K] of turtles)
+  set start_slopeR_0_K mean ([slopeR_0_K] of turtles)
+  set start_slopeA_0_avg mean ([slopeA_0_avg] of turtles)
+  set start_uncond_0_K mean ([uncond_0_K] of turtles)
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -441,7 +459,7 @@ to reset_summaries
   set mean_slopeA_0_K -999
   set mean_slopeA_0_avg -999
   set mean_slopeR_0_K -999
-  set mean_uncond0_K -999
+  set mean_uncond_0_K -999
 
   set var_dmax -999
   set var_midpoint -999
@@ -452,7 +470,7 @@ to reset_summaries
   set var_slopeA_0_K -999
   set var_slopeA_0_avg -999
   set var_slopeR_0_K -999
-  set var_uncond0_K -999
+  set var_uncond_0_K -999
 
   set N_disp_dead 0
   set N_allele0_pre 0
@@ -484,7 +502,7 @@ to update_summaries_means
   set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
   set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
   set mean_slopeR_0_K mean ([slopeR_0_K] of turtles-here)
-  set mean_uncond0_K mean ([uncond0_K] of turtles-here)
+  set mean_uncond_0_K mean ([uncond_0_K] of turtles-here)
 end
 
 to update_summaries_variances
@@ -502,7 +520,7 @@ to update_summaries_variances
   set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
   set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
   set var_slopeR_0_K variance ([slopeR_0_K] of turtles-here)
-  set var_uncond0_K variance ([uncond0_K] of turtles-here)
+  set var_uncond_0_K variance ([uncond_0_K] of turtles-here)
 
 end
 
@@ -728,25 +746,6 @@ reproduction
 reproduction
 "clonal" "sexual"
 0
-
-PLOT
-657
-76
-857
-226
-front location
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot present_front"
-"pen-1" 1.0 0 -7500403 true "" "plot ticks"
 
 SLIDER
 238
