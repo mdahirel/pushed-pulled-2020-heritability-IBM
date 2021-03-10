@@ -17,11 +17,6 @@ globals[
   VR_slope              ;; residual (i.e. environmental) variance of the dispersal-density reaction norm slope
   VA_midpoint           ;; same for midpoint
   VR_midpoint           ;; same for midpoint
-
-  ;; updated every generation
-  past_front       ;; position of the front before dispersal
-  present_front    ;; position of the front after dispersal
-  new_front        ;; if "yes", the position of the front have advanced
 ]
 
 turtles-own[
@@ -43,17 +38,12 @@ turtles-own[
   noise_midpoint          ;; ...
   ;; dispersal, summary/derived traits
   d0                      ;; dispersal probability at N = 0
-  d1                      ;; dispersal probability at N = 1
   dK                      ;; dispersal probability at N = K
   maxslope                ;; maximal absolute slope (ie slope at the inflection point)
   slopeA_0_K             ;; absolute slope over the range 0-K
-  slopeA_1_K             ;; same over the range 1-K
   slopeR_0_K             ;; same but expressed in proportion of dmax
-  slopeR_1_K             ;;
   slopeA_0_avg           ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
-  slopeA_1_avg           ;;
   uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over the range (!= dmax)
-  uncond1_K               ;; same over range 1-K
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -119,29 +109,17 @@ patches-own [
   ;; other summary traits
   mean_d0                    ;; mean dispersal probability at N = 0
   var_d0
-  mean_d1                    ;; mean dispersal probability at N = 1
-  var_d1
   mean_dK                    ;; mean dispersal probability at N = K
   var_dK
-  mean_maxslope              ;; maximal absolute slope (ie slope at the inflection point)
-  var_maxslope
   mean_slopeA_0_K           ;; average absolute slope over the range 0-K
   var_slopeA_0_K
-  mean_slopeA_1_K           ;; average absolute slope over the range 1-K
-  var_slopeA_1_K
   mean_slopeA_0_avg           ;;
   var_slopeA_0_avg
-  mean_slopeA_1_avg           ;;
-  var_slopeA_1_avg
   mean_slopeR_0_K           ;;
   var_slopeR_0_K
-  mean_slopeR_1_K           ;;
-  var_slopeR_1_K
   mean_uncond0_K             ;;
   var_uncond0_K
-  mean_uncond1_K             ;;
-  var_uncond1_K
-]
+  ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;PART 2: SETUP
@@ -152,7 +130,6 @@ to setup
   clear-all
   define-landscape
   set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
-  set past_front 0
   set VA_logit_dmax heritability * VP_logit_dmax       ;; set additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
   set VA_slope heritability * VP_slope
@@ -240,22 +217,14 @@ to set_individual_traits
 
         ;; set "secondary" traits
         set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
-        set d1 dmax / (1 + exp (- slope * ((1 / K)  - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
-        set maxslope (slope * dmax ) / 4
         set slopeA_0_K (dK - d0)
-        set slopeA_1_K (dK - d1)
         set slopeR_0_K slopeA_0_K / dmax
-        set slopeR_1_K slopeA_1_K / dmax
 
         let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
         set uncond0_K mean (X0) / max (list d0 dK)
 
-        let X1 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range (1 / K) (1.01 + (1 / K)) 0.1)
-        set uncond1_K mean (X1) / max (list d1 dK)
-
         set slopeA_0_avg mean (x0) - d0
-        set slopeA_1_avg mean (x1) - d1
 
 end
 
@@ -315,12 +284,8 @@ to go
     set N_sedentary count turtles-here with [x_birth = pxcor]
   ]
 
-  ;; find the position of the actual front; done like that and not with pre/post dispersal count in case of 'holes' in the wave
-  set present_front max( [ pxcor ] of patches with [N_postdispersal > 0] )
-  ifelse ( present_front > past_front)
-  [set new_front "yes"]
-  [set new_front "no"]
-  set past_front present_front ;; for the next generation
+  ;; update founding dates for newly founded patches
+  ask patches with [founding = -999 and N_postdispersal > 0] [set founding ticks]
 
   ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
   ask patches with [N_postdispersal > 0] [update_alleles_post]
@@ -509,34 +474,22 @@ to reset_summaries
   set mean_slope -999
 
   set mean_d0 -999
-  set mean_d1 -999
   set mean_dK -999
-  set mean_maxslope -999
   set mean_slopeA_0_K -999
-  set mean_slopeA_1_K -999
   set mean_slopeA_0_avg -999
-  set mean_slopeA_1_avg -999
   set mean_slopeR_0_K -999
-  set mean_slopeR_1_K -999
   set mean_uncond0_K -999
-  set mean_uncond1_K -999
 
   set var_dmax -999
   set var_midpoint -999
   set var_slope -999
 
   set var_d0 -999
-  set var_d1 -999
   set var_dK -999
-  set var_maxslope -999
   set var_slopeA_0_K -999
-  set var_slopeA_1_K -999
   set var_slopeA_0_avg -999
-  set var_slopeA_1_avg -999
   set var_slopeR_0_K -999
-  set var_slopeR_1_K -999
   set var_uncond0_K -999
-  set var_uncond1_K -999
 
   set N_disp_dead 0
   set N_allele0_pre 0
@@ -567,17 +520,11 @@ to update_summaries_means
   set mean_slope mean ([slope] of turtles-here)
 
   set mean_d0 mean ([d0] of turtles-here)
-  set mean_d1 mean ([d1] of turtles-here)
   set mean_dK mean ([dK] of turtles-here)
-  set mean_maxslope mean ([maxslope] of turtles-here)
   set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
-  set mean_slopeA_1_K mean ([slopeA_1_K] of turtles-here)
   set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
-  set mean_slopeA_1_avg mean ([slopeA_1_avg] of turtles-here)
   set mean_slopeR_0_K mean ([slopeR_0_K] of turtles-here)
-  set mean_slopeR_1_K mean ([slopeR_1_K] of turtles-here)
   set mean_uncond0_K mean ([uncond0_K] of turtles-here)
-  set mean_uncond1_K mean ([uncond1_K] of turtles-here)
 end
 
 to update_summaries_variances
@@ -594,17 +541,11 @@ to update_summaries_variances
   set var_slope variance ([slope] of turtles-here)
 
   set var_d0 variance ([d0] of turtles-here)
-  set var_d1 variance ([d1] of turtles-here)
   set var_dK variance ([dK] of turtles-here)
-  set var_maxslope variance ([maxslope] of turtles-here)
   set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
-  set var_slopeA_1_K variance ([slopeA_1_K] of turtles-here)
   set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
-  set var_slopeA_1_avg variance ([slopeA_1_avg] of turtles-here)
   set var_slopeR_0_K variance ([slopeR_0_K] of turtles-here)
-  set var_slopeR_1_K variance ([slopeR_1_K] of turtles-here)
   set var_uncond0_K variance ([uncond0_K] of turtles-here)
-  set var_uncond1_K variance ([uncond1_K] of turtles-here)
 
 end
 
@@ -1304,7 +1245,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.1.1
+NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
