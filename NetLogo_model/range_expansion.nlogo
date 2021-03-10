@@ -22,20 +22,18 @@ globals[
 turtles-own[
   ;; dispersal
   disp                    ;; individual dispersal probability; inverse logit of (logit_dmax + slope * population_size)
-  x_birth                 ;; x coordinate of birth site; useful to know if indiviuald has dispersed (and how far if dispersal>1 patch allowed)
+  x_birth                 ;; x coordinate of birth site; useful to know if individual has dispersed (and how far if dispersal>1 patch allowed)
   dmax                    ;; maximal dispersal probability over the range of densities
+  logit_dmax              ;; logit of dmax
   midpoint                ;; density at which dispersal probability is 50% of dmax
   slope                   ;; "slope" of the dispersal-density reaction norm
   available_moves         ;; a list of all possible movements if one disperses (in 1D space, typically -1 or +1 unless landscape boundary is reached)
   alleles_logit_dmax      ;; allele(s) of logit_dmax
   genotype_logit_dmax     ;; the genetic value of logit_dmax (average of the alleles)
-  noise_logit_dmax        ;; noise added to the genetic value of logit_dmax to get phenotypic value
   alleles_slope           ;; same for slope, but no logit this time
   genotype_slope          ;; ...
-  noise_slope             ;; ...
   alleles_midpoint        ;; and same for midpoint
   genotype_midpoint       ;; ...
-  noise_midpoint          ;; ...
   ;; dispersal, summary/derived traits
   d0                      ;; dispersal probability at N = 0
   dK                      ;; dispersal probability at N = K
@@ -86,16 +84,10 @@ patches-own [
   ;; heritable traits - split in genetic and non-genetic components
   mean_genotype_logit_dmax   ;; average genotypic value for logit(dmax)
   var_genotype_logit_dmax    ;; variance of genotypic values
-  mean_noise_logit_dmax      ;; you get the idea...
-  var_noise_logit_dmax
-  mean_genotype_slope
+  mean_genotype_slope        ;; you get the idea...
   var_genotype_slope
-  mean_noise_slope
-  var_noise_slope
   mean_genotype_midpoint
   var_genotype_midpoint
-  mean_noise_midpoint
-  var_noise_midpoint
 
 
   ;; overall trait on observed scale
@@ -201,19 +193,16 @@ to setup-turtles
 
        ]
 
-    set noise_logit_dmax random-normal 0 sqrt(VR_logit_dmax)
-    set noise_slope random-normal 0 sqrt(VR_slope)
-    set noise_midpoint random-normal 0 sqrt(VR_midpoint)
-    ;; assign residual noise value to the dispersal traits ; if VR = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
-
    set_individual_traits
   ]
 end
 
 to set_individual_traits
-        set dmax  1 / (1 + exp( - (genotype_logit_dmax + noise_logit_dmax) ) )  ;; trait = inverse logit of trait on latent scale
-        set slope genotype_slope + noise_slope
-        set midpoint genotype_midpoint + noise_midpoint
+        set logit_dmax  genotype_logit_dmax + (random-normal 0 sqrt(VR_logit_dmax))
+        set dmax  1 / (1 + exp( - logit_dmax ) )  ;; trait = inverse logit of trait on latent scale
+        set slope genotype_slope + (random-normal 0 sqrt(VR_slope))
+        set midpoint genotype_midpoint + (random-normal 0 sqrt(VR_midpoint))
+;; for each trait we add residual noise ; if VR = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
         ;; set "secondary" traits
         set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
@@ -303,7 +292,7 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax / (1 + exp(- slope * ((population_size / K) - midpoint))) ;; sets the individual dispersal probability based on its trait and current population size
+  set disp dmax / (1 + exp(- slope * ((population_size / carrying_capacity) - midpoint))) ;; sets the individual dispersal probability based on its trait and current population size
   ;; based on travis et al 2009 doi:10.1016/j.jtbi.2009.03.008, themselves based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
   ;; with one very, very, very important change: contrary to both of them, we allow negative slope values, so negative density-dependent dispersal
 
@@ -354,11 +343,6 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set genotype_midpoint mean alleles_midpoint
         ;; genotypic value inherited from parent(s)
 
-        set noise_logit_dmax random-normal 0 sqrt(VR_logit_dmax)
-        set noise_slope random-normal 0 sqrt(VR_slope)
-        set noise_midpoint random-normal 0 sqrt(VR_midpoint)
-        ;; draw residual noise again
-
         set_individual_traits
       ]
 
@@ -390,11 +374,6 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set genotype_slope mean alleles_slope
         set genotype_midpoint mean alleles_midpoint
         ;; genotypic value inherited from parent(s)
-
-        set noise_logit_dmax random-normal 0 sqrt(VR_logit_dmax)
-        set noise_slope random-normal 0 sqrt(VR_slope)
-        set noise_midpoint random-normal 0 sqrt(VR_midpoint)
-        ;; draw residual noise again
 
         set_individual_traits
       ]
@@ -438,11 +417,6 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set genotype_midpoint alleles_midpoint
         ;; genotypic value inherited from parent(s)
 
-        set noise_logit_dmax random-normal 0 sqrt(VR_logit_dmax)
-        set noise_slope random-normal 0 sqrt(VR_slope)
-        set noise_midpoint random-normal 0 sqrt(VR_midpoint)
-        ;; draw residual noise
-
         set_individual_traits
       ]
       set has_reproduced 1
@@ -454,20 +428,11 @@ to reset_summaries
   set mean_genotype_logit_dmax -999
   set var_genotype_logit_dmax  -999
 
-  set mean_noise_logit_dmax   -999
-  set var_noise_logit_dmax    -999
-
   set mean_genotype_slope -999
   set var_genotype_slope  -999
 
-  set mean_noise_slope -999
-  set var_noise_slope -999
-
   set mean_genotype_midpoint -999
   set var_genotype_midpoint  -999
-
-  set mean_noise_midpoint -999
-  set var_noise_midpoint -999
 
   set mean_dmax -999
   set mean_midpoint -999
@@ -509,11 +474,8 @@ end
 to update_summaries_means
  ;; mean trait values
   set mean_genotype_logit_dmax mean ([genotype_logit_dmax] of turtles-here)
-  set mean_noise_logit_dmax   mean ([noise_logit_dmax] of turtles-here)
   set mean_genotype_slope mean ([genotype_slope] of turtles-here)
-  set mean_noise_slope mean ([noise_slope] of turtles-here)
   set mean_genotype_midpoint mean ([genotype_midpoint] of turtles-here)
-  set mean_noise_midpoint mean ([noise_midpoint] of turtles-here)
 
   set mean_dmax mean ([dmax] of turtles-here)
   set mean_midpoint mean ([midpoint] of turtles-here)
@@ -530,11 +492,8 @@ end
 to update_summaries_variances
  ;; trait variances; sample variances only meaningful for N > 1
   set var_genotype_logit_dmax  variance ([genotype_logit_dmax] of turtles-here)
-  set var_noise_logit_dmax    variance ([noise_logit_dmax] of turtles-here)
   set var_genotype_slope  variance ([genotype_slope] of turtles-here)
-  set var_noise_slope variance ([noise_slope] of turtles-here)
   set var_genotype_midpoint  variance ([genotype_midpoint] of turtles-here)
-  set var_noise_midpoint    variance ([noise_midpoint] of turtles-here)
 
   set var_dmax variance ([dmax] of turtles-here)
   set var_midpoint variance ([midpoint] of turtles-here)
