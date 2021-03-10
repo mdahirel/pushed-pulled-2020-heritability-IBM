@@ -252,24 +252,12 @@ end
 
 
 to go
-  if (ticks > duration) [stop]  ;; IMPORTANT!! avoid using while argument to express this as it separates the Netlogo ticks count from the actual generation count and mess up with recording (as recording occurs at each tick)
 
-  if (ticks > 0 ) [
-    ;; the cycle starts with reproduction and ends after dispersal, to make saving data easier _ only adults are alive at the end of a cycle i.e. when data are saved
-    ;; but because of that, some steps must be omitted during the first round, or else model doesn't work _ like killing all adults before reproduction
+  if (ticks = 0)[tick]
+  ;; coding trick to bypass zero-indexing and ensure patches founded during the first generation are recorded as founded at t=1
+  ;; this allows us to leave founding date = 0 to the introduction patch
 
-    ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks]
-    ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
-
-    ;; reproduction step
-    ( ifelse reproduction = "clonal"
-      [ask turtles[reproduce_clonal]]
-      [ask turtles[reproduce_sexual]]
-      )
-    ;; NB the reproduction formulas implicitly include competition, i.e. we only "materialize" offspring that will reach the adult stage
-    ask turtles[check_death] ;; enforce non-overlapping generations: kill all adults and leave only juveniles produced in previous round
-    ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
-  ]
+  if (ticks > duration) [stop] ;;ending condition
 
   ;; predispersal count here, used to shape density-dependent dispersal
   ask patches[check_population_size]
@@ -299,6 +287,18 @@ to go
 
   ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
   ask patches with [N_postdispersal > 0] [update_alleles_post]
+
+  ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks]
+  ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
+
+    ;; reproduction step
+    ( ifelse reproduction = "clonal"
+      [ask turtles[reproduce_clonal]]
+      [ask turtles[reproduce_sexual]]
+      )
+    ;; NB the reproduction formulas implicitly include competition, i.e. we only "materialize" offspring that will reach the adult stage
+    ask turtles[check_death] ;; enforce non-overlapping generations: kill all adults and leave only juveniles produced in previous round
+    ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
 
   tick
 end
