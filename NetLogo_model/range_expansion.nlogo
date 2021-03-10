@@ -2,7 +2,7 @@
 ;;
 ;; authors: Maxime Dahirel and Chloé Guicharnaud
 ;; building on a model by Maxime Dahirel and Marjorie Haond (see https://doi.org/10.5281/zenodo.3969988 or https://doi.org/10.5281/zenodo.3702252)
-;; written using Netlogo version: 6.1.1
+;; written using Netlogo versions: 6.2.0 and 6.1.1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PART 1: define patch and individual variables
@@ -21,9 +21,9 @@ globals[
 
 turtles-own[
   ;; dispersal
-  disp                    ;; individual dispersal probability; inverse logit of (logit_dmax + slope * population_size)
-  x_birth                 ;; x coordinate of birth site; useful to know if individual has dispersed (and how far if dispersal>1 patch allowed)
-  dmax                    ;; maximal dispersal probability over the range of densities
+  disp                    ;; individual dispersal probability
+  x_birth                 ;; x coordinate of birth site; useful to know if individual has dispersed (and how far in cases dispersal>1 patch is allowed)
+  dmax                    ;; maximal dispersal probability
   logit_dmax              ;; logit of dmax
   midpoint                ;; density at which dispersal probability is 50% of dmax
   slope                   ;; "slope" of the dispersal-density reaction norm
@@ -38,10 +38,10 @@ turtles-own[
   d0                      ;; dispersal probability at N = 0
   dK                      ;; dispersal probability at N = K
   maxslope                ;; maximal absolute slope (ie slope at the inflection point)
-  slopeA_0_K             ;; absolute slope over the range 0-K
-  slopeR_0_K             ;; same but expressed in proportion of dmax
-  slopeA_0_avg           ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
-  uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over the range (!= dmax)
+  slopeA_0_K              ;; absolute slope over the range 0-K
+  slopeR_0_K              ;; same but expressed in proportion of dmax
+  slopeA_0_avg            ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
+  uncond0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -66,12 +66,13 @@ patches-own [
   ;; _post or _postdispersal suffix refers to metrics estimated immediately after the dispersal phase
 
   ;; counts of individuals
-  carrying_capacity ;; carrying capacity/ equilibrium pop size of the patch, regulation happens by making growth rate fall below 0 if population size > carrying capacity
+  carrying_capacity ;; carrying capacity/ equilibrium pop size of the patch,
+                    ;; regulation happens by making growth rate fall below 0 if population size > carrying capacity
   population_size   ;; current population size (actualised frequently through life cycle, as up to date values needed quite often)
   N_predispersal    ;; adult population size right before the dispersal phase
   N_postdispersal   ;; adult population size after the dispersal phase
   N_sedentary       ;; number of turtles who did not move
-  N_disp_dead       ;; number of turtles from this patch dead during dispersal
+  N_disp_dead       ;; number of turtles born in this patch dead during dispersal
 
   ;; counts of neutral alleles
   N_allele0_pre     ;; (measured during pre-dispersal phase) number of adults with neutral_locus = 0
@@ -79,16 +80,15 @@ patches-own [
   N_allele0_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 0
   N_allele1_post    ;; (measured during post-dispersal phase) number of adults with neutral_locus = 1
 
-  ;; patch summaries of dispersal traits (measured pre-dispersal, to be able to compare with %dispersal + to guarantee a variance exists)
+  ;; patch summaries of dispersal traits (measured pre-dispersal only, to be able to compare with %dispersal + to help ensure a variance exists)
 
-  ;; heritable traits - split in genetic and non-genetic components
+  ;; genetic components
   mean_genotype_logit_dmax   ;; average genotypic value for logit(dmax)
   var_genotype_logit_dmax    ;; variance of genotypic values
   mean_genotype_slope        ;; you get the idea...
   var_genotype_slope
   mean_genotype_midpoint
   var_genotype_midpoint
-
 
   ;; overall trait on observed scale
   mean_dmax
@@ -103,11 +103,11 @@ patches-own [
   var_d0
   mean_dK                    ;; mean dispersal probability at N = K
   var_dK
-  mean_slopeA_0_K           ;; average absolute slope over the range 0-K
+  mean_slopeA_0_K            ;; average absolute slope over the range 0-K
   var_slopeA_0_K
-  mean_slopeA_0_avg           ;;
+  mean_slopeA_0_avg          ;;
   var_slopeA_0_avg
-  mean_slopeR_0_K           ;;
+  mean_slopeR_0_K            ;;
   var_slopeR_0_K
   mean_uncond0_K             ;;
   var_uncond0_K
@@ -122,7 +122,7 @@ to setup
   clear-all
   define-landscape
   set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
-  set VA_logit_dmax heritability * VP_logit_dmax       ;; set additive genetic variance VA from input heritability and total phenotypic variance
+  set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
   set VA_slope heritability * VP_slope
   set VR_slope (1 - heritability) * VP_slope
@@ -234,14 +234,15 @@ to go
     ;; the cycle starts with reproduction and ends after dispersal, to make saving data easier _ only adults are alive at the end of a cycle i.e. when data are saved
     ;; but because of that, some steps must be omitted during the first round, or else model doesn't work _ like killing all adults before reproduction
 
-    ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks] ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
+    ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks]
+    ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
 
     ;; reproduction step
     ( ifelse reproduction = "clonal"
       [ask turtles[reproduce_clonal]]
       [ask turtles[reproduce_sexual]]
       )
-    ;; NB the reproduction formula implicitly includes competition, i.e. we only "materialize" offspring that reach the adult stage
+    ;; NB the reproduction formulas implicitly include competition, i.e. we only "materialize" offspring that will reach the adult stage
     ask turtles[check_death] ;; enforce non-overlapping generations: kill all adults and leave only juveniles produced in previous round
     ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
   ]
@@ -254,7 +255,7 @@ to go
 
   ask patches[reset_summaries]
 
-    ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
+  ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
   ask patches with [N_predispersal > 0] [update_alleles_pre]
 
   ask patches with [N_predispersal > 0] [update_summaries_means]
@@ -273,9 +274,6 @@ to go
     set N_sedentary count turtles-here with [x_birth = pxcor]
   ]
 
-  ;; update founding dates for newly founded patches
-  ask patches with [founding = -999 and N_postdispersal > 0] [set founding ticks]
-
   ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
   ask patches with [N_postdispersal > 0] [update_alleles_post]
 
@@ -292,15 +290,15 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax / (1 + exp(- slope * ((population_size / carrying_capacity) - midpoint))) ;; sets the individual dispersal probability based on its trait and current population size
-  ;; based on travis et al 2009 doi:10.1016/j.jtbi.2009.03.008, themselves based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
-  ;; with one very, very, very important change: contrary to both of them, we allow negative slope values, so negative density-dependent dispersal
+  set disp dmax / (1 + exp(- slope * ((population_size / carrying_capacity) - midpoint)))
+  ;; sets the individual dispersal probability based on its trait and pre-dispersal population size
+  ;; based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
 
   if ( (random-float 1) < (disp) ) [    ;; sets whether the individual moves (this should be/approximate a Bernoulli distribution with probability of success disp)
     if (random-float 1) < (dispersal_mortality) [
       set N_disp_dead (N_disp_dead + 1)
       die]                                      ;; mortality during dispersal
-    set xcor xcor + one-of available_moves]  ;; sets where it moves if it decides to move and survives dispersal
+    set xcor xcor + one-of available_moves]     ;; sets where it moves if it decides to move and survives dispersal
 
 end
 
@@ -391,7 +389,8 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
       ;; ricker function ; for each individual, fecundity is Poisson-distributed around its mean fecundity
 
       hatch ind_fecundity [
-        hide-turtle  ;; needs to hide again newborn individuals ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
+        hide-turtle  ;; needs to hide again newborn individuals
+                     ;; we don't visualise individuals on the GUI; we only show the patch-level summary, saves memory
 
         set adult 0
         set has_reproduced 0
@@ -407,7 +406,7 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set PgrandmaID [momID] of mom
 
 
-        ;;trait determination
+        ;;inheritance and trait determination
         set alleles_logit_dmax [alleles_logit_dmax] of mom
         set alleles_slope  [alleles_slope] of mom
         set alleles_midpoint [alleles_midpoint] of mom
@@ -415,7 +414,6 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
         set genotype_logit_dmax alleles_logit_dmax
         set genotype_slope alleles_slope
         set genotype_midpoint alleles_midpoint
-        ;; genotypic value inherited from parent(s)
 
         set_individual_traits
       ]
@@ -467,7 +465,7 @@ to update_alleles_pre
     set N_allele1_pre sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
     ( ifelse reproduction = "clonal"
       [set N_allele0_pre population_size - N_allele1_pre]
-      [set N_allele0_pre (2 * population_size) - N_allele1_pre]                     ;; for sexual reproduction, twice as many alleles than individuals
+      [set N_allele0_pre (2 * population_size) - N_allele1_pre]               ;; for sexual reproduction, twice as many alleles than individuals
     )
 end
 
@@ -512,7 +510,7 @@ to update_alleles_post
     set N_allele1_post sum (reduce sentence ([neutral_locus] of turtles-here)) ;; reduce sentence used to "collapse" all the alleles stored in individual lists in one big list we can sum
     ( ifelse reproduction = "clonal"
       [set N_allele0_post population_size - N_allele1_post]
-      [set N_allele0_post (2 * population_size) - N_allele1_post]                     ;; for sexual reproduction, twice as many alleles than individuals
+      [set N_allele0_post (2 * population_size) - N_allele1_post]              ;; for sexual reproduction, twice as many alleles than individuals
     )
 end
 
