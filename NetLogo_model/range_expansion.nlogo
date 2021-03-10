@@ -4,6 +4,8 @@
 ;; building on a model by Maxime Dahirel and Marjorie Haond (see https://doi.org/10.5281/zenodo.3969988 or https://doi.org/10.5281/zenodo.3702252)
 ;; written using Netlogo versions: 6.2.0 and 6.1.1
 
+;; -999 is used as a placeholder for NAs throughout
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PART 1: define patch and individual variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,13 +132,7 @@ patches-own [
 to setup
   clear-all
   define-landscape
-  set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
-  set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
-  set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
-  set VA_slope heritability * VP_slope
-  set VR_slope (1 - heritability) * VP_slope
-  set VA_midpoint heritability * VP_midpoint
-  set VR_midpoint (1 - heritability) * VP_midpoint
+  setup-initial-variances
   setup-patches
   setup-turtles
   setup-initial-summaries
@@ -149,6 +145,16 @@ to define-landscape
   resize-world 0 300 0 0 ;; generate the correct landscape size ( xmin xmax ymin ymax) ymax = ymin = 0 for 1D landscapes
   ;; (0 = initial patch; see move_turtles for how we block individuals from trying to move left if x=0)
   ask patches [set pcolor black] ;; graphical argument if NetLogo GUI used (patches will become whiter as population size increases)
+end
+
+to setup-initial-variances
+  set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
+  set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
+  set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
+  set VA_slope heritability * VP_slope
+  set VR_slope (1 - heritability) * VP_slope
+  set VA_midpoint heritability * VP_midpoint
+  set VR_midpoint (1 - heritability) * VP_midpoint
 end
 
 to setup-patches
@@ -269,11 +275,10 @@ to go
   ask patches[check_population_size]
   ask patches[set N_predispersal population_size]
 
-  ;; record patch-level summaries for traits and allelic frequencies
-
+  ;; reset patch-level summaries for traits and allelic frequencies
   ask patches[reset_summaries]
 
-  ;; record patch-level allelic frequencies for the *neutral* locus; easier to store for export
+  ;; record patch-level summaries for traits and predispersal allele distribution
   ask patches with [N_predispersal > 0] [update_alleles_pre]
 
   ask patches with [N_predispersal > 0] [update_summaries_means]
