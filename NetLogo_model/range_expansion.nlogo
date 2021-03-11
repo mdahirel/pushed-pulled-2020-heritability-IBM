@@ -252,11 +252,10 @@ end
 
 
 to go
-
-  if (ticks = 0)[tick]
+  ifelse (ticks = 0)[tick]
   ;; coding trick to bypass zero-indexing and ensure patches founded during the first generation are recorded as founded at t=1
   ;; this allows us to leave founding date = 0 to the introduction patch
-
+  [
   if (ticks > duration) [stop] ;;ending condition
 
   ;; predispersal count here, used to shape density-dependent dispersal
@@ -301,6 +300,7 @@ to go
     ask turtles[set adult 1] ;; once previous adults are removed, juveniles can become adults
 
   tick
+  ]
 end
 
 
