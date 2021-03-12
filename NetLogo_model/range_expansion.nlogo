@@ -136,9 +136,6 @@ to setup
   setup-turtles
   setup-initial-summaries
   reset-ticks
-  tick
-  ;; the tick command to bypass zero-indexing and ensure patches founded during the first generation are recorded as founded at t=1
-  ;; this allows us to leave founding date = 0 to the introduction patch
 end
 
 
@@ -291,8 +288,9 @@ to go
   ;; record patch-level allelic frequencies for the *neutral* locus post-dispersal; easier to store for export
   ask patches with [N_postdispersal > 0] [update_alleles_post]
 
-  ask patches with [N_postdispersal > 0 and founding < 0][set founding ticks]
+  ask patches with [N_postdispersal > 0 and founding < 0][set founding (ticks + 1)]
   ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
+  ;; (which is ticks + 1 because the ticks number is updated to n only at the end of the nth generation
 
     ;; reproduction step
     ( ifelse reproduction = "clonal"
