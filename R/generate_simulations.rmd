@@ -58,21 +58,22 @@ Then, let's set the experimental design. <!--to detail-->
 trt_grid <- tibble(
    VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2,0,0,0,1.5^2,1.5^2,1.5^2),
    VP_slope = c(0, 6^2, 6^2, 6^2, 6^2, 6^2, 6^2,0,0,0),
-   VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2,0,0,0), #maybe 0.33 rather than 0.5? adjust medians below if so
+   VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2,0,0,0), 
    heritability = c(0, 0, 0.33, 1, 0, 0.33, 1,0,0.33,1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
   ) %>% 
   expand_grid(
-  dmax_start = 0.5, #median + VP here give relatively uniform distri over ]0-1[
-  slope_start = c(-6, 0, 6), #0, and + or -1SD from 0
-  midpoint_start = c(0, 0.5, 1),#same logic here
+  start_dmax = 0.5, #median + VP here give relatively uniform distri over ]0-1[
+  start_slope = c(-6, 0, 6), #0, and + or -1SD from 0
+  ## also, |6| as slope mean we go from 0.05dmax to 0.95dmax over a range of K centred on midpoint
+  start_midpoint = c(0, 0.5, 1),#same logic here
   dispersal_mortality = c(0.1, 0.5, 0.9),
   reproduction = c("clonal"),   
 ) %>%
   mutate(
     reproduction_nl = paste('\"',reproduction,'\"',sep=""),# adds the quote and escape needed to export the string to Netlogo
-    fecundity = 5, ## more or less arbitrary
-    K = 250
+    fecundity = 5, ## more or less arbitrary, references previous studies/models
+    K = 250        ## same
   )
 ```
 
@@ -112,9 +113,9 @@ nl_object@experiment <- experiment(
     "duration" = duration
   ),
   variables = list( ### needs to be a nested list
-    "dmax_start" = list(values = trt_grid$dmax_start),
-    "slope_start" = list(values = trt_grid$slope_start),
-    "midpoint_start" = list(values = trt_grid$midpoint_start),
+    "start_dmax" = list(values = trt_grid$start_dmax),
+    "start_slope" = list(values = trt_grid$start_slope),
+    "start_midpoint" = list(values = trt_grid$start_midpoint),
     "VP_logit_dmax" = list(values = trt_grid$VP_logit_dmax),
     "VP_slope" = list(values = trt_grid$VP_slope),
     "VP_midpoint" = list(values = trt_grid$VP_midpoint),
@@ -149,7 +150,7 @@ We can now process the result for the main analyses. first we start by extractin
 ```{r processing-output-presaving}
 tab <- exp_h2 %>%
   dplyr::select(ticks,
-    dmax_start,slope_start, midpoint_start,
+    start_dmax,start_slope, start_midpoint,
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
     fecundity, K, reproduction,

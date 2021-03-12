@@ -14,7 +14,7 @@ globals[
   ;; fixed once set up
 
   ;; parameters shaping the initial distributions of traits
-  logit_dmax_start     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
+  logit_start_dmax     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
   VA_logit_dmax         ;; initial genetic additive variance of logit(dmax)
   VR_logit_dmax         ;; residual (i.e. environmental) variance of logit(dmax)
   VA_slope              ;; initial genetic additive variance of the dispersal-density reaction norm slope
@@ -22,7 +22,7 @@ globals[
   VA_midpoint           ;; same for midpoint
   VR_midpoint           ;; same for midpoint
 
-  ;; mean initial values (t=0) for some patch-level summaries
+  ;; mean initial values (t=0) for some patch-level summaries (see turtles-own for meaning of each)
   start_d0
   start_slopeA_0_K
   start_slopeR_0_K
@@ -48,11 +48,10 @@ turtles-own[
   ;; dispersal, summary/derived traits
   d0                      ;; dispersal probability at N = 0
   dK                      ;; dispersal probability at N = K
-  maxslope                ;; maximal absolute slope (ie slope at the inflection point)
   slopeA_0_K              ;; absolute slope over the range 0-K
   slopeR_0_K              ;; same but expressed in proportion of dmax
   slopeA_0_avg            ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
-  uncond_0_K               ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
+  uncond_0_K              ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -120,7 +119,7 @@ patches-own [
   var_slopeA_0_avg
   mean_slopeR_0_K            ;;
   var_slopeR_0_K
-  mean_uncond_0_K             ;;
+  mean_uncond_0_K            ;;
   var_uncond_0_K
   ]
 
@@ -138,7 +137,7 @@ to setup
   setup-initial-summaries
   reset-ticks
   tick
-  ;; tick to bypass zero-indexing and ensure patches founded during the first generation are recorded as founded at t=1
+  ;; the tick command to bypass zero-indexing and ensure patches founded during the first generation are recorded as founded at t=1
   ;; this allows us to leave founding date = 0 to the introduction patch
 end
 
@@ -151,7 +150,7 @@ to define-landscape
 end
 
 to setup-initial-variances
-  set logit_dmax_start ln (dmax_start / (1 - dmax_start)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
+  set logit_start_dmax ln (start_dmax / (1 - start_dmax)) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
   set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
   set VA_slope heritability * VP_slope
@@ -179,9 +178,9 @@ to setup-turtles
     ifelse reproduction = "clonal"   ;; for clonal reproduction, only one allele for each trait and neutral locus is drawn
       [set neutral_locus (list random 2) ;; NB: important: random 2 reports 0 or 1, not 1 or 2
 
-       set alleles_logit_dmax random-normal logit_dmax_start sqrt(VA_logit_dmax)
-       set alleles_slope random-normal slope_start sqrt(VA_slope)
-       set alleles_midpoint random-normal midpoint_start sqrt(VA_midpoint)
+       set alleles_logit_dmax random-normal logit_start_dmax sqrt(VA_logit_dmax)
+       set alleles_slope random-normal start_slope sqrt(VA_slope)
+       set alleles_midpoint random-normal start_midpoint sqrt(VA_midpoint)
        ;; assign genotypic trait values from the global means and genetic variance
 
        set genotype_logit_dmax alleles_logit_dmax  ;; no need to average anything if clonal
@@ -197,9 +196,9 @@ to setup-turtles
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
 
-       set alleles_logit_dmax list (random-normal logit_dmax_start sqrt(VA_logit_dmax)) (random-normal logit_dmax_start sqrt(VA_logit_dmax))
-       set alleles_slope list (random-normal slope_start sqrt(VA_slope)) (random-normal slope_start sqrt(VA_slope))
-       set alleles_midpoint list (random-normal midpoint_start sqrt(VA_midpoint)) (random-normal midpoint_start sqrt(VA_midpoint))
+       set alleles_logit_dmax list (random-normal logit_start_dmax sqrt(VA_logit_dmax)) (random-normal logit_start_dmax sqrt(VA_logit_dmax))
+       set alleles_slope list (random-normal start_slope sqrt(VA_slope)) (random-normal start_slope sqrt(VA_slope))
+       set alleles_midpoint list (random-normal start_midpoint sqrt(VA_midpoint)) (random-normal start_midpoint sqrt(VA_midpoint))
 
        set genotype_logit_dmax mean (alleles_logit_dmax)
        set genotype_slope mean (alleles_slope)
@@ -230,6 +229,11 @@ to set_individual_traits
         set slopeR_0_K slopeA_0_K / dmax
 
         let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
+        ;; we use a sequence going from 0 to 1.01 by steps of 0.1 because weirdly the steps Netlogo adds aren't exactly 0.1 but a bit more
+        ;; (ask "show map [x -> x ] (range 0 1.01 0.1)" in the command center to check)
+        ;; so if we asked "from 0 to 1 by steps of 0.1", the "1" step would actually be 1.000000...001 or something, so out of boundaries, so ignored
+        ;; unless the boundary is a bit above 1
+
         set uncond_0_K mean (X0) / max (list d0 dK)
 
         set slopeA_0_avg mean (x0) - d0
@@ -638,8 +642,8 @@ SLIDER
 174
 409
 207
-dmax_start
-dmax_start
+start_dmax
+start_dmax
 0.01
 0.99
 0.5
@@ -668,8 +672,8 @@ SLIDER
 221
 409
 254
-slope_start
-slope_start
+start_slope
+start_slope
 -10
 10
 0.0
@@ -771,8 +775,8 @@ SLIDER
 265
 409
 298
-midpoint_start
-midpoint_start
+start_midpoint
+start_midpoint
 -0.5
 1.5
 0.51
