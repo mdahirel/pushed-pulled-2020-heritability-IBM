@@ -165,10 +165,10 @@ tab <- exp_h2 %>%
   mutate( 
   #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
   across(.cols=everything(),na_if,-999)
-  ) %>% 
-  mutate(Location_full = paste(replicateID, pxcor, ticks))
+  )
 ```
 
+then we save the file for later use
 
 ```{r saving-output}
 write_csv(tab, file = here("NetLogo_output","model-output.csv"))

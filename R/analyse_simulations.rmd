@@ -150,6 +150,154 @@ if convergence at g100, then we can make the following assumptions
 
 -mortality plays a role
 
+
+```{r}
+test<-data %>% 
+  mutate(mortality=factor(dispersal_mortality)) %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>%
+  filter(pxcor >= front-5 ) %>%  ### to check in NL code the ticks numbering
+  ungroup() %>% 
+  group_by(replicateID,ticks,mortality) %>% 
+  summarise(
+    d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    front=mean(front)
+  ) %>% 
+  pivot_wider(id_cols = c(replicateID,mortality), names_from=ticks,values_from=c(front,d0,avgslope,uncond))
+
+test<-data %>% select(
+  start_d0,
+  start_avgslope=start_slopeA_0_avg,
+  start_uncond=start_uncond_0_K,
+  replicateID
+) %>% 
+  distinct() %>% 
+  left_join(test)
+
+mod00=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(start_d0, by = mortality,k=10,bs="cr")+
+          s(start_avgslope,by=mortality,k=10,bs="cr")+
+          s(start_uncond,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+
+mod10=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_10, by = mortality,k=10,bs="cr")+
+          s(avgslope_10,by=mortality,k=10,bs="cr")+
+          s(uncond_10,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod20=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_20, by = mortality,k=10,bs="cr")+
+          s(avgslope_20,by=mortality,k=10,bs="cr")+
+          s(uncond_20,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod40=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_40, by = mortality,k=10,bs="cr")+
+          s(avgslope_40,by=mortality,k=10,bs="cr")+
+          s(uncond_40,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod60=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_60, by = mortality,k=10,bs="cr")+
+          s(avgslope_60,by=mortality,k=10,bs="cr")+
+          s(uncond_60,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod80=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_80, by = mortality,k=10,bs="cr")+
+          s(avgslope_80,by=mortality,k=10,bs="cr")+
+          s(uncond_80,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod100=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_100, by = mortality,k=10,bs="cr")+
+          s(avgslope_100,by=mortality,k=10,bs="cr")+
+          s(uncond_100,by=mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod00b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(start_d0, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+
+mod10b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_10, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod20b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_20, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod40b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_40, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod60b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_60, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod80b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_80, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+mod100b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
+          s(d0_100, by = mortality,k=10,bs="cr")+
+          mortality,
+        family=binomial,data=test,method="REML")
+
+
+tibble(generation=rep(c(0,10,20,40,60,80,100),2),
+     deviance=c(
+       summary(mod00)$dev.expl,
+       summary(mod10)$dev.expl,
+       summary(mod20)$dev.expl,
+       summary(mod40)$dev.expl,
+       summary(mod60)$dev.expl,
+       summary(mod80)$dev.expl,
+       summary(mod100)$dev.expl,
+       summary(mod00b)$dev.expl,
+       summary(mod10b)$dev.expl,
+       summary(mod20b)$dev.expl,
+       summary(mod40b)$dev.expl,
+       summary(mod60b)$dev.expl,
+       summary(mod80b)$dev.expl,
+       summary(mod100b)$dev.expl),
+     type=c(rep("d0 + mortality + DDD",7),rep("d0 + mortality only",7))
+     ) %>% 
+  ggplot()+
+  geom_line(aes(generation,deviance*100,group=type,col=type))+
+  geom_point(aes(generation,deviance*100,col=type),size=3)+
+  scale_x_continuous("generation at which traits at the edge are measured")+
+  scale_y_continuous("% of deviance in speed between t=100 and t=120 explained by traits",limits = c(70,100))
+
+```
+
+models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
+in our system, most of the power gain is within the first generations: rapid evolutionary change (how transferable??)
+
+
+
+
+
+
+
 ```{r}
 
 
@@ -159,7 +307,7 @@ trait_data100<-data %>%
   group_by(replicateID,ticks) %>% 
   mutate(front=max(pxcor*(N_postdispersal>0))) %>%
   ungroup() %>% 
-  filter(ticks==101 & pxcor >= front-5 ) %>%  ### to check in NL code the ticks numbering
+  filter(ticks==100 & pxcor >= front-5 ) %>%  ### to check in NL code the ticks numbering
   group_by(replicateID) %>% 
   summarise(
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
@@ -207,7 +355,7 @@ pop_data120b <- data %>%
   select(N_founding=N_postdispersal,replicateID)
   
 dynamic_data120<-data %>% 
-    filter(ticks==121) %>% 
+    filter(ticks==120) %>% 
     mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
            is.VP_DDD=as.numeric(VP_slope >0)) %>% 
   group_by(replicateID) %>% 
