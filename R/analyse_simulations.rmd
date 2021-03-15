@@ -82,7 +82,7 @@ tab_edge<-data %>%
     mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE)
   ) %>% 
   pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
@@ -99,7 +99,7 @@ tab_core<-data %>%
     mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE)
   ) %>% 
   pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
@@ -152,90 +152,145 @@ tab_popsizes <- data %>%
 
 ```
 
+
+
+
 ```{r}
+library(cmdstanr)
+library(brms)
+options(mc.cores = 4)
+
+test$advance=test$front_120-test$front_100
+
+mod100=brm(bf((advance+1)~
+          (scale(mean_d0_100)+scale(mean_avgslope_100))*mortality),
+        family=cumulative,data=test,chains=4,seed=42,iter=1000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+mod100x=brm(bf((advance)|trials(20)~
+          (scale(mean_d0_100)+scale(mean_avgslope_100))*mortality),
+        family=binomial,data=test,chains=4,seed=42,iter=1000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+### reread the burkner vuorre in detail to choose best family of ordinal
+### but sequential seems the most appropriate
+mod100y=brm(bf((advance+1)~
+          (scale(mean_d0_100)+mean_avgslope_100)*mortality),
+          ## we don't scale slope as there is already meaningful zero
+          ## but maybe we should at least / it by SD??
+        family=sratio,data=test,chains=4,seed=42,iter=200,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+pp_check(mod100,"stat_2d")
+pp_check(mod100x,"stat_2d")
+### the ordered logit seems to do way better than the binomial, 
+### seems like data are underdispersed relative to the binomial
+### see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
+### the idea that if underdispersed relative to binomial, then not the result of independent bernoulli reals
+### which make sense, since proba of advancing to N+1 depends on # of individuals that advanced to N
+### qualitative ccl are the same anyway though
+```
+
+
+```{r}
+
+test<-tab_edge %>% 
+  left_join(tab_dynamics) %>% 
+  left_join(tab_start) %>% 
+  mutate(mortality=factor(dispersal_mortality))
+
 mod00=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(start_d0, by = mortality,k=10,bs="cr")+
-          s(start_avgslope,by=mortality,k=10,bs="cr")+
-          s(start_uncond,by=mortality,k=10,bs="cr")+
+          s(start_d0, by = mortality,k=10)+
+          s(start_avgslope,by=mortality,k=10)+
+          s(start_uncond,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 
 mod10=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_10, by = mortality,k=10,bs="cr")+
-          s(avgslope_10,by=mortality,k=10,bs="cr")+
-          s(uncond_10,by=mortality,k=10,bs="cr")+
+          s(mean_d0_10, by = mortality,k=10)+
+          s(mean_avgslope_10,by=mortality,k=10)+
+          s(mean_uncond_10,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod20=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_20, by = mortality,k=10,bs="cr")+
-          s(avgslope_20,by=mortality,k=10,bs="cr")+
-          s(uncond_20,by=mortality,k=10,bs="cr")+
+          s(mean_d0_20, by = mortality,k=10)+
+          s(mean_avgslope_20,by=mortality,k=10)+
+          s(mean_uncond_20,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod40=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_40, by = mortality,k=10,bs="cr")+
-          s(avgslope_40,by=mortality,k=10,bs="cr")+
-          s(uncond_40,by=mortality,k=10,bs="cr")+
+          s(mean_d0_40, by = mortality,k=10)+
+          s(mean_avgslope_40,by=mortality,k=10)+
+          s(mean_uncond_40,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod60=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_60, by = mortality,k=10,bs="cr")+
-          s(avgslope_60,by=mortality,k=10,bs="cr")+
-          s(uncond_60,by=mortality,k=10,bs="cr")+
+          s(mean_d0_60, by = mortality,k=10)+
+          s(mean_avgslope_60,by=mortality,k=10)+
+          s(mean_uncond_60,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod80=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_80, by = mortality,k=10,bs="cr")+
-          s(avgslope_80,by=mortality,k=10,bs="cr")+
-          s(uncond_80,by=mortality,k=10,bs="cr")+
+          s(mean_d0_80, by = mortality,k=10)+
+          s(mean_avgslope_80,by=mortality,k=10)+
+          s(mean_uncond_80,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod100=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_100, by = mortality,k=10,bs="cr")+
-          s(avgslope_100,by=mortality,k=10,bs="cr")+
-          s(uncond_100,by=mortality,k=10,bs="cr")+
+          s(mean_d0_100, by = mortality,k=10)+
+          s(mean_avgslope_100,by=mortality,k=10)+
+          s(mean_uncond_100,by=mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod00b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(start_d0, by = mortality,k=10,bs="cr")+
+          s(start_d0, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 
 mod10b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_10, by = mortality,k=10,bs="cr")+
+          s(mean_d0_10, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod20b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_20, by = mortality,k=10,bs="cr")+
+          s(mean_d0_20, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod40b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_40, by = mortality,k=10,bs="cr")+
+          s(mean_d0_40, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod60b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_60, by = mortality,k=10,bs="cr")+
+          s(mean_d0_60, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod80b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_80, by = mortality,k=10,bs="cr")+
+          s(mean_d0_80, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
 mod100b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(d0_100, by = mortality,k=10,bs="cr")+
+          s(mean_d0_100, by = mortality,k=10)+
           mortality,
         family=binomial,data=test,method="REML")
 
@@ -453,33 +508,51 @@ appraise(mod_width)
 our main tool: the plot(y=trait after evol, x=trait at t0), deviation from nthe line y=x indicate evolution
 
 ```{r}
-
-trait_edge=trait_data100 %>% 
-  mutate(where="edge")
-
-trait_core=trait_data100core %>% 
-  mutate(where="core")
-
-tab2<- rbind(trait_edge,trait_core) %>% 
-  left_join(dynamic_data120) 
+tab_evol<- rbind(tab_edge,tab_core) %>% 
+  left_join(tab_start) 
 
 
-
-ggplot(tab2)+
+plot_evol_slope <-function(dataset){
+    ggplot(dataset)+
     geom_hline(yintercept = 0, lty=2)+
-    #geom_abline(intercept=0,slope=-1,lty=2)+
-    geom_point(aes(start_slopeA_0_avg,
-                   mean_slopeA_0_avg-start_slopeA_0_avg,
+    geom_point(aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope,
                    col=where),
                alpha=0.05)+
-    geom_smooth(aes(start_slopeA_0_avg,
-                    mean_slopeA_0_avg-start_slopeA_0_avg,
+    geom_smooth(aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope,
                     col=where),
                 method="lm")+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+ 
+    facet_grid(cols=vars(paste("mortality =", dispersal_mortality)),
+               rows=vars(paste("h2 =", as.character(heritability))))+ 
     scale_x_continuous("original mean absolute slope")+
-    scale_y_continuous("evolutionary change in slope")
+    scale_y_continuous("evolutionary change in slope")+
+    coord_cartesian(xlim=c(-0.25,0.25),
+                    ylim=c(-0.4,0.4))
+}
+
+p1<- tab_evol %>% 
+  filter(is.VP_DDD ==0 & is.VP_dmax==0) %>% 
+  plot_evol_slope()+
+  labs(title = "no individual variation")
+
+p2<- tab_evol %>% 
+  filter(is.VP_DDD ==0 & is.VP_dmax==1) %>% 
+  plot_evol_slope()+
+  labs(title = "individual variation in dispersal capacity (dmax)")
+
+p3<- tab_evol %>% 
+  filter(is.VP_DDD ==1 & is.VP_dmax==0) %>% 
+  plot_evol_slope()+
+  labs(title = "individual variation in density-dependence")
+
+p4<- tab_evol %>% 
+  filter(is.VP_DDD ==1 & is.VP_dmax==1) %>% 
+  plot_evol_slope()+
+  labs(title = "individual variation in both")
+
+((p1/p2)|(p3/p4)) + plot_layout(guides="collect")
+
 
 ### presenting this way (y-x~x rather than y~x) helps interpret:
 ### in the case of DDD, the main conclusion of erm phillips seems to apply only 
@@ -500,8 +573,10 @@ ggplot(tab2)+
 
 ### hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
 ### runaway effect of spatial sorting if dmax variable?
+```
 
 
+```{r}
 ggplot(tab2)+
   geom_hline(yintercept = 0,lty=2)+
   geom_point(aes(start_uncond_0_K,mean_uncond_0_K-start_uncond_0_K,col=where),alpha=0.1)+
