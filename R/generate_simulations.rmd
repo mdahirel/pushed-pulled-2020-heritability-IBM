@@ -90,7 +90,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(10, 20, 40, 60, 80, 100, 120),
+  evalticks = c(20, 40, 60, 80, 100, 120),
   metrics = c("ticks",
               "start_d0", "start_slopeA_0_K","start_slopeR_0_K",
               "start_slopeA_0_avg","start_uncond_0_K"),

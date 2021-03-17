@@ -58,7 +58,8 @@ data <- read_csv(here("NetLogo_output","model-output.csv"))
 ```{r}
 data<- data  %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0))
+           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
+  filter(ticks!=10)
 ```
 
 
@@ -76,6 +77,35 @@ if convergence at g100, then we can make the following assumptions
 
 
 ```{r}
+
+tab_genet <- data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor >= front-5 ) %>%
+  ungroup() %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(
+    N_allele0=sum(N_allele0_post),
+    N_allele1=sum(N_allele1_post)
+  ) %>% 
+  ungroup() %>% 
+  mutate(edge_fix= N_allele0==0 | N_allele1==0) %>% 
+  group_by(replicateID) %>% 
+  mutate(time_to_fix=case_when(subset(edge_fix,ticks==20)==1 ~ 20,
+                               subset(edge_fix,ticks==40)==1 ~ 40,
+                               subset(edge_fix,ticks==60)==1 ~ 60,
+                               subset(edge_fix,ticks==80)==1 ~ 80,
+                               subset(edge_fix,ticks==100)==1 ~ 100,
+                               subset(edge_fix,ticks==120)==1 ~ 120,
+                               T~121)##not fixed yet at end of experiment
+         ) %>% 
+  ungroup() %>% 
+  group_by(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(time_to_fix=unique(time_to_fix)) %>% 
+  ungroup()
+
+
+
 tab_edge<-data %>% 
   group_by(replicateID,ticks) %>% 
   mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
@@ -87,38 +117,37 @@ tab_edge<-data %>%
     mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
-    N_allele0=sum(N_allele0_post),
-    N_allele1=sum(N_allele1_post)
+    front=mean(front)
   ) %>% 
   ungroup() %>% 
-  mutate(edge_diverse= N_allele0>0 & N_allele1>0) %>% 
-  group_by(replicateID) %>% 
-  mutate(time_to_fix=max(ticks*edge_diverse)) %>% 
-  ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,time_to_fix),
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond)) %>% 
+                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
   mutate(where="edge")
 
 tab_core<-data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
   filter(pxcor < 5 ) %>%
+  ungroup() %>% 
   group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
   summarise(
     mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
     mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE)
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    front=mean(front)
   ) %>% 
   ungroup() %>% 
   pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond))  %>% 
+                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
   mutate(where="core")
 
 tab_start<-data %>% select(
@@ -132,45 +161,12 @@ tab_start<-data %>% select(
 ) %>% 
   distinct()
 
-tab_dynamics <- data %>% 
-  group_by(replicateID,ticks) %>% 
-  summarise(front_50p=max(pxcor*(N_postdispersal>=(0.5*K))), ##to build williams et al TREE metric 1
-            front_0=max(pxcor*(N_allele0_post>0)),
-            front_1=max(pxcor*(N_allele1_post>0))) %>% 
-  group_by(replicateID,ticks) %>% 
-  mutate(front_lag=min(c(front_0,front_1)),
-         front=max(c(front_0,front_1))) %>% 
-  ungroup() %>% 
-  pivot_wider(id_cols = replicateID, names_from=ticks,values_from=c(front_50p,front_lag,front))
-
 ```
-
-```{r}
-tab_popsizes <- data %>% 
-  group_by(replicateID,ticks) %>%
-  filter(N_predispersal>0) %>% 
-  filter(pxcor==max(pxcor)) %>%
-  ungroup() %>% 
-  select(N_edge=N_predispersal,replicateID,ticks) 
-
-
-tab_popsizes <- data %>% 
-  group_by(replicateID,ticks) %>%
-  mutate(maxpxcor=max(pxcor)) %>% 
-  filter(N_predispersal==0 & pxcor==maxpxcor) %>% 
-  ungroup() %>% 
-  select(N_founding=N_postdispersal,replicateID,ticks) %>% 
-  full_join(tab_popsizes) %>% 
-  pivot_wider(id_cols = replicateID, names_from=ticks,values_from=c(N_edge,N_founding))
-
-```
-
 
 
 
 ```{r}
 test<-tab_edge %>% 
-  left_join(tab_dynamics) %>% 
   left_join(tab_start) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) %>% 
@@ -317,11 +313,11 @@ in our system, most of the power gain is within the first generations: rapid evo
 
 ```{r}
 
-test$time_to_fix2=as.numeric(as.factor(test$time_to_fix))
+test$time_to_fix_class=as.numeric(as.factor(test$time_to_fix))
 ###needs to separate fixed in 100-120 from not yet fixed at 120
 
-mod_div00=brm(time_to_fix2~(scale_d0_start+s_avgslope_start)*mortality,
-        family=sratio, ##another distri? another link??? see burkner vuorre
+mod_div00=brm(time_to_fix_class~(scale_d0_start+s_avgslope_start)*mortality,
+        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
         data=filter(test,front_120>0),#one front did not advance
         chains=4,seed=42,iter=2000,backend="cmdstanr",
         prior=c(
@@ -332,7 +328,7 @@ mod_div00=brm(time_to_fix2~(scale_d0_start+s_avgslope_start)*mortality,
 ### descibre plot as log-odds of genetic diversity persisting at edge beyond current obs
 ### effect on log-odds of moving anotehr patch
 
-mod_div100=brm(time_to_fix2~(scale_d0_100+s_avgslope_100)*mortality,
+mod_div100=brm(time_to_fix_class~(scale_d0_100+s_avgslope_100)*mortality,
         family=sratio, ##another distri? another link??? see burkner vuorre
         data=filter(test,front_120>0),#one front did not advance
         chains=4,seed=42,iter=2000,backend="cmdstanr",
@@ -341,13 +337,38 @@ mod_div100=brm(time_to_fix2~(scale_d0_100+s_avgslope_100)*mortality,
           set_prior("normal(0,1)",class="b")
         ))
 
+
+mod_div00_noDDD=brm(time_to_fix_class~(scale_d0_start)*mortality,
+        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
+        data=filter(test,front_120>0),#one front did not advance
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+mod_div100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
+        family=sratio, ##another distri? another link??? see burkner vuorre
+        data=filter(test,front_120>0),#one front did not advance
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+
+
+
+
 ### interesting that model based on start trait seems to be better supported for genet
 ### makes kinda sense, given mode for fixation is "between 10 and 20 generations"
 ### but still conclusion re: slope stay consistent
 
 loo_div00<-loo(mod_div00)
 loo_div100<-loo(mod_div100)
-loo_compare(loo_div00,loo_div100)
+loo_div00_noDDD<-loo(mod_div00_noDDD)
+loo_div100_noDDD<-loo(mod_div100_noDDD)
+loo_compare(loo_div00,loo_div100,loo_div00_noDDD,loo_div100_noDDD)
 ## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
 ### reason why the post evol model works better here (where it is less obvious than for the speed)
 ### evol happens fast in this system mostly in the first 10-20 generations, so most of the expansion happens post evol
@@ -358,65 +379,37 @@ loo_compare(loo_div00,loo_div100)
 
 
 
-
-
-
-
-
-
-
-
-
-
 # checking evolutionary and velocity convergence
 
+
 ```{r}
-data %>% 
-  select(ticks,heritability,is.VP_dmax,is.VP_DDD,replicateID,present_front,dispersal_mortality) %>% 
-  distinct() %>% 
-  group_by(replicateID) %>% 
-  mutate(speed=present_front/ticks) %>% 
-  mutate(speed_final=subset(speed,ticks==120) %>% mean()) %>% 
-  mutate(relative_speed=speed-speed_final) %>%
+tab_dynamics<-data %>% 
+  group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability) %>% 
+  summarise(front=max(pxcor*(N_postdispersal>0))) %>% 
   ungroup() %>% 
-  ggplot()+
-  geom_line(aes(ticks,relative_speed,group=replicateID),col="lightgrey")+
-  stat_lineribbon(aes(ticks,relative_speed),.width=c(0.001,0.95),point_interval = median_qi,
-                  alpha=0.5)+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+
-  geom_hline(yintercept = c(-0.025,0,0.025),lty=2)+
-  scale_y_continuous("deviation from final velocity (in patches per generation)")+
-  scale_x_continuous("generations")+
-  theme(legend.position = "none")
-```
-(use the facetted version in suppl, and maybe the general in main text)
-
-takeaway: convergence in speed (which depends on both the stochasticity of the invasion smoothing itself out and the evolutionary process finishing) is fast, and speeds at g100 or g120 can reasonably be used as measures of long-run speed
-
-another way to check it would be to see how speed changes from one measure to the next:
-
-```{r}
-data %>% 
-  select(ticks,heritability,is.VP_dmax,is.VP_DDD,replicateID,present_front,dispersal_mortality) %>% 
-  distinct() %>% 
   group_by(replicateID) %>% 
-  mutate(speed=present_front/ticks) %>% 
   arrange(ticks) %>% 
-  mutate(deviation=speed-lag(speed)) %>% 
-  ungroup() %>% 
-  filter(ticks>1) %>% 
-  ggplot()+
-  geom_line(aes(ticks,deviation,group=replicateID),col="lightgrey")+
-  stat_lineribbon(aes(ticks,deviation),.width=c(0.001,0.95),point_interval = median_qi,
-                  alpha=0.5)+
+  mutate(prev_front=lag(front)) %>% 
+  mutate(prev_front=replace_na(prev_front,0)) %>% 
+  mutate(speed_segment=(front-prev_front)/20) %>% 
+  mutate(overall_speed=subset(front,ticks==120)/120) %>% 
+  ungroup()
+
+  ggplot(tab_dynamics)+
+  geom_boxplot(aes(factor(ticks),speed_segment-overall_speed))+
   #facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
   #             cols=vars(heritability,is.VP_DDD))+
-  geom_hline(yintercept = c(-0.025,0,0.025),lty=2)+
-  scale_y_continuous("deviation in speed from previous measure (in patches per generation)")+
-  scale_x_continuous("generations")+
+  scale_y_continuous("deviation from overall velocity (in patches per generation)")+
+  scale_x_discrete("time interval (generations)",
+                   labels=c("0-20","20-40","40-60","60-80","80-100","100-120"))+
   theme(legend.position = "none")
+
 ```
+
+
+
+
+takeaway: convergence in speed (which depends on both the stochasticity of the invasion smoothing itself out and the evolutionary process finishing) is fast, and speeds at g100 or g120 can reasonably be used as measures of long-run speed
 
 let's do the same to look at evolutionary stability at the edge
 
@@ -454,90 +447,95 @@ lots of things to do to strengthen this, but we can carry on assuming convergenc
 
 
 
-
-
-
-
-
-
-Don't forget to look at what happens at the cor for trait!!!!!!
-
-
-
-
-
 # analyse evolution
 
 our main tool: the plot(y=trait after evol, x=trait at t0), deviation from nthe line y=x indicate evolution
 
 ```{r}
-tab_evol<- rbind(tab_edge,tab_core) %>% 
-  left_join(tab_start) 
-
-
-plot_evol_slope <-function(dataset){
-    ggplot(dataset)+
-    geom_hline(yintercept = 0, lty=2)+
-    geom_point(aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope,
-                   col=where),
-               alpha=0.05)+
-    geom_smooth(aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope,
-                    col=where),
-                method="lm")+
-    facet_grid(cols=vars(paste("mortality =", dispersal_mortality)),
-               rows=vars(paste("h2 =", as.character(heritability))))+ 
-    scale_x_continuous("original mean absolute slope")+
-    scale_y_continuous("evolutionary change in slope")+
-    coord_cartesian(xlim=c(-0.25,0.25),
-                    ylim=c(-0.4,0.4))
-}
-
-p1<- tab_evol %>% 
-  filter(is.VP_DDD ==0 & is.VP_dmax==0) %>% 
-  plot_evol_slope()+
-  labs(title = "no individual variation")
-
-p2<- tab_evol %>% 
-  filter(is.VP_DDD ==0 & is.VP_dmax==1) %>% 
-  plot_evol_slope()+
-  labs(title = "individual variation in dispersal capacity (dmax)")
-
-p3<- tab_evol %>% 
-  filter(is.VP_DDD ==1 & is.VP_dmax==0) %>% 
-  plot_evol_slope()+
-  labs(title = "individual variation in density-dependence")
-
-p4<- tab_evol %>% 
-  filter(is.VP_DDD ==1 & is.VP_dmax==1) %>% 
-  plot_evol_slope()+
-  labs(title = "individual variation in both")
-
-((p1/p2)|(p3/p4)) + plot_layout(guides="collect")
-
-
-### presenting this way (y-x~x rather than y~x) helps interpret:
-### in the case of DDD, the main conclusion of erm phillips seems to apply only 
-### for a narrow set of scenarios:
-### low cost of dispersal, no/low variation in enhancing/enabling trait, only in matching trait sensu cote 2017
-### because of spatial sorting, if matching trait, response may even be the reverse (pushed become more pushed)
-### the exact balance probably depends on the relative amounts of variance in the two types of traits
-### and the actual fitness benefits of dispersing in the expanding context
-### which would likely depend on trade-off between dispersal/life-history (pace of life)
-### and their own DDD, things we haven't tackled here
-
-### no shift to DDD-: incomplete
-
-### our model is clearly incomplete (trade-offs, phenotypic syndromes, sexual repro, differences in variance and h2 bw enhancing and matching traits), but it does suggest that the parts of the dimension space that allow for the evolutionary maintenance of pushiness
-### is bigge rthan previously thought
-
-### consistency with experiments: when matching only evolve, we find results qualitatively compatible with Trichogramma experiments: from initial DDD+, shift to less DDD+ (or even DDD- in the study) when costs are low, but maintenance of DDD when costs are hhigh (suggest limited evolution of across the board dispersal in trichogramma, something that is again compatible with experiments)
-
-### hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
-### runaway effect of spatial sorting if dmax variable?
+tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct
+  left_join(tab_start) %>% 
+  mutate(group=paste(dispersal_mortality, is.VP_DDD,is.VP_dmax,heritability,where))
 ```
 
+
+```{r}
+tab_evol2=tab_evol %>% 
+  filter(heritability>0)
+
+mod=brm(bf(mean_avgslope_100~b+(1+a)*start_avgslope,
+           a~0+group,
+           b~0+group,
+           sigma~0+group,
+           nl=TRUE),data=tab_evol2,
+        chains=4,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1)",nlpar=c("a","b")),
+          set_prior("normal(0,1)",dpar="sigma")),
+        seed=42
+        )
+
+```
+
+
+
+```{r}
+tab_evol2 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  expand_grid(start_avgslope=c(-20:20)/100) %>% 
+  add_fitted_draws(mod) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_hline(yintercept = 0,lty=2)+
+  geom_point(data=tab_evol,aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope,
+                   col=where),alpha=0.5)+
+  stat_lineribbon(aes(start_avgslope,
+                    .value-start_avgslope,
+                   fill=where,col=where),.width=c(0.001,0.95),alpha=0.5)+
+    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))
+```
+
+
+presenting this way (y-x~x rather than y~x) helps interpret:
+in the case of DDD, the main conclusion of erm phillips seems to apply only 
+for a narrow set of scenarios:
+low cost of dispersal, no/low variation in enhancing/enabling trait, only in matching trait sensu cote 2017
+because of spatial sorting, if matching trait, response may even be the reverse (pushed become more pushed)
+the exact balance probably depends on the relative amounts of variance in the two types of traits
+and the actual fitness benefits of dispersing in the expanding context
+which would likely depend on trade-off between dispersal/life-history (pace of life)
+and their own DDD, things we haven't tackled here
+
+no shift to DDD-: incomplete
+
+our model is clearly incomplete (trade-offs, phenotypic syndromes, sexual repro, differences in variance and h2 bw enhancing and matching traits), but it does suggest that the parts of the dimension space that allow for the evolutionary maintenance of pushiness
+is bigge rthan previously thought
+
+consistency with experiments: when matching only evolve, we find results qualitatively compatible with Trichogramma experiments: from initial DDD+, shift to less DDD+ (or even DDD- in the study) when costs are low, but maintenance of DDD when costs are hhigh (suggest limited evolution of across the board dispersal in trichogramma, something that is again compatible with experiments)
+
+hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
+ runaway effect of spatial sorting if dmax variable?
+
+
+core tends toward convergence (but why no maintenance of DDD+ at high mortality, contrary to edge and
+theory??? suggestion: low variation in density in core)
+
+```{r}
+tab_evol2 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  mutate(start_avgslope=0) %>% 
+  add_fitted_draws(mod,dpar="sigma") %>% 
+  ungroup() %>% 
+  ggplot()+
+  stat_eye(aes(x=where,y=sigma,fill=where),.width=c(0.001,0.95),alpha=0.5)+
+    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))
+```
+
+looking at sigma, more residual variance 
 
 ```{r}
 ggplot(tab2)+
