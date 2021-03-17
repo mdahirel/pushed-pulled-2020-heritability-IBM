@@ -20,13 +20,18 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 library(arm)
 library(matrixStats)
 library(tidyverse)
-library(mgcv)
-library(gratia)
+#library(mgcv)
+#library(gratia)
 library(cowplot)
 library(patchwork)
+library(tidybayes)
 
-library(arm)
-library(ggdist)
+
+library(cmdstanr)
+library(brms)
+options(mc.cores = 4)
+
+library(tidyverse)
 
 library(here)
 ```
@@ -83,9 +88,16 @@ tab_edge<-data %>%
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE)
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    N_allele0=sum(N_allele0_post),
+    N_allele1=sum(N_allele1_post)
   ) %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
+  ungroup() %>% 
+  mutate(edge_diverse= N_allele0>0 & N_allele1>0) %>% 
+  group_by(replicateID) %>% 
+  mutate(time_to_fix=max(ticks*edge_diverse)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,time_to_fix),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
                             mean_d0,mean_avgslope,mean_uncond)) %>% 
@@ -102,6 +114,7 @@ tab_core<-data %>%
     mean_avgslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE)
   ) %>% 
+  ungroup() %>% 
   pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
@@ -156,42 +169,136 @@ tab_popsizes <- data %>%
 
 
 ```{r}
-library(cmdstanr)
-library(brms)
-options(mc.cores = 4)
+test<-tab_edge %>% 
+  left_join(tab_dynamics) %>% 
+  left_join(tab_start) %>% 
+  mutate(mortality=factor(dispersal_mortality)) %>% 
+  mutate(advance=front_120-front_100) %>% 
+  mutate(scale_d0_100=scale(mean_d0_100)[,1],
+         scale_d0_start=scale(start_d0)[,1],
+         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
+         s_avgslope_start=start_avgslope/sd(start_avgslope))
 
-test$advance=test$front_120-test$front_100
 
-mod100=brm(bf((advance+1)~
-          (scale(mean_d0_100)+scale(mean_avgslope_100))*mortality),
-        family=cumulative,data=test,chains=4,seed=42,iter=1000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
 
-mod100x=brm(bf((advance)|trials(20)~
-          (scale(mean_d0_100)+scale(mean_avgslope_100))*mortality),
-        family=binomial,data=test,chains=4,seed=42,iter=1000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
 
 ### reread the burkner vuorre in detail to choose best family of ordinal
 ### but sequential seems the most appropriate
-mod100y=brm(bf((advance+1)~
-          (scale(mean_d0_100)+mean_avgslope_100)*mortality),
-          ## we don't scale slope as there is already meaningful zero
-          ## but maybe we should at least / it by SD??
-        family=sratio,data=test,chains=4,seed=42,iter=200,backend="cmdstanr",
+mod00=brm(bf((advance+1)~
+          (scale_d0_start+s_avgslope_start)*mortality),
+        family=sratio,data=test,
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+mod00_noDDD=brm(bf((advance+1)~
+          (scale_d0_start)*mortality),
+        family=sratio,data=test,
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+
+mod100=brm(bf((advance+1)~
+          (scale_d0_100+s_avgslope_100)*mortality),
+        family=sratio,data=test,
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+mod100_noDDD=brm(bf((advance+1)~
+          (scale_d0_100)*mortality),
+        family=sratio,data=test,
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+loo00<-loo(mod00)
+loo100<-loo(mod100)
+loo00_noDDD<-loo(mod00_noDDD)
+loo100_noDDD<-loo(mod100_noDDD)
+
+loo_compare(loo00,loo100,loo00_noDDD,loo100_noDDD) %>%  ##zero doubt the evol model is better
+  as_tibble() %>% 
+             mutate(is.evo=c(1,1,0,0),
+                  is.DDD=c(1,0,1,0)) %>% 
+  ggplot()+
+  geom_pointinterval(aes(is.evo,elpd_diff,ymin=elpd_diff-se_diff,ymax=elpd_diff+se_diff,col=factor(is.DDD)),size=3)+
+  geom_line(aes(is.evo,elpd_diff,group=is.DDD,col=factor(is.DDD)))
+
+r2mods=test %>% 
+  select(c(advance,scale_d0_100,s_avgslope_100,
+           scale_d0_start, s_avgslope_start,
+           mortality,replicateID)) %>% 
+  group_by(replicateID) %>% 
+  nest() %>% 
+  mutate(mu100=map(.x=data,
+                .f=~.x %>% 
+                  add_fitted_draws(mod100) %>%
+                  mutate(.category=as.numeric(.category)) %>%
+                  group_by(.draw) %>%
+                  mutate(mu100=.category*.value) %>%
+                  summarise(mu100=sum(mu100)) %>% 
+                  ungroup() %>% 
+                  summarise(mu100=mean(mu100)) %>% ungroup()
+  )) %>% 
+    mutate(mu00=map(.x=data,
+                .f=~.x %>% 
+                  add_fitted_draws(mod00) %>%
+                  mutate(.category=as.numeric(.category)) %>%
+                  group_by(.draw) %>%
+                  mutate(mu00=.category*.value) %>%
+                  summarise(mu00=sum(mu00)) %>% 
+                  ungroup() %>% 
+                  summarise(mu00=mean(mu00)) %>% ungroup()
+  )) %>%  
+  mutate(mu100_noDDD=map(.x=data,
+                .f=~.x %>% 
+                  add_fitted_draws(mod100_noDDD) %>%
+                  mutate(.category=as.numeric(.category)) %>%
+                  group_by(.draw) %>%
+                  mutate(mu100_noDDD=.category*.value) %>%
+                  summarise(mu100_noDDD=sum(mu100_noDDD)) %>% 
+                  ungroup() %>% 
+                  summarise(mu100_noDDD=mean(mu100_noDDD)) %>% ungroup()
+  )) %>% 
+    mutate(mu00_noDDD=map(.x=data,
+                .f=~.x %>% 
+                  add_fitted_draws(mod00_noDDD) %>%
+                  mutate(.category=as.numeric(.category)) %>%
+                  group_by(.draw) %>%
+                  mutate(mu00_noDDD=.category*.value) %>%
+                  summarise(mu00_noDDD=sum(mu00_noDDD)) %>% 
+                  ungroup() %>% 
+                  summarise(mu00_noDDD=mean(mu00_noDDD)) %>% ungroup()
+  )) %>% 
+  unnest(c(data,mu100,mu00,mu100_noDDD,mu00_noDDD)) %>% 
+  ungroup() %>% ##important 
+  summarise(r2_00=cor(advance+1,mu00)^2,
+            r2_100=cor(advance+1,mu100)^2,
+            r2_00_noDDD=cor(advance+1,mu00_noDDD)^2,
+            r2_100_noDDD=cor(advance+1,mu100_noDDD)^2)
+
+
+mod100binom=brm(bf(advance|trials(20)~
+          (scale_d0_100+s_avgslope_100)*mortality),
+        family=binomial,data=test,
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
         prior=c(
           set_prior("normal(0,1.5)",class="Intercept"),
           set_prior("normal(0,1)",class="b")
         ))
 
 pp_check(mod100,"stat_2d")
-pp_check(mod100x,"stat_2d")
+pp_check(mod100binom,"stat_2d")
 ### the ordered logit seems to do way better than the binomial, 
 ### seems like data are underdispersed relative to the binomial
 ### see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
@@ -201,125 +308,6 @@ pp_check(mod100x,"stat_2d")
 ```
 
 
-```{r}
-
-test<-tab_edge %>% 
-  left_join(tab_dynamics) %>% 
-  left_join(tab_start) %>% 
-  mutate(mortality=factor(dispersal_mortality))
-
-mod00=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(start_d0, by = mortality,k=10)+
-          s(start_avgslope,by=mortality,k=10)+
-          s(start_uncond,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-
-mod10=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_10, by = mortality,k=10)+
-          s(mean_avgslope_10,by=mortality,k=10)+
-          s(mean_uncond_10,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod20=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_20, by = mortality,k=10)+
-          s(mean_avgslope_20,by=mortality,k=10)+
-          s(mean_uncond_20,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod40=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_40, by = mortality,k=10)+
-          s(mean_avgslope_40,by=mortality,k=10)+
-          s(mean_uncond_40,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod60=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_60, by = mortality,k=10)+
-          s(mean_avgslope_60,by=mortality,k=10)+
-          s(mean_uncond_60,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod80=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_80, by = mortality,k=10)+
-          s(mean_avgslope_80,by=mortality,k=10)+
-          s(mean_uncond_80,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod100=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_100, by = mortality,k=10)+
-          s(mean_avgslope_100,by=mortality,k=10)+
-          s(mean_uncond_100,by=mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod00b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(start_d0, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-
-mod10b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_10, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod20b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_20, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod40b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_40, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod60b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_60, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod80b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_80, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-mod100b=gam(cbind((front_120-front_100),20-(front_120-front_100))~
-          s(mean_d0_100, by = mortality,k=10)+
-          mortality,
-        family=binomial,data=test,method="REML")
-
-
-tibble(generation=rep(c(0,10,20,40,60,80,100),2),
-     deviance=c(
-       summary(mod00)$dev.expl,
-       summary(mod10)$dev.expl,
-       summary(mod20)$dev.expl,
-       summary(mod40)$dev.expl,
-       summary(mod60)$dev.expl,
-       summary(mod80)$dev.expl,
-       summary(mod100)$dev.expl,
-       summary(mod00b)$dev.expl,
-       summary(mod10b)$dev.expl,
-       summary(mod20b)$dev.expl,
-       summary(mod40b)$dev.expl,
-       summary(mod60b)$dev.expl,
-       summary(mod80b)$dev.expl,
-       summary(mod100b)$dev.expl),
-     type=c(rep("d0 + mortality + DDD",7),rep("d0 + mortality only",7))
-     ) %>% 
-  ggplot()+
-  geom_line(aes(generation,deviance*100,group=type,col=type))+
-  geom_point(aes(generation,deviance*100,col=type),size=3)+
-  scale_x_continuous("generation at which traits at the edge are measured")+
-  scale_y_continuous("% of deviance in speed between t=100 and t=120 explained by traits",limits = c(70,100))
-
-```
 
 models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
 in our system, most of the power gain is within the first generations: rapid evolutionary change (how transferable??)
@@ -327,7 +315,44 @@ in our system, most of the power gain is within the first generations: rapid evo
 
 
 
+```{r}
 
+test$time_to_fix2=as.numeric(as.factor(test$time_to_fix))
+###needs to separate fixed in 100-120 from not yet fixed at 120
+
+mod_div00=brm(time_to_fix2~(scale_d0_start+s_avgslope_start)*mortality,
+        family=sratio, ##another distri? another link??? see burkner vuorre
+        data=filter(test,front_120>0),#one front did not advance
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+### descibre plot as log-odds of genetic diversity persisting at edge beyond current obs
+### effect on log-odds of moving anotehr patch
+
+mod_div100=brm(time_to_fix2~(scale_d0_100+s_avgslope_100)*mortality,
+        family=sratio, ##another distri? another link??? see burkner vuorre
+        data=filter(test,front_120>0),#one front did not advance
+        chains=4,seed=42,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class="Intercept"),
+          set_prior("normal(0,1)",class="b")
+        ))
+
+### interesting that model based on start trait seems to be better supported for genet
+### makes kinda sense, given mode for fixation is "between 10 and 20 generations"
+### but still conclusion re: slope stay consistent
+
+loo_div00<-loo(mod_div00)
+loo_div100<-loo(mod_div100)
+loo_compare(loo_div00,loo_div100)
+## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
+### reason why the post evol model works better here (where it is less obvious than for the speed)
+### evol happens fast in this system mostly in the first 10-20 generations, so most of the expansion happens post evol
+
+```
 
 
 
@@ -438,69 +463,7 @@ lots of things to do to strengthen this, but we can carry on assuming convergenc
 Don't forget to look at what happens at the cor for trait!!!!!!
 
 
-```{r}
-## add something about the binomial confidence interval for N=20??
-## any deviation smaller than that can be chalked to the general stochasticity
-## rather than evolution not done or velocity convergence not finished
-tab %>% 
-  mutate(speed100=front100/100,
-         Npatch=front-front100) %>% 
-  filter(is.na(Npatch)==FALSE) %>% ####WHY NAS? examine
-  mutate(p_null=map2(.x=speed100,.y=round(speed100*20),
-                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$null.value}),
-         p_upper=map2(.x=speed100,.y=round(speed100*20),
-                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$conf.int[2]}),
-         p_lower=map2(.x=speed100,.y=round(speed100*20),
-                     .f=function(.x,.y){binom.test(x=.y,n=20,p=.x)$conf.int[1]})) %>% 
-  unnest(c(p_null,p_upper,p_lower)) %>% 
-  ungroup() %>% 
-  ggplot() +
-  geom_point(aes(x=speed100,y=Npatch/20))+
-  geom_line(aes(x=speed100,y=p_upper),col="red")+
-  geom_line(aes(x=speed100,y=p_lower),col="blue")+
-  geom_abline(intercept=0,slope=1)
-  
-mod=glm(cbind((front-front100),20-(front-front100))~(scale(mean_d0)+scale(mean_slopeA_0_avg))*mortality,family=binomial,data=tab)
-## very basic: ignore possible effects of sources of variances
 
-mod_div=glm(cbind(front_lag,front-front_lag)~(scale(mean_d0)+scale(mean_slopeA_0_K))*mortality,family=binomial,data=tab)
-## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
-
-#gam version?
-mod=gam(cbind((front-front100),20-(front-front100))~
-          s(mean_d0, by = mortality,k=10,bs="cr")+
-          s(mean_slopeA_0_avg,by=mortality,k=10,bs="cr")+
-          s(mean_uncond0_K,by=mortality,k=10,bs="cr")+
-          mortality,
-        family=binomial,data=tab,method="REML")
-
-gam.check(mod) #
-draw(mod)
-appraise(mod)
-
-mod_div=gam(cbind(front_lag,front-front_lag)~
-          s(mean_d0, by = mortality,k=10,bs="cr")+
-          s(mean_slopeA_0_avg,by=mortality,k=10,bs="cr")+
-          s(mean_uncond0_K,by=mortality,k=10,bs="cr")+
-          mortality,
-        family=binomial,data=tab,method="REML")
-
-gam.check(mod_div) #
-draw(mod_div)
-appraise(mod_div)
-
-mod_width=gam(front-front_50p~
-          s(mean_d0, by = mortality,k=10,bs="cr")+
-          s(mean_slopeA_0_avg,by=mortality,k=10,bs="cr")+
-          s(mean_uncond0_K,by=mortality,k=10,bs="cr")+
-          mortality,
-        family=poisson,data=tab,method="REML")
-
-gam.check(mod_width) #
-draw(mod_width)
-appraise(mod_width)
-
-```
 
 
 # analyse evolution
