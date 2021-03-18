@@ -76,6 +76,7 @@ tab_edge<-data %>%
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
     front=mean(front)
   ) %>% 
@@ -87,7 +88,7 @@ tab_edge<-data %>%
                           range_N),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,front)) %>% 
   mutate(where="edge")
 ```
 
@@ -108,6 +109,7 @@ tab_core<-data %>%
     mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
     front=mean(front)
   ) %>% 
@@ -119,7 +121,7 @@ tab_core<-data %>%
                           range_N),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond,front)) %>%
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,front)) %>%
   mutate(where="core")
 ```
 
@@ -131,6 +133,7 @@ tab_start<-data %>% select(
   start_slope,
   start_d0,
   start_avgslope=start_slopeA_0_avg,
+  start_Kslope=start_slopeA_0_K,
   start_uncond=start_uncond_0_K,
   replicateID
 ) %>% 
@@ -183,7 +186,9 @@ tab <-tab_edge %>%
   mutate(scale_d0_100=scale(mean_d0_100)[,1],
          scale_d0_start=scale(start_d0)[,1],
          s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
-         s_avgslope_start=start_avgslope/sd(start_avgslope))
+         s_avgslope_start=start_avgslope/sd(start_avgslope),
+         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
+         s_Kslope_start=start_Kslope/sd(start_Kslope))
 ```
 
 for both velocity and genetics, we compare 4 models:
@@ -216,6 +221,11 @@ mod_100=brm(bf(advance|trials(20)~
         family=binomial,data=tab,prior=prior_velocity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
+mod_100_K=brm(bf(advance|trials(20)~
+          (scale_d0_100+s_Kslope_100)*mortality),
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
 mod_100_noDDD=brm(bf(advance|trials(20)~
           (scale_d0_100)*mortality),
         family=binomial,data=tab,prior=prior_velocity,
@@ -226,13 +236,18 @@ mod_00=brm(bf(advance|trials(20)~
         family=binomial,data=tab,prior=prior_velocity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
+mod_00_K=brm(bf(advance|trials(20)~
+          (scale_d0_start+s_Kslope_start)*mortality),
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
 mod_00_noDDD=brm(bf(advance|trials(20)~
           (scale_d0_start)*mortality),
         family=binomial,data=tab,prior=prior_velocity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-save(list=c("mod_100","mod_100_noDDD",
-            "mod_00","mod_00_noDDD"), 
+save(list=c("mod_100","mod_100_K","mod_100_noDDD",
+            "mod_00","mod_00_K","mod_00_noDDD"), 
      file=here("R_output","models_velocity_binom.Rdata"))
     }
 ```
@@ -244,23 +259,28 @@ if(file.exists(here("R_output","loo_velocity_binom.Rdata"))){
     {
 loo_00<-loo(mod_00)
 loo_100<-loo(mod_100)
+loo_00_K<-loo(mod_00_K)
+loo_100_K<-loo(mod_100_K)
 loo_00_noDDD<-loo(mod_00_noDDD)
 loo_100_noDDD<-loo(mod_100_noDDD)
 
-save(list=c("loo_100","loo_100_noDDD",
-            "loo_00","loo_00_noDDD"), 
+save(list=c("loo_100","loo_100_K","loo_100_noDDD",
+            "loo_00","loo_00_K","loo_00_noDDD"), 
      file=here("R_output","loo_velocity_binom.Rdata"))
     }
 
 
-loo_compare(loo_00,loo_100,loo_00_noDDD,loo_100_noDDD) %>%  ##zero doubt the evol model is better
+loo_compare(loo_00,loo_100,
+            loo_00_K, loo_100_K,
+            loo_00_noDDD,loo_100_noDDD) %>%  ##zero doubt the evol model is better
   as.data.frame() %>% 
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
                                      T~"before evolution (t = 0)"),
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     T~"included in model")) %>% 
+                                     str_detect(model_name,"_K")~"included (shape-indep.)",
+                                     T~"included (shape-dep.)")) %>% 
   ggplot()+
   geom_pointinterval(aes(is.evo,elpd_diff,
                          ymin=elpd_diff-2*se_diff,
@@ -282,12 +302,14 @@ if(file.exists(here("R_output","R2_velocity_binom.Rdata"))){
   }else
     {
 R2_100<-loo_R2(mod_100,summary=FALSE) %>% mean_hdi(R2)
+R2_100_K<-loo_R2(mod_100_K,summary=FALSE) %>% mean_hdi(R2)
 R2_100_noDDD<-loo_R2(mod_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
 R2_00<-loo_R2(mod_00,summary=FALSE) %>% mean_hdi(R2)
+R2_00_K<-loo_R2(mod_00_K,summary=FALSE) %>% mean_hdi(R2)
 R2_00_noDDD<-loo_R2(mod_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
 
-R2_velocity=rbind(R2_100,R2_100_noDDD,R2_00,R2_00_noDDD) %>% 
-  mutate(model_name=c("mod_100","mod_100_noDDD","mod_00","mod_00_noDDD"))
+R2_velocity=rbind(R2_100,R2_100_K,R2_100_noDDD,R2_00,R2_00_K,R2_00_noDDD) %>% 
+  mutate(model_name=c("mod_100","mod_100_K","mod_100_noDDD","mod_00","mod_00_K","mod_00_noDDD"))
 
 save(list=c("R2_velocity"), 
      file=here("R_output","R2_velocity_binom.Rdata"))
@@ -297,7 +319,8 @@ R2_velocity %>%
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
                                      T~"before evolution (t = 0)"),
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     T~"included in model")) %>% 
+                                     str_detect(model_name,"_K")~"included (shape-indep.)",
+                                     T~"included (shape-dep.)")) %>% 
   ggplot()+
   geom_pointinterval(aes(is.evo,y,
                          ymin=ymin,
@@ -417,12 +440,23 @@ mod_div_00=brm(time_to_fix_class~(scale_d0_start+s_avgslope_start)*mortality,
 ### descibre plot as log-odds of genetic diversity persisting at edge beyond current obs
 ### effect on log-odds of moving anotehr patch
 
+mod_div_00_K=brm(time_to_fix_class~(scale_d0_start+s_Kslope_start)*mortality,
+        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
 mod_div_100=brm(time_to_fix_class~(scale_d0_100+s_avgslope_100)*mortality,
         family=sratio, ##another distri? another link??? see burkner vuorre
         data=filter(tab,front_120>0),#one front did not advance
         prior=prior_diversity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
+mod_div_100_K=brm(time_to_fix_class~(scale_d0_100+s_Kslope_100)*mortality,
+        family=sratio, ##another distri? another link??? see burkner vuorre
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 mod_div_00_noDDD=brm(time_to_fix_class~(scale_d0_start)*mortality,
         family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
@@ -436,8 +470,8 @@ mod_div_100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
         prior=prior_diversity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-save(list=c("mod_div_100","mod_div_100_noDDD",
-            "mod_div_00","mod_div_00_noDDD"), 
+save(list=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
+            "mod_div_00","mod_div_00_K","mod_div_00_noDDD"), 
      file=here("R_output","models_diversity.Rdata"))
     }
 ```
@@ -453,22 +487,27 @@ if(file.exists(here("R_output","loo_diversity.Rdata"))){
     {
 loo_div_00<-loo(mod_div_00)
 loo_div_100<-loo(mod_div_100)
+loo_div_00_K<-loo(mod_div_00_K)
+loo_div_100_K<-loo(mod_div_100_K)
 loo_div_00_noDDD<-loo(mod_div_00_noDDD)
 loo_div_100_noDDD<-loo(mod_div_100_noDDD)
 
-save(list=c("loo_div_100","loo_div_100_noDDD",
-            "loo_div_00","loo_div_00_noDDD"), 
+save(list=c("loo_div_100","loo_div_100_K","loo_div_100_noDDD",
+            "loo_div_00","loo_div_00_K","loo_div_00_noDDD"), 
      file=here("R_output","loo_diversity.Rdata"))
     }
 
-loo_compare(loo_div_00,loo_div_100,loo_div_00_noDDD,loo_div_100_noDDD) %>% 
+loo_compare(loo_div_00,loo_div_00_K,
+            loo_div_100,loo_div_100_K,
+            loo_div_00_noDDD,loo_div_100_noDDD) %>% 
   as.data.frame() %>% 
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
                                      T~"before evolution (t = 0)"),
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     T~"included in model")) %>% 
+                                     str_detect(model_name,"_K")~"included (shape-indep.)",
+                                     T~"included (shape-dep.)"))  %>% 
   ggplot()+
   geom_pointinterval(aes(is.evo,elpd_diff,
                          ymin=elpd_diff-2*se_diff,
@@ -490,12 +529,16 @@ if(file.exists(here("R_output","R2_diversity.Rdata"))){
   }else
     {
 R2_div_100<-loo_R2(mod_div_100,summary=FALSE) %>% mean_hdi(R2)
+R2_div_100_K<-loo_R2(mod_div_100_K,summary=FALSE) %>% mean_hdi(R2)
 R2_div_100_noDDD<-loo_R2(mod_div_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
 R2_div_00<-loo_R2(mod_div_00,summary=FALSE) %>% mean_hdi(R2)
+R2_div_00_K<-loo_R2(mod_div_00_K,summary=FALSE) %>% mean_hdi(R2)
 R2_div_00_noDDD<-loo_R2(mod_div_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
 
-R2_diversity=rbind(R2_div_100,R2_div_100_noDDD,R2_div_00,R2_div_00_noDDD) %>% 
-  mutate(model_name=c("mod_div_100","mod_div_100_noDDD","mod_div_00","mod_div_00_noDDD"))
+R2_diversity=rbind(R2_div_100,R2_div_100_K,R2_div_100_noDDD,
+                   R2_div_00,R2_div_00_K,R2_div_00_noDDD) %>% 
+  mutate(model_name=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
+                      "mod_div_00","mod_div_00_K","mod_div_00_noDDD"))
 
 save(list=c("R2_diversity"), 
      file=here("R_output","R2_diversity.Rdata"))
@@ -505,7 +548,8 @@ R2_diversity %>%
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
                                      T~"before evolution (t = 0)"),
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     T~"included in model")) %>% 
+                                     str_detect(model_name,"_K")~"included (shape-indep.)",
+                                     T~"included (shape-dep.)"))  %>% 
   ggplot()+
   geom_pointinterval(aes(is.evo,y,
                          ymin=ymin,
