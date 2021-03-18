@@ -20,8 +20,6 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 library(arm)
 library(matrixStats)
 library(tidyverse)
-#library(mgcv)
-#library(gratia)
 library(cowplot)
 library(patchwork)
 library(tidybayes)
@@ -47,41 +45,107 @@ what's missing? obvious answer: evolution of life history, trade-offs...
 # Introduction
 
 ```{r}
-data <- read_csv(here("NetLogo_output","model-output.csv"))
+raw_data <- read_csv(here("NetLogo_output","model-output.csv"))
 ```
 
-<!--the classical result that costs = more DDD was in contexts where dmax and midpoint did not evolve-->
-<!-- hyper important to understand eco-evo dynamics: check that N=0 cells within pops are not deleted-->
-
-<!--key thing to do, check that the effect of absolute slope on speed/diversity is the same independently of source of variation (dmax only, matching only, both) or else difficult to compare their evol dynamics-->
+We rewrite variance variables to be in 0/1 mode to not be distracted
 
 ```{r}
-data<- data  %>% 
+data<- raw_data  %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
            is.VP_DDD=as.numeric(VP_slope >0)) %>% 
   filter(ticks!=10)
 ```
 
 
-# checking pushiness
+# making sub data tables
 
+a table with summary variables at the edge (we define edge as patch <5 patchs from tip, see suppl for justification)
+```{r}
+tab_edge<-data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor > front-5 ) %>%
+  ungroup() %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(
+    min_N=min(N_predispersal,na.rm=TRUE),
+    max_N=max(N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
+    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    front=mean(front)
+  ) %>% 
+  ungroup() %>% 
+  group_by(replicateID) %>% 
+  mutate(range_N=max(max_N)-min(min_N)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
+                          range_N),
+              names_from=ticks,
+              values_from=c(mean_dmax,mean_slope,mean_midpoint,
+                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
+  mutate(where="edge")
+```
 
-
-if convergence at g100, then we can make the following assumptions
-
--speed over g100-120 is predicted by d0 at g100. The shape of the curve is likely nonlinear, we'll avoid having to seek a correct form by using GAM
-
--deviations from the d0 prediction are expected, and explained by DDD, DDD+ = faster than expected based on d0, beased on pushiness
-
--mortality plays a role
-
+we do the same for core patches
 
 ```{r}
+tab_core<-data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor < 5 ) %>%
+  ungroup() %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(
+    min_N=min(N_predispersal,na.rm=TRUE),
+    max_N=max(N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
+    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    front=mean(front)
+  ) %>% 
+  ungroup() %>% 
+  group_by(replicateID) %>% 
+  mutate(range_N=max(max_N)-min(min_N)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
+                          range_N),
+              names_from=ticks,
+              values_from=c(mean_dmax,mean_slope,mean_midpoint,
+                            mean_d0,mean_avgslope,mean_uncond,front)) %>%
+  mutate(where="core")
+```
 
+we also extract separately variables at t0
+```{r}
+tab_start<-data %>% select(
+  start_dmax,
+  start_midpoint,
+  start_slope,
+  start_d0,
+  start_avgslope=start_slopeA_0_avg,
+  start_uncond=start_uncond_0_K,
+  replicateID
+) %>% 
+  distinct()
+
+```
+
+finally we run another extraction to get information on genetic diversity decay, time to fixation
+(earliest observation of front (defined as above) only containing one of the two neutral alleles
+)
+```{r}
 tab_genet <- data %>% 
   group_by(replicateID,ticks) %>% 
   mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
-  filter(pxcor >= front-5 ) %>%
+  filter(pxcor > front-5 ) %>%
   ungroup() %>% 
   group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
   summarise(
@@ -103,70 +167,15 @@ tab_genet <- data %>%
   group_by(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
   summarise(time_to_fix=unique(time_to_fix)) %>% 
   ungroup()
-
-
-
-tab_edge<-data %>% 
-  group_by(replicateID,ticks) %>% 
-  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
-  filter(pxcor >= front-5 ) %>%
-  ungroup() %>% 
-  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
-  summarise(
-    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
-    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
-    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
-    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
-    front=mean(front)
-  ) %>% 
-  ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
-              names_from=ticks,
-              values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
-  mutate(where="edge")
-
-tab_core<-data %>% 
-  group_by(replicateID,ticks) %>% 
-  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
-  filter(pxcor < 5 ) %>%
-  ungroup() %>% 
-  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
-  summarise(
-    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
-    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
-    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
-    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
-    front=mean(front)
-  ) %>% 
-  ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
-              names_from=ticks,
-              values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_uncond,front)) %>% 
-  mutate(where="core")
-
-tab_start<-data %>% select(
-  start_dmax,
-  start_midpoint,
-  start_slope,
-  start_d0,
-  start_avgslope=start_slopeA_0_avg,
-  start_uncond=start_uncond_0_K,
-  replicateID
-) %>% 
-  distinct()
-
 ```
 
+now we can mix and combine these datasets for analyses
+
+# analysis of speed and genetic dynamics
 
 
 ```{r}
-test<-tab_edge %>% 
+tab <-tab_edge %>% 
   left_join(tab_start) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) %>% 
@@ -174,49 +183,110 @@ test<-tab_edge %>%
          scale_d0_start=scale(start_d0)[,1],
          s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
          s_avgslope_start=start_avgslope/sd(start_avgslope))
+```
 
+for both velocity and genetics, we compare 4 models:
 
+- one with and one without the density-dependency variable (is knowledge of DDD needed to predict?)
+- both taken at g100 and at the start of the experiment (is knowledge of evolution needed?)
 
+## velocity evidence
 
-### reread the burkner vuorre in detail to choose best family of ordinal
-### but sequential seems the most appropriate
-mod00=brm(bf((advance+1)~
-          (scale_d0_start+s_avgslope_start)*mortality),
-        family=sratio,data=test,
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
+patches are discrete entities, and speed is capped at one patch/generation. So let's start with binomial models:
+
+```{r}
+prior_velocity<-c(
           set_prior("normal(0,1.5)",class="Intercept"),
           set_prior("normal(0,1)",class="b")
-        ))
-
-mod00_noDDD=brm(bf((advance+1)~
-          (scale_d0_start)*mortality),
-        family=sratio,data=test,
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        )
+```
 
 
-mod100=brm(bf((advance+1)~
+```{r}
+if(file.exists(here("R_output","models_velocity_binom.Rdata"))){
+  # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
+  # to override, re-run and re-save manually the model by selecting only relevant code lines, instead of running the entire chunk, or delete the saved object
+  load(here("R_output","models_velocity_binom.Rdata"))
+  }else
+    {
+      
+mod_100_binom=brm(bf(advance|trials(20)~
           (scale_d0_100+s_avgslope_100)*mortality),
-        family=sratio,data=test,
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-mod100_noDDD=brm(bf((advance+1)~
+mod_100_binom_noDDD=brm(bf(advance|trials(20)~
           (scale_d0_100)*mortality),
-        family=sratio,data=test,
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
+mod_00_binom=brm(bf(advance|trials(20)~
+          (scale_d0_start+s_avgslope_start)*mortality),
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+mod_00_binom_noDDD=brm(bf(advance|trials(20)~
+          (scale_d0_start)*mortality),
+        family=binomial,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+save(list=c("mod_100_binom","mod_100_binom_noDDD",
+            "mod_00_binom","mod_00_binom_noDDD"), 
+     file=here("R_output","models_velocity_binom.Rdata"))
+    }
+```
+
+
+```{r}
+pp_check(mod_100_binom) 
+pp_check(mod_100_binom_noDDD) 
+pp_check(mod_00_binom) 
+pp_check(mod_00_binom_noDDD) 
+```
+
+seems like data are underdispersed relative to the binomial, for all four models
+see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
+the idea that if underdispersed relative to binomial, then not the result of independent bernoulli trials
+which make sense, since proba of advancing to N+1 depends on # of individuals that advanced to N
+qualitative ccl are the same anyway though
+an ordinal model may be appropriate instead
+see eg https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#underdispersion
+so let's go with that
+
+```{r}
+if(file.exists(here("R_output","models_velocity_ordinal.Rdata"))){
+  load(here("R_output","models_velocity_ordinal.Rdata"))
+  }else
+    {
+mod_00=brm(bf((advance+1)~ ##we need the +1 because lower category must be 1 in an ordinal
+          (scale_d0_start+s_avgslope_start)*mortality),
+        family=sratio,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+mod_00_noDDD=brm(bf((advance+1)~
+          (scale_d0_start)*mortality),
+        family=sratio,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+
+mod_100=brm(bf((advance+1)~
+          (scale_d0_100+s_avgslope_100)*mortality),
+        family=sratio,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+mod_100_noDDD=brm(bf((advance+1)~
+          (scale_d0_100)*mortality),
+        family=sratio,data=tab,prior=prior_velocity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+save(list=c("mod_100","mod_100_noDDD",
+            "mod_00","mod_00_noDDD"), 
+     file=here("R_output","models_velocity_ordinal.Rdata"))
+    }
+```
+
+
+```{r}
 loo00<-loo(mod00)
 loo100<-loo(mod100)
 loo00_noDDD<-loo(mod00_noDDD)
@@ -229,7 +299,10 @@ loo_compare(loo00,loo100,loo00_noDDD,loo100_noDDD) %>%  ##zero doubt the evol mo
   ggplot()+
   geom_pointinterval(aes(is.evo,elpd_diff,ymin=elpd_diff-se_diff,ymax=elpd_diff+se_diff,col=factor(is.DDD)),size=3)+
   geom_line(aes(is.evo,elpd_diff,group=is.DDD,col=factor(is.DDD)))
+```
 
+
+```{r}
 r2mods=test %>% 
   select(c(advance,scale_d0_100,s_avgslope_100,
            scale_d0_start, s_avgslope_start,
@@ -282,34 +355,12 @@ r2mods=test %>%
             r2_100=cor(advance+1,mu100)^2,
             r2_00_noDDD=cor(advance+1,mu00_noDDD)^2,
             r2_100_noDDD=cor(advance+1,mu100_noDDD)^2)
-
-
-mod100binom=brm(bf(advance|trials(20)~
-          (scale_d0_100+s_avgslope_100)*mortality),
-        family=binomial,data=test,
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
-
-pp_check(mod100,"stat_2d")
-pp_check(mod100binom,"stat_2d")
-### the ordered logit seems to do way better than the binomial, 
-### seems like data are underdispersed relative to the binomial
-### see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
-### the idea that if underdispersed relative to binomial, then not the result of independent bernoulli reals
-### which make sense, since proba of advancing to N+1 depends on # of individuals that advanced to N
-### qualitative ccl are the same anyway though
 ```
 
 
-
 models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
-in our system, most of the power gain is within the first generations: rapid evolutionary change (how transferable??)
 
-
-
+## genetic evidence
 
 ```{r}
 
@@ -520,7 +571,15 @@ hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
 
 
 core tends toward convergence (but why no maintenance of DDD+ at high mortality, contrary to edge and
-theory??? suggestion: low variation in density in core)
+theory??? suggestion: low variation in density in core):
+
+```{r}
+ggplot(tab_evol)+
+    geom_boxplot(aes(x=where,y=range_N))+
+    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))
+```
+
 
 ```{r}
 tab_evol2 %>% 
