@@ -177,6 +177,7 @@ now we can mix and combine these datasets for analyses
 ```{r}
 tab <-tab_edge %>% 
   left_join(tab_start) %>% 
+  left_join(tab_genet) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) %>% 
   mutate(scale_d0_100=scale(mean_d0_100)[,1],
@@ -238,13 +239,13 @@ save(list=c("mod_100","mod_100_noDDD",
 
 ```{r}
 if(file.exists(here("R_output","loo_velocity_binom.Rdata"))){
-  load(here("R_output","loo_velocity_binomi.Rdata"))
+  load(here("R_output","loo_velocity_binom.Rdata"))
   }else
     {
 loo_00<-loo(mod_00)
 loo_100<-loo(mod_100)
 loo_00_noDDD<-loo(mod_00_noDDD)
-loo_100<-loo(mod_100_noDDD)
+loo_100_noDDD<-loo(mod_100_noDDD)
 
 save(list=c("loo_100","loo_100_noDDD",
             "loo_00","loo_00_noDDD"), 
@@ -280,14 +281,13 @@ if(file.exists(here("R_output","R2_velocity_binom.Rdata"))){
   load(here("R_output","R2_velocity_binom.Rdata"))
   }else
     {
-###careful: a bit long, even with subsampling of posterior
 R2_100<-loo_R2(mod_100,summary=FALSE) %>% mean_hdi(R2)
 R2_100_noDDD<-loo_R2(mod_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
 R2_00<-loo_R2(mod_00,summary=FALSE) %>% mean_hdi(R2)
 R2_00_noDDD<-loo_R2(mod_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
 
 R2_velocity=rbind(R2_100,R2_100_noDDD,R2_00,R2_00_noDDD) %>% 
-  mutate(model_name=c("mod_100","mod_100_noDDD","mod_00","mod0_noDDD"))
+  mutate(model_name=c("mod_100","mod_100_noDDD","mod_00","mod_00_noDDD"))
 
 save(list=c("R2_velocity"), 
      file=here("R_output","R2_velocity_binom.Rdata"))
@@ -314,6 +314,7 @@ R2_velocity %>%
 ```
 
 
+models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
 ```{r}
 pp_check(mod_100) 
 pp_check(mod_100_noDDD) 
@@ -384,88 +385,61 @@ same conclusions as the binomial, so we're good!!
 
 
 
-
-
-
 ```{r}
-
-fitted(mod_100,newdata=tab[1,],scale="linear")
-
-tab %>% 
-  select(mortality) %>%
-  distinct() %>% 
-  expand_grid(mean_avgslope_100=c(-50:70)/100) %>% 
-  mutate(s_avgslope_100=mean_avgslope_100/sd(tab$mean_avgslope_100),
-         scale_d0_100=0) %>%
-  add_fitted_draws(mod_100,scale="linear") %>% 
-  ungroup() %>% 
-  ggplot()+
-  stat_lineribbon(aes(mean_avgslope_100,.value,fill=mortality),.width=c(0.001,0.95))+
-  scale_x_continuous("DDD slope after evolution")+
-  scale_y_continuous("predicted effect on velocity relative to baseline (log-odds)")
-
-tab %>% 
-  select(mortality) %>%
-  distinct() %>% 
-  expand_grid(d0=c(0:100)/100) %>% 
-  mutate(s_avgslope_100=0,
-         scale_d0_100=(d0-mean(tab$mean_d0_100))/sd(tab$mean_d0_100)) %>%
-  add_fitted_draws(mod_100,scale="linear") %>% 
-  ungroup() %>% 
-  ggplot()+
-  stat_lineribbon(aes(d0,.value,fill=mortality),.width=c(0.001,0.95))+
-  scale_x_continuous("d0 after evolution")+
-  scale_y_continuous("predicted effect on velocity relative to baseline (log-odds)")
+plot(conditional_effects(mod_100))
 ```
 
-
-models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
+let's do proper plot later
 
 ## genetic evidence
 
 ```{r}
-test$time_to_fix_class=as.numeric(as.factor(test$time_to_fix))
-###needs to separate fixed in 100-120 from not yet fixed at 120
+tab$time_to_fix_class=as.numeric(as.factor(tab$time_to_fix))
 
-mod_div00=brm(time_to_fix_class~(scale_d0_start+s_avgslope_start)*mortality,
-        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
-        data=filter(test,front_120>0),#one front did not advance
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
+prior_diversity<-c(
           set_prior("normal(0,1.5)",class="Intercept"),
           set_prior("normal(0,1)",class="b")
-        ))
+        )
+```
+
+
+```{r}
+if(file.exists(here("R_output","models_diversity.Rdata"))){
+  load(here("R_output","models_diversity.Rdata"))
+  }else
+    {
+mod_div_00=brm(time_to_fix_class~(scale_d0_start+s_avgslope_start)*mortality,
+        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 ### descibre plot as log-odds of genetic diversity persisting at edge beyond current obs
 ### effect on log-odds of moving anotehr patch
 
-mod_div100=brm(time_to_fix_class~(scale_d0_100+s_avgslope_100)*mortality,
+mod_div_100=brm(time_to_fix_class~(scale_d0_100+s_avgslope_100)*mortality,
         family=sratio, ##another distri? another link??? see burkner vuorre
-        data=filter(test,front_120>0),#one front did not advance
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 
-mod_div00_noDDD=brm(time_to_fix_class~(scale_d0_start)*mortality,
+mod_div_00_noDDD=brm(time_to_fix_class~(scale_d0_start)*mortality,
         family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
-        data=filter(test,front_120>0),#one front did not advance
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-mod_div100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
+mod_div_100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
         family=sratio, ##another distri? another link??? see burkner vuorre
-        data=filter(test,front_120>0),#one front did not advance
-        chains=4,seed=42,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        ))
+        data=filter(tab,front_120>0),#one front did not advance
+        prior=prior_diversity,
+        chains=4,seed=42,iter=2000,backend="cmdstanr")
+
+save(list=c("mod_div_100","mod_div_100_noDDD",
+            "mod_div_00","mod_div_00_noDDD"), 
+     file=here("R_output","models_diversity.Rdata"))
+    }
 ```
 
 
@@ -473,93 +447,90 @@ mod_div100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
 ### interesting that model based on start trait seems to be better supported for genet
 ### makes kinda sense, given mode for fixation is "between 10 and 20 generations"
 ### but still conclusion re: slope stay consistent
+if(file.exists(here("R_output","loo_diversity.Rdata"))){
+  load(here("R_output","loo_diversity.Rdata"))
+  }else
+    {
+loo_div_00<-loo(mod_div_00)
+loo_div_100<-loo(mod_div_100)
+loo_div_00_noDDD<-loo(mod_div_00_noDDD)
+loo_div_100_noDDD<-loo(mod_div_100_noDDD)
 
-loo_div00<-loo(mod_div00)
-loo_div100<-loo(mod_div100)
-loo_div00_noDDD<-loo(mod_div00_noDDD)
-loo_div100_noDDD<-loo(mod_div100_noDDD)
-loo_compare(loo_div00,loo_div100,loo_div00_noDDD,loo_div100_noDDD)
-## justification: se e.g. roques 2012 for the idea that in (more) pushed expansions, speed of one fraction = to speed of whole expansion, + distance to fixation = integrator of time to fixation
-### reason why the post evol model works better here (where it is less obvious than for the speed)
-### evol happens fast in this system mostly in the first 10-20 generations, so most of the expansion happens post evol
+save(list=c("loo_div_100","loo_div_100_noDDD",
+            "loo_div_00","loo_div_00_noDDD"), 
+     file=here("R_output","loo_diversity.Rdata"))
+    }
 
-```
-
-
-
-
-
-# checking evolutionary and velocity convergence
-
-
-```{r}
-tab_dynamics<-data %>% 
-  group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability) %>% 
-  summarise(front=max(pxcor*(N_postdispersal>0))) %>% 
-  ungroup() %>% 
-  group_by(replicateID) %>% 
-  arrange(ticks) %>% 
-  mutate(prev_front=lag(front)) %>% 
-  mutate(prev_front=replace_na(prev_front,0)) %>% 
-  mutate(speed_segment=(front-prev_front)/20) %>% 
-  mutate(overall_speed=subset(front,ticks==120)/120) %>% 
-  ungroup()
-
-  ggplot(tab_dynamics)+
-  geom_boxplot(aes(factor(ticks),speed_segment-overall_speed))+
-  #facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-  #             cols=vars(heritability,is.VP_DDD))+
-  scale_y_continuous("deviation from overall velocity (in patches per generation)")+
-  scale_x_discrete("time interval (generations)",
-                   labels=c("0-20","20-40","40-60","60-80","80-100","100-120"))+
-  theme(legend.position = "none")
-
-```
-
-
-
-
-takeaway: convergence in speed (which depends on both the stochasticity of the invasion smoothing itself out and the evolutionary process finishing) is fast, and speeds at g100 or g120 can reasonably be used as measures of long-run speed
-
-let's do the same to look at evolutionary stability at the edge
-
-
-```{r}
-data %>% 
-  mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
-  select(pxcor,ticks,heritability,is.VP_dmax,is.VP_DDD,replicateID,present_front,dispersal_mortality,
-         var_dmax,var_midpoint,var_slope, VP_slope,VP_midpoint,VP_logit_dmax,
-         var_genotype_logit_dmax,var_genotype_midpoint,var_genotype_slope,
-         var_noise_logit_dmax,var_noise_midpoint,var_noise_slope) %>%
-  filter(pxcor==present_front-5) %>%  
-  group_by(replicateID) %>% 
-  filter(ticks>=100 |ticks==1) %>% 
-  mutate(relative_v=(var_slope)) %>%  ##initial variances: logitdmax 1.5^2, slope 6^2, midpoint 0.5^2
-  ungroup() %>% 
+loo_compare(loo_div_00,loo_div_100,loo_div_00_noDDD,loo_div_100_noDDD) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="model_name") %>% 
+  as_tibble() %>% 
+             mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
+                                     T~"before evolution (t = 0)"),
+                    is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
+                                     T~"included in model")) %>% 
   ggplot()+
-  geom_line(aes(ticks,relative_v,group=replicateID),col="lightgrey")+
-  stat_lineribbon(aes(ticks,relative_v),.width=c(0.001,0.95),point_interval = median_qi,
-                  alpha=0.5)+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+
-  geom_hline(aes(yintercept = (1-heritability)*VP_slope),lty=2,col="red")+
-  geom_hline(aes(yintercept = VP_slope),lty=2,col="red")+
-  scale_y_continuous("proportion of initial VP remaining")+
-  scale_x_continuous("generations")+
-  theme(legend.position = "none")
+  geom_pointinterval(aes(is.evo,elpd_diff,
+                         ymin=elpd_diff-2*se_diff,
+                         ymax=elpd_diff+2*se_diff,
+                         col=is.DDD),
+                     size=3)+
+  geom_line(aes(is.evo,elpd_diff,
+                group=is.DDD,
+                col=is.DDD))+
+  scale_x_discrete("when are trait covariables sampled?")+
+  scale_y_continuous("difference in elpd vs. best model")+
+  labs(col="Density dependence?")
+
 ```
 
-(we can NOT use "check if vA falls to zero" as a check for evolutionary stability, because in case of branching within a replicate, dynamics can be stable but vA very high, even higher than at t0 if "core" of the genotypic distri has been carved out)
-(well we can, but we have to caveat it)
+```{r}
+if(file.exists(here("R_output","R2_diversity.Rdata"))){
+  load(here("R_output","R2_diversity.Rdata"))
+  }else
+    {
+R2_div_100<-loo_R2(mod_div_100,summary=FALSE) %>% mean_hdi(R2)
+R2_div_100_noDDD<-loo_R2(mod_div_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
+R2_div_00<-loo_R2(mod_div_00,summary=FALSE) %>% mean_hdi(R2)
+R2_div_00_noDDD<-loo_R2(mod_div_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
 
-lots of things to do to strengthen this, but we can carry on assuming convergence at g100 for the enxt steps
+R2_diversity=rbind(R2_div_100,R2_div_100_noDDD,R2_div_00,R2_div_00_noDDD) %>% 
+  mutate(model_name=c("mod_div_100","mod_div_100_noDDD","mod_div_00","mod_div_00_noDDD"))
+
+save(list=c("R2_diversity"), 
+     file=here("R_output","R2_diversity.Rdata"))
+    }
+
+R2_diversity %>% 
+             mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
+                                     T~"before evolution (t = 0)"),
+                    is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
+                                     T~"included in model")) %>% 
+  ggplot()+
+  geom_pointinterval(aes(is.evo,y,
+                         ymin=ymin,
+                         ymax=ymax,
+                         col=is.DDD),
+                     size=3)+
+  geom_line(aes(is.evo,y,
+                group=is.DDD,
+                col=is.DDD))+
+  scale_x_discrete("when are trait covariables sampled?")+
+  scale_y_continuous("LOO-R2")+
+  labs(col="Density dependence?")
+
+```
+
+
+```{r}
+plot(conditional_effects(mod_div_00))
+```
 
 
 
 # analyse evolution
 
-our main tool: the plot(y=trait after evol, x=trait at t0), deviation from nthe line y=x indicate evolution
+our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation from nthe line y-x=0 indicate evolution
 
 ```{r}
 tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct
