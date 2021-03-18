@@ -574,10 +574,59 @@ tab_evol2 %>%
   stat_lineribbon(aes(start_avgslope,
                     .value-start_avgslope,
                    fill=where,col=where),.width=c(0.001,0.95),alpha=0.5)+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
 ```
 
+
+
+```{r}
+tab_evol3=subset(tab_evol2,is.VP_dmax>0)
+#### we need to remove the no evol groups for estimation (because no variance)
+
+mod_dmax=brm(bf(mean_dmax_100~0+group,
+           nlf(phi~1/exp(logphi)),
+           logphi~0+group,family=Beta),
+           data=tab_evol3,
+        chains=4,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1.5)",class=c("b")),
+          set_prior("normal(0,1)",nlpar="logphi")),
+        seed=42
+        )
+```
+
+```{r}
+tab_evol3 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  add_fitted_draws(mod_dmax) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_hline(yintercept = 0,lty=2)+
+  geom_jitter(data=tab_evol,aes(x=where,
+                    mean_dmax_100-0.5,
+                   col=where),alpha=0.5,height=0)+
+  stat_eye(aes(where,
+                    .value-0.5),.width=c(0.001,0.95))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+
+```
+
+```{r}
+tab_evol3 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  add_fitted_draws(mod_dmax,nlpar="logphi") %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_hline(yintercept = 0,lty=2)+
+  stat_eye(aes(where,1/exp(.value),fill=where),.width=c(0.001,0.95))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+
+```
 
 presenting this way (y-x~x rather than y~x) helps interpret:
 in the case of DDD, the main conclusion of erm phillips seems to apply only 
@@ -609,285 +658,4 @@ ggplot(tab_evol)+
     facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
                cols=vars(heritability,is.VP_DDD))
 ```
-
-
-```{r}
-tab_evol2 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  mutate(start_avgslope=0) %>% 
-  add_fitted_draws(mod,dpar="sigma") %>% 
-  ungroup() %>% 
-  ggplot()+
-  stat_eye(aes(x=where,y=sigma,fill=where),.width=c(0.001,0.95),alpha=0.5)+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))
-```
-
-looking at sigma, more residual variance 
-
-```{r}
-ggplot(tab2)+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_point(aes(start_uncond_0_K,mean_uncond_0_K-start_uncond_0_K,col=where),alpha=0.1)+
-  geom_smooth(aes(start_uncond_0_K,mean_uncond_0_K-start_uncond_0_K,col=where),method="lm")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("original mean unconditionality index",limits = c(0,1))+
-  scale_y_continuous("evolutionary change in unconditionality",limits = c(-1,1))+
-  cowplot::theme_half_open(11) +
-  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
-
-### consistent evolution towards unconditionality, in line with travis 09
-### less strong if mortality +++
-### plus nuance that unconditionality does not mean no DDD (depends on N at edge???)
-
-  
-ggplot(tab2)+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_point(aes(start_d0,mean_d0-start_d0,col=where),alpha=0.1)+
-  geom_smooth(aes(start_d0,mean_d0-start_d0,col=where),method="lm")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("original mean d0",limits = c(0,1.1))+
-  scale_y_continuous("evolutionary change in d0",limits = c(-1,1))+
-  cowplot::theme_half_open(11) +
-  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
-   
-
-ggplot(tab2)+
-    geom_hline(yintercept = 0.5, lty=2)+
-    geom_boxplot(aes(y=mean_dmax,col=where))+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+ 
-    scale_x_discrete("")+
-    scale_y_continuous("final mean dmax",limits = c(0,1))+
-  cowplot::theme_half_open(11) +
-  cowplot::background_grid(colour.major = "grey95", colour.minor = "grey95")
-
-```
-
-
-```{r}
-
-tab3<-tab2 %>% 
-  mutate(panel=paste("mort",dispersal_mortality,
-                     "vp_dmax",is.VP_dmax,
-                     "vp_ddd",is.VP_DDD,
-                     "h2",heritability)) %>% 
-  select(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,
-         mean_slopeA_0_avg,start_slopeA_0_avg,
-         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_dmax_start,mean_d0,mean_d0_start,where) %>% 
-  group_by(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,where) %>% 
-  nest() %>% 
-  mutate(lm_ddd=map(.x=data,.f=~lm(mean_slopeA_0_avg~start_slopeA_0_avg,data=.x))) %>% 
-  mutate(sigma_ddd=map(.x=lm_ddd,.f=function(.x){summary(.x)$sigma}),
-         slope_ddd=map(.x=lm_ddd,.f=function(.x){summary(.x)$coefficients[2,"Estimate"]}),
-         slope_ddd_se=map(.x=lm_ddd,.f=function(.x){summary(.x)$coefficients[2,"Std. Error"]}),
-         int_ddd=map(.x=lm_ddd,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
-         int_ddd_se=map(.x=lm_ddd,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
-         ) %>%   
-  mutate(lm_uncond=map(.x=data,.f=~lm(mean_uncond0_K~start_uncond0_K,data=.x))) %>% 
-  mutate(sigma_uncond=map(.x=lm_uncond,.f=function(.x){summary(.x)$sigma}),
-         slope_uncond=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[2,"Estimate"]}),
-         slope_uncond_se=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[2,"Std. Error"]}),
-         int_uncond=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
-         int_uncond_se=map(.x=lm_uncond,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
-         ) %>%   
-  mutate(lm_d0=map(.x=data,.f=~lm(mean_d0~mean_d0_start,data=.x))) %>% 
-  mutate(sigma_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$sigma}),
-         slope_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[2,"Estimate"]}),
-         slope_d0_se=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[2,"Std. Error"]}),
-         int_d0=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
-         int_d0_se=map(.x=lm_d0,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
-         ) %>% 
-  mutate(lm_dmax=map(.x=data,.f=~lm(mean_dmax~1,data=.x))) %>% 
-  mutate(sigma_dmax=map(.x=lm_dmax,.f=function(.x){summary(.x)$sigma}),
-         int_dmax=map(.x=lm_dmax,.f=function(.x){summary(.x)$coefficients[1,"Estimate"]}),
-         int_dmax_se=map(.x=lm_dmax,.f=function(.x){summary(.x)$coefficients[1,"Std. Error"]})
-         ) %>%  
-  unnest(c(sigma_ddd,slope_ddd,slope_ddd_se,int_ddd,int_ddd_se,
-           sigma_uncond,slope_uncond,slope_uncond_se,int_uncond,int_uncond_se,
-           sigma_d0,slope_d0,slope_d0_se,int_d0,int_d0_se,
-           sigma_dmax,int_dmax,int_dmax_se)) %>% 
-  mutate(VP_source=case_when(is.VP_dmax==0 & is.VP_DDD==0~"none",
-                             is.VP_dmax==1 & is.VP_DDD==0~"dmax only",
-                             is.VP_dmax==0 & is.VP_DDD==1~"DDD only",
-                             is.VP_dmax==1 & is.VP_DDD==1~"both")) %>% 
-  ungroup()
-  
-#### plot for DDD
-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_ddd,
-                         ymin=slope_ddd-2*slope_ddd_se,ymax=slope_ddd+2*slope_ddd_se,
-                   col=where),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_ddd,
-                   col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=1,lty=2)+
-  facet_grid(cols=vars(heritability),rows=vars(VP_source))+
-  coord_cartesian(ylim=c(0,2.5))
-
-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_ddd,
-                         ymin=int_ddd-2*int_ddd_se,ymax=int_ddd+2*int_ddd_se,
-                   col=where),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_ddd,
-                   col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_grid(cols=vars(heritability),rows=vars(VP_source))+
-  coord_cartesian(ylim=c(-0.25,0.25))
-
-
-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_ddd,col=where),size=2,position = position_dodge(width=0.25))+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_ddd,
-                   col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_grid(cols=vars(heritability),rows=vars(VP_source))
-  
-
-### same plots for uncondition
-
-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_uncond,
-                         ymin=slope_uncond-2*slope_uncond_se,ymax=slope_uncond+2*slope_uncond_se,
-                   col=where),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_uncond,
-                   col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=1,lty=2)+
-    facet_grid(cols=vars(heritability),rows=vars(VP_source))+
-  coord_cartesian(ylim=c(0,2.5))
-
-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_uncond,
-                         ymin=int_uncond-2*int_uncond_se,ymax=int_uncond+2*int_uncond_se,
-                   col=where),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_uncond,
-                   col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-    facet_grid(cols=vars(heritability),rows=vars(VP_source))+
-  coord_cartesian(ylim=c(0,1))
-
-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_uncond,col=where),size=2,position = position_dodge(width=0.25))+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_uncond,
-                    col=where),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-    facet_grid(cols=vars(heritability),rows=vars(VP_source))
-
-
-
-### same plots for d0
-
-p1<-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=slope_d0,
-                         ymin=slope_d0-2*slope_d0_se,ymax=slope_d0+2*slope_d0_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=slope_d0,
-                   col=VP_source),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=1,lty=2)+
-  facet_wrap(~heritability)+
-  coord_cartesian(ylim=c(0,3))
-
-p2<-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_d0,
-                         ymin=int_d0-2*int_d0_se,ymax=int_d0+2*int_d0_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_d0,
-                   col=VP_source),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)+
-  coord_cartesian(ylim=c(-1,1))
-
-p3<-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_d0,col=VP_source),size=2,position = position_dodge(width=0.25))+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_d0,
-                   col=VP_source),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)
-p1/p2/p3
-####same for dmax
-
-p1<-ggplot(tab3)+
-  geom_pointinterval(aes(x=factor(dispersal_mortality),y=int_dmax,
-                         ymin=int_dmax-2*int_dmax_se,ymax=int_dmax+2*int_dmax_se,
-                   col=VP_source),position = position_dodge(width=0.25),point_size=2)+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=int_dmax,
-                   col=VP_source),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)+
-  coord_cartesian(ylim=c(-1,1))
-
-p2<-ggplot(tab3)+
-  geom_point(aes(x=factor(dispersal_mortality),y=sigma_dmax,col=VP_source),size=2,position = position_dodge(width=0.25))+
-  geom_line(aes(x=as.numeric(factor(dispersal_mortality)),y=sigma_dmax,
-                   col=VP_source),position = position_dodge(width=0.25))+
-  geom_hline(yintercept=0,lty=2)+
-  facet_wrap(~heritability)
-
-p1/p2
-
-```
-
-the more a trait is heritable the mor eunconditional the dispfunc becomes, and the stronger the slope becomes
-
-needs to add plots for d0 and dmax to understand the dynamics
-
-
-alt way of representing the info: deviation:
-
-```{r}
-ggplot(tab2)+
-    geom_hline(yintercept = 0, lty=2)+
-    geom_point(aes(start_slopeA_0_K,mean_slopeA_0_K-start_slopeA_0_K))+
-    geom_smooth(aes(start_slopeA_0_K,mean_slopeA_0_K-start_slopeA_0_K),method="lm")+
-  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_upper-start_slopeA_0_K),col="red")+
-  geom_line(aes(start_slopeA_0_K,start_slopeA_0_K_lower-start_slopeA_0_K),col="red")+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+ 
-    scale_x_continuous("original mean absolute slope",limits = c(-1,1))+
-    scale_y_continuous("final deviation from original absolute slope",limits = c(-1,1))
-
-  ggplot(tab2)+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_point(aes(start_uncond0_K,mean_uncond0_K-start_uncond0_K))+
-  geom_smooth(aes(start_uncond0_K,mean_uncond0_K-start_uncond0_K),method="lm")+
-    geom_line(aes(start_uncond0_K,start_uncond0_K_upper-start_uncond0_K),col="red")+
-  geom_line(aes(start_uncond0_K,start_uncond0_K_lower-start_uncond0_K),col="red")+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-                       cols=vars(heritability,is.VP_DDD))+ 
-  scale_x_continuous("original mean unconditionality index",limits = c(0,1.1))+
-  scale_y_continuous("final deviation from original mean unconditionality index",limits = c(-1.1,1.1))
-  
-
-```
-
-
-## notes ?
-Ok it looks like we find the costs+ = ddd++ pattern only when dmax is not allowed to evolve (makes sense, wasn't allowed to in the models that showed this, iirc). But with dmax allowed to evolved, things are more messy
-
-
-prediction from birzu: pulled waves favour evolution of strats with higher dispersal rate at the edge
-can't look at the dispersal function, since N at the edge varies bw types, need to look at actual dispersal events
-
-
-
-mmm... mayyyybe? but very dependent on what pxcor we whoose (front-1, front -2...), because N varies quickly. potentially interesting to look at d=f(distance from front)
-
-```{r}
-tab4<-tab2 %>% 
-  mutate(panel=paste("mort",dispersal_mortality,
-                     "vp_dmax",is.VP_dmax,
-                     "vp_ddd",is.VP_DDD,
-                     "h2",heritability)) %>% 
-  select(panel,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,
-         mean_slopeA_0_avg,start_slopeA_0_avg,
-         mean_uncond0_K,start_uncond0_K,mean_dmax,mean_d0,mean_d0_start) %>% 
-  mutate(dev_slope=mean_slopeA_0_avg-start_slopeA_0_avg,
-         dev_uncond=mean_uncond0_K-start_uncond0_K,
-         dev_d0=mean_d0-mean_d0_start)
-
-cor(tab4[,c("dev_slope","dev_uncond","mean_dmax","dev_d0")],use = "pairwise.complete.obs")
-```
-
 
