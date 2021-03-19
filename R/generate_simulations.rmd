@@ -92,10 +92,11 @@ nl_object@experiment <- experiment(
   runtime = duration,
   evalticks = c(20, 40, 60, 80, 100, 120),
   metrics = c("ticks",
-              "start_d0", "start_slopeA_0_K","start_slopeR_0_K",
+              "start_d0", "start_slopeA_0_K",
               "start_slopeA_0_avg","start_uncond_0_K"),
   metrics.patches = c("pxcor", "founding",
-                      "N_predispersal", "N_postdispersal",  "N_sedentary", "N_disp_dead",
+                      "N_predispersal", "N_postdispersal",  
+                      "N_sedentary", "N_disp_dead",
                       "N_allele0_pre", "N_allele1_pre",
                       "N_allele0_post","N_allele1_post",
                       "mean_genotype_logit_dmax", "var_genotype_logit_dmax",  
@@ -105,10 +106,8 @@ nl_object@experiment <- experiment(
                       "var_dmax","var_slope","var_midpoint",
                       "mean_d0","mean_dK",
                       "var_d0","var_dK",
-                      "mean_slopeA_0_K", "mean_slopeA_0_avg",
-                      "mean_slopeR_0_K", "mean_uncond_0_K",
-                      "var_slopeA_0_K", "var_slopeA_0_avg",
-                      "var_slopeR_0_K", "var_uncond_0_K"),
+                      "mean_slopeA_0_K", "mean_slopeA_0_avg", "mean_uncond_0_K",
+                      "var_slopeA_0_K", "var_slopeA_0_avg", "var_uncond_0_K"),
   constants = list(
     "duration" = duration
   ),
@@ -156,7 +155,7 @@ tab <- exp_h2 %>%
     fecundity, K, reproduction,
     seedID = `random-seed`,siminputrow,
     metrics.patches,
-    start_d0,start_slopeA_0_K, start_slopeR_0_K, 
+    start_d0, start_slopeA_0_K,
     start_slopeA_0_avg, start_uncond_0_K
   )  %>%
   mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
