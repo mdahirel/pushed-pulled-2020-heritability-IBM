@@ -1,7 +1,7 @@
 ;; Individual-based model aiming to study population dynamics, dispersal evolution and neutral evolution during pushed vs pulled range expansions
 ;;
 ;; authors: Maxime Dahirel and Chloé Guicharnaud
-;; building on a model by Maxime Dahirel and Marjorie Haond (see https://doi.org/10.5281/zenodo.3969988 or https://doi.org/10.5281/zenodo.3702252)
+;; building on a previous model by Maxime Dahirel and Marjorie Haond (see https://doi.org/10.5281/zenodo.3969988 or https://doi.org/10.5281/zenodo.3702252)
 ;; written using Netlogo versions: 6.2.0 and 6.1.1
 
 ;; -999 is used as a placeholder for NAs throughout
@@ -25,7 +25,6 @@ globals[
   ;; mean initial values (t=0) for some patch-level summaries (see turtles-own for meaning of each)
   start_d0
   start_slopeA_0_K
-  start_slopeR_0_K
   start_slopeA_0_avg
   start_uncond_0_K
 ]
@@ -49,7 +48,6 @@ turtles-own[
   d0                      ;; dispersal probability at N = 0
   dK                      ;; dispersal probability at N = K
   slopeA_0_K              ;; absolute slope over the range 0-K
-  slopeR_0_K              ;; same but expressed in proportion of dmax
   slopeA_0_avg            ;; difference between d0 and the "average" d over 0-K (approximated by taking it every 0.1K from 0 to 1K)
   uncond_0_K              ;; unconditionality index: integral/average disp rate over the range 0-K, divided by max disp rate over that range (!= dmax)
 
@@ -205,7 +203,6 @@ to setup-turtles
        set momID -999
        set MgrandmaID -999
        set PgrandmaID -999
-
        ]
 
    set_individual_traits
@@ -223,17 +220,16 @@ to set_individual_traits
         set d0 dmax / (1 + exp (- slope * (0 - midpoint)))
         set dK dmax / (1 + exp (- slope * (1 - midpoint)))
         set slopeA_0_K (dK - d0)
-        set slopeR_0_K slopeA_0_K / dmax
 
-        let X0 map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
+        let dNs map [x -> (dmax / (1 + exp (- slope * (x - midpoint ) ) )) ] (range 0 1.01 0.1)
         ;; we use a sequence going from 0 to 1.01 by steps of 0.1 because weirdly the steps Netlogo adds aren't exactly 0.1 but a bit more
         ;; (ask "show map [x -> x ] (range 0 1.01 0.1)" in the command center to check)
         ;; so if we asked "from 0 to 1 by steps of 0.1", the "1" step would actually be 1.000000...001 or something, so out of boundaries, so ignored
         ;; unless the boundary is a bit above 1
 
-        set uncond_0_K mean (X0) / max (list d0 dK)
+        set uncond_0_K mean (dNs) / max (list d0 dK)
 
-        set slopeA_0_avg mean (x0) - d0
+        set slopeA_0_avg mean (dNs) - d0
 
 end
 
@@ -245,7 +241,6 @@ end
 to setup-initial-summaries
   set start_d0 mean ([d0] of turtles)
   set start_slopeA_0_K mean ([slopeA_0_K] of turtles)
-  set start_slopeR_0_K mean ([slopeR_0_K] of turtles)
   set start_slopeA_0_avg mean ([slopeA_0_avg] of turtles)
   set start_uncond_0_K mean ([uncond_0_K] of turtles)
 end
@@ -290,7 +285,7 @@ to go
 
   ask patches with [N_postdispersal > 0 and founding < 0][set founding (ticks + 1)]
   ;; if patch is populated now, but wasn't yet (founding = -999), then set founding date
-  ;; (which is ticks + 1 because the ticks number is updated to n only at the end of the nth generation
+  ;; (which is ticks + 1 because the ticks number is updated to n only **at the end** of the nth generation
 
     ;; reproduction step
     ( ifelse reproduction = "clonal"
@@ -464,7 +459,6 @@ to reset_summaries
   set mean_dK -999
   set mean_slopeA_0_K -999
   set mean_slopeA_0_avg -999
-  set mean_slopeR_0_K -999
   set mean_uncond_0_K -999
 
   set var_dmax -999
@@ -475,7 +469,6 @@ to reset_summaries
   set var_dK -999
   set var_slopeA_0_K -999
   set var_slopeA_0_avg -999
-  set var_slopeR_0_K -999
   set var_uncond_0_K -999
 
   set N_disp_dead 0
@@ -507,7 +500,6 @@ to update_summaries_means
   set mean_dK mean ([dK] of turtles-here)
   set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
   set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
-  set mean_slopeR_0_K mean ([slopeR_0_K] of turtles-here)
   set mean_uncond_0_K mean ([uncond_0_K] of turtles-here)
 end
 
@@ -525,7 +517,6 @@ to update_summaries_variances
   set var_dK variance ([dK] of turtles-here)
   set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
   set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
-  set var_slopeR_0_K variance ([slopeR_0_K] of turtles-here)
   set var_uncond_0_K variance ([uncond_0_K] of turtles-here)
 
 end
