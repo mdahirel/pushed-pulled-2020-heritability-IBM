@@ -622,7 +622,58 @@ tab_evol2 %>%
                cols=vars(heritability,paste("Vddd",is.VP_DDD)))
 ```
 
+```{r}
 
+tab_evol4=tab_evol %>% 
+  filter(heritability>0) %>% 
+  filter(is.VP_DDD>0)
+
+mod2=brm(bf(mean_uncond_100~b+(1+a)*start_uncond,
+           a~0+group,
+           b~0+group,
+           sigma~0+group,
+           nl=TRUE),data=tab_evol4,
+        chains=4,iter=2000,backend="cmdstanr",
+        prior=c(
+          set_prior("normal(0,1)",nlpar=c("a","b")),
+          set_prior("normal(0,1)",dpar="sigma")),
+        seed=42
+        )
+```
+
+
+```{r}
+tab_evol4 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  expand_grid(start_uncond=c(0:100)/100) %>% 
+  add_fitted_draws(mod2) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_hline(yintercept = 0,lty=2)+
+  geom_point(data=tab_evol,aes(start_uncond,
+                    mean_uncond_100-start_uncond,
+                   col=where),alpha=0.5)+
+  stat_lineribbon(aes(start_uncond,
+                    .value-start_uncond,
+                   fill=where,col=where),.width=c(0.001,0.95),alpha=0.5)+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+```
+
+```{r}
+tab_evol4 %>% 
+  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
+  distinct() %>% 
+  add_fitted_draws(mod2,dpar="sigma") %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_hline(yintercept = 0,lty=2)+
+  stat_eye(aes(where,.value,fill=where),.width=c(0.001,0.95))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+
+```
 
 ```{r}
 tab_evol3=subset(tab_evol2,is.VP_dmax>0)
