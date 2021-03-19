@@ -66,6 +66,7 @@ trt_grid <- tibble(
   start_dmax = 0.5, #median + VP here give relatively uniform distri over ]0-1[
   start_slope = c(-6, 0, 6), #0, and + or -1SD from 0
   ## also, |6| as slope mean we go from 0.05dmax to 0.95dmax over a range of K centred on midpoint
+  ## and we keep in the range defined in Kun/Scheuring for instance
   start_midpoint = c(0, 0.5, 1),#same logic here
   dispersal_mortality = c(0.1, 0.5, 0.9),
   reproduction = c("clonal"),   
