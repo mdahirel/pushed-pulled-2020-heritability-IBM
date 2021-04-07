@@ -326,6 +326,23 @@ draw(mod_100)
 
 
 seems like data are underdispersed relative to the binomial, for all four models
+
+```{r}
+## function from ben bolker FAQ https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#overdispersion
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+overdisp_fun(mod_100) ##the p value is for a test of overdispersion, not under look at the ratio
+```
+
+
+
 see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
 the idea that if underdispersed relative to binomial, then not the result of independent bernoulli trials
 which make sense, since proba of advancing to N+1 depends on # of individuals that advanced to N
