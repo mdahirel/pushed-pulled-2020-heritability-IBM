@@ -19,6 +19,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```{r load-packages}
 library(arm)
 library(matrixStats)
+library(MuMin)
 library(tidyverse)
 library(cowplot)
 library(patchwork)
@@ -198,13 +199,6 @@ for both velocity and genetics, we compare 4 models:
 
 patches are discrete entities, and speed is capped at one patch/generation. So let's start with binomial models:
 
-```{r}
-prior_velocity<-c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        )
-```
-
 
 ```{r}
 
@@ -230,45 +224,6 @@ tab2 %>%
 
 ## we won't use our models to try and disentangle effect of mortality on effective d0 versus
 ## other effects, but nice to know it exists
-
-##based on paine 2012 monomolecular (= von bertalanffy when asymp known to be 1 and y(x=0) known to be 0)
-mod_100nl=brm(bf(advance|trials(20)~
-          logit(1-exp(-r*mean_d0_100))+dens,
-          nlf(r~exp(logr)),
-          logr~mortality,
-          dens~0+(s_avgslope_100):mortality,
-          nl=TRUE,family=binomial),
-          data=subset(tab2,advance>=0),
-          prior=c(
-            set_prior("normal(0,1)",class="b",nlpar=c("logr","dens"))
-          ),
-        chains=4,seed=42,iter=200,backend="cmdstanr")
-
-
-
-mod_100nlx=brm(bf(advance|trials(20)~
-          logit(1-exp(-r*mean_d0_100)),
-          nlf(r~exp(logr)),
-          logr~mortality,
-          nl=TRUE,family=binomial),
-          data=subset(tab2,advance>=0),
-          prior=c(
-            set_prior("normal(0,1)",class="b",nlpar=c("logr"))
-          ),
-        chains=4,seed=42,iter=200,backend="cmdstanr")
-
-
-tab2 %>% 
-  select(mortality) %>% 
-  unique() %>% 
-  expand_grid(mean_d0_100=c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1)) %>% 
-  mutate(s_avgslope_100=0,is.DDD=0) %>% 
-  add_fitted_draws(mod_100nl) %>% 
-  ggplot()+
-  stat_lineribbon(aes(mean_d0_100,.value),.width=c(0.001,0.95))+
-  geom_point(data=tab2 %>%   filter(mean_avgslope_100>-0.05 & mean_avgslope_100<0.05),
-  aes(mean_d0_100, advance,col=mortality))+
-  facet_wrap(~mortality)
 ```
 
 
@@ -281,37 +236,42 @@ if(file.exists(here("R_output","models_velocity_binom.Rdata"))){
   }else
     {
       
-mod_100=brm(bf(advance|trials(20)~
-          (scale_d0_100+s_avgslope_100)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_100=gam(cbind(advance,20-advance)~
+              s(mean_d0_100,by=mortality)+
+              s(mean_avgslope_100,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
 ###does better than the nonlinear at d0=nearly 0 because d0 is an average
 ### even when d0=0, some individuals may not be at d0
 
-mod_100_K=brm(bf(advance|trials(20)~
-          (scale_d0_100+s_Kslope_100)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_100_K=gam(cbind(advance,20-advance)~
+              s(mean_d0_100,by=mortality)+
+              s(mean_Kslope_100,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
 
-mod_100_noDDD=brm(bf(advance|trials(20)~
-          (scale_d0_100)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_100_noDDD=gam(cbind(advance,20-advance)~
+              s(mean_d0_100,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
 
-mod_00=brm(bf(advance|trials(20)~
-          (scale_d0_start+s_avgslope_start)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-mod_00_K=brm(bf(advance|trials(20)~
-          (scale_d0_start+s_Kslope_start)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_00=gam(cbind(advance,20-advance)~
+              s(start_d0,by=mortality)+
+              s(start_avgslope,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
 
-mod_00_noDDD=brm(bf(advance|trials(20)~
-          (scale_d0_start)*mortality),
-        family=binomial,data=tab,prior=prior_velocity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_00_K=gam(cbind(advance,20-advance)~
+              s(start_d0,by=mortality)+
+              s(start_Kslope,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
+
+mod_00_noDDD=gam(cbind(advance,20-advance)~
+              s(start_d0,by=mortality)+
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
 
 save(list=c("mod_100","mod_100_K","mod_100_noDDD",
             "mod_00","mod_00_K","mod_00_noDDD"), 
@@ -320,21 +280,25 @@ save(list=c("mod_100","mod_100_K","mod_100_noDDD",
 ```
 
 ```{r}
-if(file.exists(here("R_output","loo_velocity_binom.Rdata"))){
-  load(here("R_output","loo_velocity_binom.Rdata"))
-  }else
-    {
-loo_00<-loo(mod_00)
-loo_100<-loo(mod_100)
-loo_00_K<-loo(mod_00_K)
-loo_100_K<-loo(mod_100_K)
-loo_00_noDDD<-loo(mod_00_noDDD)
-loo_100_noDDD<-loo(mod_100_noDDD)
+gam_dev.expl=function(mod){
+            return(summary(mod)$dev.expl)
+}
 
-save(list=c("loo_100","loo_100_K","loo_100_noDDD",
-            "loo_00","loo_00_K","loo_00_noDDD"), 
-     file=here("R_output","loo_velocity_binom.Rdata"))
-    }
+gam_r2=function(mod){
+            return(summary(mod)$r.sq)
+          }
+
+
+model.sel(list(mod_100,mod_100_K,mod_100_noDDD,
+               mod_00,mod_00_K,mod_100_noDDD),extra=list(gam_dev.expl,gam_r2))
+
+
+
+draw(mod_100)
+
+
+
+
 
 
 loo_compare(loo_00,loo_100,
