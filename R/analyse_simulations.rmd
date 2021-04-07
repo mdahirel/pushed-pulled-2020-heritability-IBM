@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
+library(MASS)
 library(arm)
 library(matrixStats)
 library(MuMin)
@@ -27,8 +28,6 @@ library(patchwork)
 
 library(mgcv)
 library(gratia)
-
-library(tidyverse)
 
 library(here)
 ```
@@ -44,8 +43,7 @@ We rewrite variance variables to be in 0/1 mode to not be distracted
 ```{r}
 data<- raw_data  %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
-  filter(ticks!=10)
+           is.VP_DDD=as.numeric(VP_slope >0))
 ```
 
 
@@ -273,6 +271,10 @@ mod_00_noDDD=gam(cbind(advance,20-advance)~
               mortality, 
             family=binomial,data=subset(tab,advance>-1))
 
+mod_null=gam(cbind(advance,20-advance)~
+              mortality, 
+            family=binomial,data=subset(tab,advance>-1))
+
 save(list=c("mod_100","mod_100_K","mod_100_noDDD",
             "mod_00","mod_00_K","mod_00_noDDD"), 
      file=here("R_output","models_velocity_binom.Rdata"))
@@ -294,7 +296,8 @@ model.sel(list(mod_100=mod_100,
                mod_100_noDDD=mod_100_noDDD,
                mod_00=mod_00,
                mod_00_K=mod_00_K,
-               mod_00_noDDD=mod_00_noDDD),extra=list(gam_dev.expl,gam_r2)) %>%  ##zero doubt the evol model is better
+               mod_00_noDDD=mod_00_noDDD,
+               mod_null=mod_null),extra=list(gam_dev.expl,gam_r2)) %>%  ##zero doubt the evol model is better
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
@@ -302,15 +305,17 @@ model.sel(list(mod_100=mod_100,
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
                                      str_detect(model_name,"_K")~"included (shape-indep.)",
                                      T~"included (shape-dep.)")) %>% 
+  filter(model_name!="mod_null") %>% 
   ggplot()+
-  geom_point(aes(is.evo,gam_r2,
+  geom_point(aes(is.evo,AICc,
                          col=is.DDD),
                      size=3)+
-  geom_line(aes(is.evo,gam_r2,
+  geom_line(aes(is.evo,AICc,
                 group=is.DDD,
                 col=is.DDD))+
+  geom_hline(yintercept=AICc(mod_null),lty=2)+ ## the aicc of the mortality only model
   scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("R2")+
+  scale_y_continuous("AICc")+
   labs(col="Density dependence?")
 
 
@@ -330,29 +335,37 @@ see eg https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#underdispersion
 so let's go with that as a check (supplement?)
 
 ```{r}
+
+library(cmdstanr)
+library(brms)
+
+prior<-c(
+  set_prior("normal(0,1.5)",class="b")
+)
+
 if(file.exists(here("R_output","models_velocity_ordinal.Rdata"))){
   load(here("R_output","models_velocity_ordinal.Rdata"))
   }else
     {
 mod_00_ordinal=brm(bf((advance+1)~ ##we need the +1 because lower category must be 1 in an ordinal
           (scale_d0_start+s_avgslope_start)*mortality),
-        family=sratio,data=tab,prior=prior_velocity,
+        family=sratio,data=tab,prior=prior,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 mod_00_noDDD_ordinal=brm(bf((advance+1)~
           (scale_d0_start)*mortality),
-        family=sratio,data=tab,prior=prior_velocity,
+        family=sratio,data=tab,prior=prior,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 
 mod_100_ordinal=brm(bf((advance+1)~
           (scale_d0_100+s_avgslope_100)*mortality),
-        family=sratio,data=tab,prior=prior_velocity,
+        family=sratio,data=tab,prior=prior,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 mod_100_noDDD_ordinal=brm(bf((advance+1)~
           (scale_d0_100)*mortality),
-        family=sratio,data=tab,prior=prior_velocity,
+        family=sratio,data=tab,prior=prior,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 save(list=c("mod_100_ordinal","mod_100_noDDD_ordinal",
@@ -361,89 +374,47 @@ save(list=c("mod_100_ordinal","mod_100_noDDD_ordinal",
     }
 ```
 
-
-```{r}
-if(file.exists(here("R_output","loo_velocity_ordinal.Rdata"))){
-  load(here("R_output","loo_velocity_ordinal.Rdata"))
-  }else
-    {
-loo_00_ordinal<-loo(mod_00_ordinal)
-loo_100_ordinal<-loo(mod_100_ordinal)
-loo_00_noDDD_ordinal<-loo(mod_00_noDDD_ordinal)
-loo_100_noDDD_ordinal<-loo(mod_100_noDDD_ordinal)
-
-save(list=c("loo_100_ordinal","loo_100_noDDD_ordinal",
-            "loo_00_ordinal","loo_00_noDDD_ordinal"), 
-     file=here("R_output","loo_velocity_ordinal.Rdata"))
-    }
-```
-same conclusions as the binomial, so we're good!!
-
-
-
-
-
-```{r}
-plot(conditional_effects(mod_100))
-```
-
-let's do proper plot later
-
 ## genetic evidence
-
-```{r}
-tab$time_to_fix_class=as.numeric(as.factor(tab$time_to_fix))
-
-prior_diversity<-c(
-          set_prior("normal(0,1.5)",class="Intercept"),
-          set_prior("normal(0,1)",class="b")
-        )
-```
-
 
 ```{r}
 if(file.exists(here("R_output","models_diversity.Rdata"))){
   load(here("R_output","models_diversity.Rdata"))
   }else
     {
-mod_div_00=brm(time_to_fix_class~(scale_d0_start+s_avgslope_start)*mortality,
-        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+ 
+tab$fixinterval=ordered(tab$time_to_fix,levels=sort(unique(tab$time_to_fix)))
 
-### descibre plot as log-odds of genetic diversity persisting at edge beyond current obs
-### effect on log-odds of moving anotehr patch
+mod_div_00=polr(fixinterval~
+                     mortality+mortality:(scale_d0_start+s_avgslope_start),
+        data=filter(tab,front_120>0))#one front did not advance)    
 
-mod_div_00_K=brm(time_to_fix_class~(scale_d0_start+s_Kslope_start)*mortality,
-        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_div_00_K=polr(fixinterval~
+                     mortality+mortality:(scale_d0_start+s_Kslope_start),
+        data=filter(tab,front_120>0))#one front did not advance) 
 
-mod_div_100=brm(time_to_fix_class~(scale_d0_100+s_avgslope_100)*mortality,
-        family=sratio, ##another distri? another link??? see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_div_00_noDDD=polr(fixinterval~
+                     mortality+mortality:(scale_d0_start),
+        data=filter(tab,front_120>0))#one front did not advance) 
 
-mod_div_100_K=brm(time_to_fix_class~(scale_d0_100+s_Kslope_100)*mortality,
-        family=sratio, ##another distri? another link??? see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_div_100=polr(fixinterval~
+                     mortality+mortality:(scale_d0_100+s_avgslope_100),
+        data=filter(tab,front_120>0))#one front did not advance)    
 
-mod_div_00_noDDD=brm(time_to_fix_class~(scale_d0_start)*mortality,
-        family=sratio, ##sequential, equivalent to cratio formulation if link logit or probit, see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_div_100_K=polr(fixinterval~
+                     mortality+mortality:(scale_d0_100+s_Kslope_100),
+        data=filter(tab,front_120>0))#one front did not advance) 
 
-mod_div_100_noDDD=brm(time_to_fix_class~(scale_d0_100)*mortality,
-        family=sratio, ##another distri? another link??? see burkner vuorre
-        data=filter(tab,front_120>0),#one front did not advance
-        prior=prior_diversity,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+mod_div_100_noDDD=polr(fixinterval~
+                     mortality+mortality:(scale_d0_100),
+        data=filter(tab,front_120>0))#one front did not advance) 
+
+mod_div_null=polr(fixinterval~
+                     mortality,
+        data=filter(tab,front_120>0))#one front did not advance) 
+
+
+
+
 
 save(list=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
             "mod_div_00","mod_div_00_K","mod_div_00_noDDD"), 
@@ -453,103 +424,46 @@ save(list=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
 
 
 ```{r}
-### interesting that model based on start trait seems to be better supported for genet
-### makes kinda sense, given mode for fixation is "between 10 and 20 generations"
-### but still conclusion re: slope stay consistent
-if(file.exists(here("R_output","loo_diversity.Rdata"))){
-  load(here("R_output","loo_diversity.Rdata"))
-  }else
-    {
-loo_div_00<-loo(mod_div_00)
-loo_div_100<-loo(mod_div_100)
-loo_div_00_K<-loo(mod_div_00_K)
-loo_div_100_K<-loo(mod_div_100_K)
-loo_div_00_noDDD<-loo(mod_div_00_noDDD)
-loo_div_100_noDDD<-loo(mod_div_100_noDDD)
 
-save(list=c("loo_div_100","loo_div_100_K","loo_div_100_noDDD",
-            "loo_div_00","loo_div_00_K","loo_div_00_noDDD"), 
-     file=here("R_output","loo_diversity.Rdata"))
-    }
-
-loo_compare(loo_div_00,loo_div_00_K,
-            loo_div_100,loo_div_100_K,
-            loo_div_00_noDDD,loo_div_100_noDDD) %>% 
-  as.data.frame() %>% 
+model.sel(list(mod_div_100=mod_div_100,
+               mod_div_100_K=mod_div_100_K,
+               mod_div_100_noDDD=mod_div_100_noDDD,
+               mod_div_00=mod_div_00,
+               mod_div_00_K=mod_div_00_K,
+               mod_div_00_noDDD=mod_div_00_noDDD)) %>%  ##zero doubt the evol model is better
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
                                      T~"before evolution (t = 0)"),
                     is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
                                      str_detect(model_name,"_K")~"included (shape-indep.)",
-                                     T~"included (shape-dep.)"))  %>% 
+                                     T~"included (shape-dep.)")) %>% 
   ggplot()+
-  geom_pointinterval(aes(is.evo,elpd_diff,
-                         ymin=elpd_diff-2*se_diff,
-                         ymax=elpd_diff+2*se_diff,
+  geom_point(aes(is.evo,AICc,
                          col=is.DDD),
                      size=3)+
-  geom_line(aes(is.evo,elpd_diff,
+  geom_line(aes(is.evo,AICc,
                 group=is.DDD,
                 col=is.DDD))+
+  geom_hline(yintercept=AICc(mod_div_null),lty=2)+ ## the aicc of the mortality only model
   scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("difference in elpd vs. best model")+
+  scale_y_continuous("AICc")+
   labs(col="Density dependence?")
 
-```
-
-```{r}
-if(file.exists(here("R_output","R2_diversity.Rdata"))){
-  load(here("R_output","R2_diversity.Rdata"))
-  }else
-    {
-R2_div_100<-loo_R2(mod_div_100,summary=FALSE) %>% mean_hdi(R2)
-R2_div_100_K<-loo_R2(mod_div_100_K,summary=FALSE) %>% mean_hdi(R2)
-R2_div_100_noDDD<-loo_R2(mod_div_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
-R2_div_00<-loo_R2(mod_div_00,summary=FALSE) %>% mean_hdi(R2)
-R2_div_00_K<-loo_R2(mod_div_00_K,summary=FALSE) %>% mean_hdi(R2)
-R2_div_00_noDDD<-loo_R2(mod_div_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
-
-R2_diversity=rbind(R2_div_100,R2_div_100_K,R2_div_100_noDDD,
-                   R2_div_00,R2_div_00_K,R2_div_00_noDDD) %>% 
-  mutate(model_name=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
-                      "mod_div_00","mod_div_00_K","mod_div_00_noDDD"))
-
-save(list=c("R2_diversity"), 
-     file=here("R_output","R2_diversity.Rdata"))
-    }
-
-R2_diversity %>% 
-             mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
-                                     T~"before evolution (t = 0)"),
-                    is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     str_detect(model_name,"_K")~"included (shape-indep.)",
-                                     T~"included (shape-dep.)"))  %>% 
-  ggplot()+
-  geom_pointinterval(aes(is.evo,y,
-                         ymin=ymin,
-                         ymax=ymax,
-                         col=is.DDD),
-                     size=3)+
-  geom_line(aes(is.evo,y,
-                group=is.DDD,
-                col=is.DDD))+
-  scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("LOO-R2")+
-  labs(col="Density dependence?")
 
 ```
-
-
-```{r}
-plot(conditional_effects(mod_div_00))
-```
-
-
 
 # analyse evolution
 
 our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation from nthe line y-x=0 indicate evolution
+
+
+
+```{r}
+tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct
+  left_join(tab_start) %>% 
+  mutate(group=paste(dispersal_mortality, is.VP_DDD,is.VP_dmax,heritability,where))
+```
 
 
 ```{r}
@@ -614,185 +528,4 @@ tab_evolx %>%
                cols=vars(heritability,paste("Vddd",is.VP_DDD)))
 ```
 
-
-
-
-
-```{r}
-tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct
-  left_join(tab_start) %>% 
-  mutate(group=paste(dispersal_mortality, is.VP_DDD,is.VP_dmax,heritability,where))
-```
-
-
-```{r}
-tab_evol2=tab_evol %>% 
-  filter(heritability>0)
-
-mod=brm(bf(mean_avgslope_100~b+(1+a)*start_avgslope,
-           a~0+group,
-           b~0+group,
-           sigma~0+group,
-           nl=TRUE),data=tab_evol2,
-        chains=4,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1)",nlpar=c("a","b")),
-          set_prior("normal(0,1)",dpar="sigma")),
-        seed=42
-        )
-
-```
-
-
-
-```{r}
-tab_evol2 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  expand_grid(start_avgslope=c(-20:20)/100) %>% 
-  add_fitted_draws(mod) %>% 
-  ungroup() %>% 
-  ggplot()+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_point(data=tab_evol,aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope,
-                   col=where),alpha=0.5)+
-  stat_lineribbon(aes(start_avgslope,
-                    .value-start_avgslope,
-                   fill=where,col=where),.width=c(0.001,0.95),alpha=0.5)+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-```
-
-```{r}
-
-tab_evol4=tab_evol %>% 
-  filter(heritability>0) %>% 
-  filter(is.VP_DDD>0)
-
-mod2=brm(bf(mean_uncond_100~b+(1+a)*start_uncond,
-           a~0+group,
-           b~0+group,
-           sigma~0+group,
-           nl=TRUE),data=tab_evol4,
-        chains=4,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1)",nlpar=c("a","b")),
-          set_prior("normal(0,1)",dpar="sigma")),
-        seed=42
-        )
-```
-
-
-```{r}
-tab_evol4 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  expand_grid(start_uncond=c(0:100)/100) %>% 
-  add_fitted_draws(mod2) %>% 
-  ungroup() %>% 
-  ggplot()+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_point(data=tab_evol,aes(start_uncond,
-                    mean_uncond_100-start_uncond,
-                   col=where),alpha=0.5)+
-  stat_lineribbon(aes(start_uncond,
-                    .value-start_uncond,
-                   fill=where,col=where),.width=c(0.001,0.95),alpha=0.5)+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-```
-
-```{r}
-tab_evol4 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  add_fitted_draws(mod2,dpar="sigma") %>% 
-  ungroup() %>% 
-  ggplot()+
-  geom_hline(yintercept = 0,lty=2)+
-  stat_eye(aes(where,.value,fill=where),.width=c(0.001,0.95))+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-
-```
-
-```{r}
-tab_evol3=subset(tab_evol2,is.VP_dmax>0)
-#### we need to remove the no evol groups for estimation (because no variance)
-
-mod_dmax=brm(bf(mean_dmax_100~0+group,
-           nlf(phi~1/exp(logphi)),
-           logphi~0+group,family=Beta),
-           data=tab_evol3,
-        chains=4,iter=2000,backend="cmdstanr",
-        prior=c(
-          set_prior("normal(0,1.5)",class=c("b")),
-          set_prior("normal(0,1)",nlpar="logphi")),
-        seed=42
-        )
-```
-
-```{r}
-tab_evol3 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  add_fitted_draws(mod_dmax) %>% 
-  ungroup() %>% 
-  ggplot()+
-  geom_hline(yintercept = 0,lty=2)+
-  geom_jitter(data=tab_evol,aes(x=where,
-                    mean_dmax_100-0.5,
-                   col=where),alpha=0.5,height=0)+
-  stat_eye(aes(where,
-                    .value-0.5),.width=c(0.001,0.95))+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-
-```
-
-```{r}
-tab_evol3 %>% 
-  select(dispersal_mortality,is.VP_DDD,is.VP_dmax,heritability,where,group) %>% 
-  distinct() %>% 
-  add_fitted_draws(mod_dmax,nlpar="logphi") %>% 
-  ungroup() %>% 
-  ggplot()+
-  geom_hline(yintercept = 0,lty=2)+
-  stat_eye(aes(where,1/exp(.value),fill=where),.width=c(0.001,0.95))+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-
-```
-
-presenting this way (y-x~x rather than y~x) helps interpret:
-in the case of DDD, the main conclusion of erm phillips seems to apply only 
-for a narrow set of scenarios:
-low cost of dispersal, no/low variation in enhancing/enabling trait, only in matching trait sensu cote 2017
-because of spatial sorting, if matching trait, response may even be the reverse (pushed become more pushed)
-the exact balance probably depends on the relative amounts of variance in the two types of traits
-and the actual fitness benefits of dispersing in the expanding context
-which would likely depend on trade-off between dispersal/life-history (pace of life)
-and their own DDD, things we haven't tackled here
-
-no shift to DDD-: incomplete
-
-our model is clearly incomplete (trade-offs, phenotypic syndromes, sexual repro, differences in variance and h2 bw enhancing and matching traits), but it does suggest that the parts of the dimension space that allow for the evolutionary maintenance of pushiness
-is bigge rthan previously thought
-
-consistency with experiments: when matching only evolve, we find results qualitatively compatible with Trichogramma experiments: from initial DDD+, shift to less DDD+ (or even DDD- in the study) when costs are low, but maintenance of DDD when costs are hhigh (suggest limited evolution of across the board dispersal in trichogramma, something that is again compatible with experiments)
-
-hypotheses: high costs favouring DDD+ (travis 09) (but what about the core)
- runaway effect of spatial sorting if dmax variable?
-
-
-core tends toward convergence (but why no maintenance of DDD+ at high mortality, contrary to edge and
-theory??? suggestion: low variation in density in core):
-
-```{r}
-ggplot(tab_evol)+
-    geom_boxplot(aes(x=where,y=range_N))+
-    facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))
-```
 
