@@ -289,22 +289,12 @@ gam_r2=function(mod){
           }
 
 
-model.sel(list(mod_100,mod_100_K,mod_100_noDDD,
-               mod_00,mod_00_K,mod_100_noDDD),extra=list(gam_dev.expl,gam_r2))
-
-
-
-draw(mod_100)
-
-
-
-
-
-
-loo_compare(loo_00,loo_100,
-            loo_00_K, loo_100_K,
-            loo_00_noDDD,loo_100_noDDD) %>%  ##zero doubt the evol model is better
-  as.data.frame() %>% 
+model.sel(list(mod_100=mod_100,
+               mod_100_K=mod_100_K,
+               mod_100_noDDD=mod_100_noDDD,
+               mod_00=mod_00,
+               mod_00_K=mod_00_K,
+               mod_00_noDDD=mod_00_noDDD),extra=list(gam_dev.expl,gam_r2)) %>%  ##zero doubt the evol model is better
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
@@ -313,68 +303,22 @@ loo_compare(loo_00,loo_100,
                                      str_detect(model_name,"_K")~"included (shape-indep.)",
                                      T~"included (shape-dep.)")) %>% 
   ggplot()+
-  geom_pointinterval(aes(is.evo,elpd_diff,
-                         ymin=elpd_diff-2*se_diff,
-                         ymax=elpd_diff+2*se_diff,
+  geom_point(aes(is.evo,gam_r2,
                          col=is.DDD),
                      size=3)+
-  geom_line(aes(is.evo,elpd_diff,
+  geom_line(aes(is.evo,gam_r2,
                 group=is.DDD,
                 col=is.DDD))+
   scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("difference in elpd vs. best model")+
-  labs(col="Density dependence?")
-```
-
-
-```{r}
-if(file.exists(here("R_output","R2_velocity_binom.Rdata"))){
-  load(here("R_output","R2_velocity_binom.Rdata"))
-  }else
-    {
-R2_100<-loo_R2(mod_100,summary=FALSE) %>% mean_hdi(R2)
-R2_100_K<-loo_R2(mod_100_K,summary=FALSE) %>% mean_hdi(R2)
-R2_100_noDDD<-loo_R2(mod_100_noDDD,summary=FALSE) %>% mean_hdi(R2)
-R2_00<-loo_R2(mod_00,summary=FALSE) %>% mean_hdi(R2)
-R2_00_K<-loo_R2(mod_00_K,summary=FALSE) %>% mean_hdi(R2)
-R2_00_noDDD<-loo_R2(mod_00_noDDD,summary=FALSE) %>% mean_hdi(R2)
-
-R2_velocity=rbind(R2_100,R2_100_K,R2_100_noDDD,R2_00,R2_00_K,R2_00_noDDD) %>% 
-  mutate(model_name=c("mod_100","mod_100_K","mod_100_noDDD","mod_00","mod_00_K","mod_00_noDDD"))
-
-save(list=c("R2_velocity"), 
-     file=here("R_output","R2_velocity_binom.Rdata"))
-    }
-
-R2_velocity %>% 
-             mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
-                                     T~"before evolution (t = 0)"),
-                    is.DDD=case_when(str_detect(model_name,"_noDDD")~"ignored",
-                                     str_detect(model_name,"_K")~"included (shape-indep.)",
-                                     T~"included (shape-dep.)")) %>% 
-  ggplot()+
-  geom_pointinterval(aes(is.evo,y,
-                         ymin=ymin,
-                         ymax=ymax,
-                         col=is.DDD),
-                     size=3)+
-  geom_line(aes(is.evo,y,
-                group=is.DDD,
-                col=is.DDD))+
-  scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("LOO-R2")+
+  scale_y_continuous("R2")+
   labs(col="Density dependence?")
 
+
+
+draw(mod_100)
 ```
 
 
-models ignoring DDD and or evolution still have good predictive power overall (in no small part due to the large proportion of replicates with no evolution and no DDD), but going beyond d0 to predict speed, and accounting for evolutionary change, greatly increase explanatory power
-```{r}
-pp_check(mod_100) 
-pp_check(mod_100_noDDD) 
-pp_check(mod_00) 
-pp_check(mod_00_noDDD) 
-```
 
 seems like data are underdispersed relative to the binomial, for all four models
 see comment from bob carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
