@@ -22,30 +22,20 @@ library(matrixStats)
 library(tidyverse)
 library(cowplot)
 library(patchwork)
-library(tidybayes)
 
 
-library(cmdstanr)
-library(brms)
-options(mc.cores = 4)
+library(mgcv)
+library(gratia)
 
 library(tidyverse)
 
 library(here)
 ```
 
-discussion thread to follow:
-sources of evo available as constraints
-compatibility between "yes, evo favours mostly DID over the range" BUT "still DDD+ over all, so still open to pushiness, especially if dmax increase", despite apparent paradox
-general result still loss of pushiness in many cases, but only if genet div in matching traits (vs enhancing traits)
-dispersal costs and heritability influence the dynamics
-the DDD+ to DDD- pattern seen in a few studies is not recovered here (well it is, but not in a systematic way)
-what's missing? obvious answer: evolution of life history, trade-offs...
-
 # Introduction
 
 ```{r}
-raw_data <- read_csv(here("NetLogo_output","model-output.csv"))
+raw_data <- read_csv(here("NetLogo_output","simulation_output.csv"))
 ```
 
 We rewrite variance variables to be in 0/1 mode to not be distracted
@@ -78,6 +68,8 @@ tab_edge<-data %>%
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
     front=mean(front)
   ) %>% 
   ungroup() %>% 
@@ -88,7 +80,9 @@ tab_edge<-data %>%
                           range_N),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,front)) %>% 
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
+                            mean_varslope,mean_vard0,
+                            front)) %>% 
   mutate(where="edge")
 ```
 
@@ -111,6 +105,8 @@ tab_core<-data %>%
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
     front=mean(front)
   ) %>% 
   ungroup() %>% 
@@ -121,7 +117,9 @@ tab_core<-data %>%
                           range_N),
               names_from=ticks,
               values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,front)) %>%
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
+                            mean_varslope,mean_vard0,
+                            front)) %>% 
   mutate(where="core")
 ```
 
@@ -209,6 +207,73 @@ prior_velocity<-c(
 
 
 ```{r}
+
+
+tab2 <-tab %>% 
+  mutate(d0_eff=(1-dispersal_mortality)*mean_d0_100,
+         r0_eff=log(5-(dispersal_mortality*d0_eff)*5),
+         vf=2*(log(5)*0.5*d0_eff)^0.5,
+         vf2=2*(r0_eff*0.5*d0_eff)^0.5) %>% 
+  arrange(d0_eff)
+
+tab2 %>% 
+  filter(mean_avgslope_100>-0.05 & mean_avgslope_100<0.05) %>% 
+  ggplot()+ #only slope close to 0
+  geom_point(aes(d0_eff, ##use effective d0, accounting for motality
+                 advance/20,col=mortality))+
+  geom_line(aes(d0_eff,vf2))+
+  geom_line(aes(d0_eff,vf),lty=2)+
+  facet_wrap(~dispersal_mortality)
+## shows that the continuum approx for v is goodish until it bumps into the v=1 boundary
+## birzu says approach is very good when r0<<0 and d0/r0 >>1
+## we're not in these conditions but still good enough
+
+## we won't use our models to try and disentangle effect of mortality on effective d0 versus
+## other effects, but nice to know it exists
+
+##based on paine 2012 monomolecular (= von bertalanffy when asymp known to be 1 and y(x=0) known to be 0)
+mod_100nl=brm(bf(advance|trials(20)~
+          logit(1-exp(-r*mean_d0_100))+dens,
+          nlf(r~exp(logr)),
+          logr~mortality,
+          dens~0+(s_avgslope_100):mortality,
+          nl=TRUE,family=binomial),
+          data=subset(tab2,advance>=0),
+          prior=c(
+            set_prior("normal(0,1)",class="b",nlpar=c("logr","dens"))
+          ),
+        chains=4,seed=42,iter=200,backend="cmdstanr")
+
+
+
+mod_100nlx=brm(bf(advance|trials(20)~
+          logit(1-exp(-r*mean_d0_100)),
+          nlf(r~exp(logr)),
+          logr~mortality,
+          nl=TRUE,family=binomial),
+          data=subset(tab2,advance>=0),
+          prior=c(
+            set_prior("normal(0,1)",class="b",nlpar=c("logr"))
+          ),
+        chains=4,seed=42,iter=200,backend="cmdstanr")
+
+
+tab2 %>% 
+  select(mortality) %>% 
+  unique() %>% 
+  expand_grid(mean_d0_100=c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1)) %>% 
+  mutate(s_avgslope_100=0,is.DDD=0) %>% 
+  add_fitted_draws(mod_100nl) %>% 
+  ggplot()+
+  stat_lineribbon(aes(mean_d0_100,.value),.width=c(0.001,0.95))+
+  geom_point(data=tab2 %>%   filter(mean_avgslope_100>-0.05 & mean_avgslope_100<0.05),
+  aes(mean_d0_100, advance,col=mortality))+
+  facet_wrap(~mortality)
+```
+
+
+
+```{r}
 if(file.exists(here("R_output","models_velocity_binom.Rdata"))){
   # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
   # to override, re-run and re-save manually the model by selecting only relevant code lines, instead of running the entire chunk, or delete the saved object
@@ -220,6 +285,8 @@ mod_100=brm(bf(advance|trials(20)~
           (scale_d0_100+s_avgslope_100)*mortality),
         family=binomial,data=tab,prior=prior_velocity,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
+###does better than the nonlinear at d0=nearly 0 because d0 is an average
+### even when d0=0, some individuals may not be at d0
 
 mod_100_K=brm(bf(advance|trials(20)~
           (scale_d0_100+s_Kslope_100)*mortality),
@@ -575,6 +642,73 @@ plot(conditional_effects(mod_div_00))
 # analyse evolution
 
 our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation from nthe line y-x=0 indicate evolution
+
+
+```{r}
+tab_evolx <-tab_evol %>% 
+  filter(where=="edge")  %>% 
+  mutate(start_avgslope_binned=round(2*start_avgslope,1)/2,
+         start_d0_binned=round(2*start_d0,1)/2) 
+
+tab_evolx %>% 
+  group_by(dispersal_mortality, heritability,start_avgslope_binned,
+           is.VP_dmax,is.VP_DDD) %>% 
+  summarise(mean_change=mean(mean_avgslope_100-start_avgslope),
+            sd_change=sd(mean_avgslope_100-start_avgslope)) %>% 
+  ggplot()+
+    geom_hline(yintercept = 0,lty=2)+
+    geom_point(data=tab_evolx,
+               aes(start_avgslope,
+                                 mean_avgslope_100-start_avgslope,
+                                 col=where),alpha=0.2)+
+  geom_pointrange(aes(x=start_avgslope_binned,
+                      y=mean_change,
+                      ymin=mean_change-sd_change,
+                      ymax=mean_change+sd_change))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+
+tab_evolx %>% 
+  group_by(dispersal_mortality, heritability,start_d0_binned,
+           is.VP_dmax,is.VP_DDD) %>% 
+  summarise(mean_change=mean(mean_d0_100-start_d0),
+            sd_change=sd(mean_d0_100-start_d0)) %>% 
+  ggplot()+
+    geom_hline(yintercept = 0,lty=2)+
+    geom_point(data=tab_evolx,
+               aes(start_d0,
+                                 mean_d0_100-start_d0,
+                                 col=where),alpha=0.2)+
+  geom_pointrange(aes(x=start_d0_binned,
+                      y=mean_change,
+                      ymin=mean_change-sd_change,
+                      ymax=mean_change+sd_change))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+
+
+tab_evolx %>% 
+  group_by(dispersal_mortality, heritability,
+           is.VP_dmax,is.VP_DDD) %>% 
+  summarise(mean_change=mean(mean_dmax_100-start_dmax),
+            sd_change=sd(mean_dmax_100-start_dmax)) %>% 
+  ggplot()+
+    geom_hline(yintercept = 0,lty=2)+
+    geom_jitter(data=tab_evolx,
+               aes(0,
+                                 mean_dmax_100-start_dmax,
+                                 col=where),alpha=0.2)+
+  geom_pointrange(aes(x=0,
+                      y=mean_change,
+                      ymin=mean_change-sd_change,
+                      ymax=mean_change+sd_change))+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+```
+
+
+
+
 
 ```{r}
 tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct

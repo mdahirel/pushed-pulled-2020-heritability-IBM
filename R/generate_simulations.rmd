@@ -171,7 +171,7 @@ tab <- exp_h2 %>%
 then we save the file for later use
 
 ```{r saving-output}
-write_csv(tab, file = here("NetLogo_output","model-output.csv"))
+write_csv(tab, file = here("NetLogo_output","simulation_output.csv"))
 ```
 
 We can now use the `ibm-analysis` scripts to analyse the model outputs.
