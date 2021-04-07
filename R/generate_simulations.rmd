@@ -105,8 +105,8 @@ nl_object@experiment <- experiment(
                       "mean_genotype_midpoint", "var_genotype_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
                       "var_dmax","var_slope","var_midpoint",
-                      "mean_d0","mean_dK",
-                      "var_d0","var_dK",
+                      "mean_d0","mean_dK", "mean_davg_0_K",
+                      "var_d0","var_dK", "var_davg_0_K",
                       "mean_slopeA_0_K", "mean_slopeA_0_avg", "mean_uncond_0_K",
                       "var_slopeA_0_K", "var_slopeA_0_avg", "var_uncond_0_K"),
   constants = list(
