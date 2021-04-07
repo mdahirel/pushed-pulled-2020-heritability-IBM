@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 library(MASS)
 library(arm)
 library(matrixStats)
-library(MuMin)
+library(MuMIn)
 library(tidyverse)
 library(cowplot)
 library(patchwork)
@@ -58,76 +58,28 @@ tab_edge<-data %>%
   ungroup() %>% 
   group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
   summarise(
-    min_N=min(N_predispersal,na.rm=TRUE),
-    max_N=max(N_predispersal,na.rm=TRUE),
     mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
-    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
-    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
     mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
-    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
-    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
     front=mean(front)
   ) %>% 
   ungroup() %>% 
   group_by(replicateID) %>% 
-  mutate(range_N=max(max_N)-min(min_N)) %>% 
   ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
-                          range_N),
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
               names_from=ticks,
-              values_from=c(mean_dmax,mean_slope,mean_midpoint,
+              values_from=c(mean_dmax,
                             mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
-                            mean_varslope,mean_vard0,
-                            front)) %>% 
-  mutate(where="edge")
+                            front))
 ```
 
-we do the same for core patches
-
-```{r}
-tab_core<-data %>% 
-  group_by(replicateID,ticks) %>% 
-  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
-  filter(pxcor < 5 ) %>%
-  ungroup() %>% 
-  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
-  summarise(
-    min_N=min(N_predispersal,na.rm=TRUE),
-    max_N=max(N_predispersal,na.rm=TRUE),
-    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
-    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
-    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
-    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
-    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
-    mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
-    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
-    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
-    front=mean(front)
-  ) %>% 
-  ungroup() %>% 
-  group_by(replicateID) %>% 
-  mutate(range_N=max(max_N)-min(min_N)) %>% 
-  ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
-                          range_N),
-              names_from=ticks,
-              values_from=c(mean_dmax,mean_slope,mean_midpoint,
-                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
-                            mean_varslope,mean_vard0,
-                            front)) %>% 
-  mutate(where="core")
-```
 
 we also extract separately variables at t0
 ```{r}
 tab_start<-data %>% select(
   start_dmax,
-  start_midpoint,
-  start_slope,
   start_d0,
   start_avgslope=start_slopeA_0_avg,
   start_Kslope=start_slopeA_0_K,
@@ -166,7 +118,11 @@ tab_genet <- data %>%
   ungroup() %>% 
   group_by(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
   summarise(time_to_fix=unique(time_to_fix)) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(fixinterval=ordered(time_to_fix,
+                             levels=sort(unique(time_to_fix))
+                             )
+         )
 ```
 
 now we can mix and combine these datasets for analyses
@@ -179,13 +135,7 @@ tab <-tab_edge %>%
   left_join(tab_start) %>% 
   left_join(tab_genet) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
-  mutate(advance=front_120-front_100) %>% 
-  mutate(scale_d0_100=scale(mean_d0_100)[,1],
-         scale_d0_start=scale(start_d0)[,1],
-         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
-         s_avgslope_start=start_avgslope/sd(start_avgslope),
-         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
-         s_Kslope_start=start_Kslope/sd(start_Kslope))
+  mutate(advance=front_120-front_100) 
 ```
 
 for both velocity and genetics, we compare 4 models:
@@ -227,13 +177,6 @@ tab2 %>%
 
 
 ```{r}
-if(file.exists(here("R_output","models_velocity_binom.Rdata"))){
-  # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
-  # to override, re-run and re-save manually the model by selecting only relevant code lines, instead of running the entire chunk, or delete the saved object
-  load(here("R_output","models_velocity_binom.Rdata"))
-  }else
-    {
-      
 mod_100=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
               s(mean_avgslope_100,by=mortality)+
@@ -274,11 +217,6 @@ mod_00_noDDD=gam(cbind(advance,20-advance)~
 mod_null=gam(cbind(advance,20-advance)~
               mortality, 
             family=binomial,data=subset(tab,advance>-1))
-
-save(list=c("mod_100","mod_100_K","mod_100_noDDD",
-            "mod_00","mod_00_K","mod_00_noDDD"), 
-     file=here("R_output","models_velocity_binom.Rdata"))
-    }
 ```
 
 ```{r}
@@ -356,87 +294,57 @@ so let's go with that as a check (supplement?)
 library(cmdstanr)
 library(brms)
 
+tab_brm <- tab %>%
+  mutate(scale_d0_100=scale(mean_d0_100)[,1], #standardisation only used for the brms check
+         scale_d0_start=scale(start_d0)[,1],
+         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
+         s_avgslope_start=start_avgslope/sd(start_avgslope),
+         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
+         s_Kslope_start=start_Kslope/sd(start_Kslope))
+
 prior<-c(
   set_prior("normal(0,1.5)",class="b")
 )
 
-if(file.exists(here("R_output","models_velocity_ordinal.Rdata"))){
-  load(here("R_output","models_velocity_ordinal.Rdata"))
-  }else
-    {
-mod_00_ordinal=brm(bf((advance+1)~ ##we need the +1 because lower category must be 1 in an ordinal
-          (scale_d0_start+s_avgslope_start)*mortality),
-        family=sratio,data=tab,prior=prior,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
-
-mod_00_noDDD_ordinal=brm(bf((advance+1)~
-          (scale_d0_start)*mortality),
-        family=sratio,data=tab,prior=prior,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
-
-
-mod_100_ordinal=brm(bf((advance+1)~
+mod_100_ordinal=brm(bf((advance+1)~ #because the first category must be 1
           (scale_d0_100+s_avgslope_100)*mortality),
-        family=sratio,data=tab,prior=prior,
+        family=sratio,data=tab_brm,prior=prior,
         chains=4,seed=42,iter=2000,backend="cmdstanr")
 
-mod_100_noDDD_ordinal=brm(bf((advance+1)~
-          (scale_d0_100)*mortality),
-        family=sratio,data=tab,prior=prior,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
-
-save(list=c("mod_100_ordinal","mod_100_noDDD_ordinal",
-            "mod_00_ordinal","mod_00_noDDD_ordinal"), 
-     file=here("R_output","models_velocity_ordinal.Rdata"))
-    }
+## easy to expand to the otehr models
 ```
 
 ## genetic evidence
 
 ```{r}
-if(file.exists(here("R_output","models_diversity.Rdata"))){
-  load(here("R_output","models_diversity.Rdata"))
-  }else
-    {
- 
-tab$fixinterval=ordered(tab$time_to_fix,levels=sort(unique(tab$time_to_fix)))
-
 mod_div_00=polr(fixinterval~
-                     mortality+mortality:(scale_d0_start+s_avgslope_start),
+                     mortality+mortality:(start_d0+start_avgslope),
         data=filter(tab,front_120>0))#one front did not advance)    
 
 mod_div_00_K=polr(fixinterval~
-                     mortality+mortality:(scale_d0_start+s_Kslope_start),
+                     mortality+mortality:(start_d0+start_Kslope),
         data=filter(tab,front_120>0))#one front did not advance) 
 
 mod_div_00_noDDD=polr(fixinterval~
-                     mortality+mortality:(scale_d0_start),
+                     mortality+mortality:(start_d0),
         data=filter(tab,front_120>0))#one front did not advance) 
 
 mod_div_100=polr(fixinterval~
-                     mortality+mortality:(scale_d0_100+s_avgslope_100),
+                     mortality+mortality:(mean_d0_100+mean_avgslope_100),
         data=filter(tab,front_120>0))#one front did not advance)    
 
 mod_div_100_K=polr(fixinterval~
-                     mortality+mortality:(scale_d0_100+s_Kslope_100),
+                     mortality+mortality:(mean_d0_100+mean_Kslope_100),
         data=filter(tab,front_120>0))#one front did not advance) 
 
 mod_div_100_noDDD=polr(fixinterval~
-                     mortality+mortality:(scale_d0_100),
+                     mortality+mortality:(mean_d0_100),
         data=filter(tab,front_120>0))#one front did not advance) 
 
 mod_div_null=polr(fixinterval~
                      mortality,
         data=filter(tab,front_120>0))#one front did not advance) 
 
-
-
-
-
-save(list=c("mod_div_100","mod_div_100_K","mod_div_100_noDDD",
-            "mod_div_00","mod_div_00_K","mod_div_00_noDDD"), 
-     file=here("R_output","models_diversity.Rdata"))
-    }
 ```
 
 
@@ -475,74 +383,75 @@ model.sel(list(mod_div_100=mod_div_100,
 our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation from nthe line y-x=0 indicate evolution
 
 
-
 ```{r}
-tab_evol<- rbind(tab_edge,tab_core) %>% ##check the join is correct
-  left_join(tab_start) %>% 
-  mutate(group=paste(dispersal_mortality, is.VP_DDD,is.VP_dmax,heritability,where))
-```
+
+tab$test_davg=tab$mean_d0_100+tab$mean_avgslope_100
+tab$test_start_davg=tab$start_d0+tab$start_avgslope
+
+ribboning=tab %>% 
+  select(is.VP_dmax,is.VP_DDD,heritability,mortality) %>% 
+  distinct() %>% 
+  expand_grid(x=c(-100:100)/100)
 
 
-```{r}
-tab_evolx <-tab_evol %>% 
-  filter(where=="edge")  %>% 
-  mutate(start_avgslope_binned=round(2*start_avgslope,1)/2,
-         start_d0_binned=round(2*start_d0,1)/2) 
+tab %>% 
+  ggplot()+
+    geom_ribbon(data=ribboning,
+                aes(x=x,ymin=0.5+0.5*(is.VP_dmax==1)-1*x,ymax=1),
+                fill="darkgrey",alpha=0.5)+
+      geom_ribbon(data=ribboning,
+                aes(x=x,ymax=-0.5-0.5*(is.VP_dmax==1)-1*x,ymin=-1),
+                fill="darkgrey",alpha=0.5)+
+    geom_hline(yintercept = 0,lty=2)+
+    geom_abline(aes(intercept=0.5+0.5*(is.VP_dmax==1),slope=-1))+
+    geom_abline(aes(intercept=-0.5-0.5*(is.VP_dmax==1),slope=-1))+
+  # denotes the strategies possibles (davg>dmax not possible)
+    geom_point(aes(start_avgslope,
+                                 mean_avgslope_100-start_avgslope),alpha=0.2)+
+    geom_smooth(aes(start_avgslope,
+                                 mean_avgslope_100-start_avgslope),method="lm")+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
+  theme_bw()+
+  coord_cartesian(xlim=c(-0.3,0.3),ylim=c(-0.25,0.8))
 
-tab_evolx %>% 
-  group_by(dispersal_mortality, heritability,start_avgslope_binned,
-           is.VP_dmax,is.VP_DDD) %>% 
-  summarise(mean_change=mean(mean_avgslope_100-start_avgslope),
-            sd_change=sd(mean_avgslope_100-start_avgslope)) %>% 
+
+#the white area delimitate the maximal space available for evolution (slope or davg after avolution cannot go higher than abs(maximal dmax possible under the variance conditions))
+#note that no var vignettes should probably be all grey (no evolution possible)
+
+
+
+tab %>% 
+  ggplot()+
+    geom_ribbon(data=ribboning,
+                aes(x=x,ymin=0.5+0.5*(is.VP_dmax==1)-1*x,ymax=1),
+                fill="darkgrey",alpha=0.5)+
+      geom_ribbon(data=ribboning,
+                aes(x=x,ymax=-0.5-0.5*(is.VP_dmax==1)-1*x,ymin=-1),
+                fill="darkgrey",alpha=0.5)+
+    geom_hline(yintercept = 0,lty=2)+
+    geom_abline(aes(intercept=0.5+0.5*(is.VP_dmax==1),slope=-1))+
+    geom_abline(aes(intercept=-0.5-0.5*(is.VP_dmax==1),slope=-1))+
+  # denotes the strategies possibles (davg>dmax not possible)
+    geom_point(aes(test_start_davg,
+                                 test_davg-test_start_davg),alpha=0.1)+
+    geom_smooth(aes(test_start_davg,
+                                 test_davg-test_start_davg),method="lm")+
+    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
+  theme_bw()+
+  scale_x_continuous("starting average dispersal")+
+  scale_y_continuous("change in average dispersal during evolution")+
+  coord_cartesian(xlim=c(0,0.5),ylim=c(-0.5,0.8))
+
+tab %>% 
   ggplot()+
     geom_hline(yintercept = 0,lty=2)+
-    geom_point(data=tab_evolx,
-               aes(start_avgslope,
-                                 mean_avgslope_100-start_avgslope,
-                                 col=where),alpha=0.2)+
-  geom_pointrange(aes(x=start_avgslope_binned,
-                      y=mean_change,
-                      ymin=mean_change-sd_change,
-                      ymax=mean_change+sd_change))+
+    geom_jitter(aes(0,
+                                 mean_dmax_100-start_dmax),alpha=0.3,col="grey")+
     facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-
-tab_evolx %>% 
-  group_by(dispersal_mortality, heritability,start_d0_binned,
-           is.VP_dmax,is.VP_DDD) %>% 
-  summarise(mean_change=mean(mean_d0_100-start_d0),
-            sd_change=sd(mean_d0_100-start_d0)) %>% 
-  ggplot()+
-    geom_hline(yintercept = 0,lty=2)+
-    geom_point(data=tab_evolx,
-               aes(start_d0,
-                                 mean_d0_100-start_d0,
-                                 col=where),alpha=0.2)+
-  geom_pointrange(aes(x=start_d0_binned,
-                      y=mean_change,
-                      ymin=mean_change-sd_change,
-                      ymax=mean_change+sd_change))+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
-
-
-tab_evolx %>% 
-  group_by(dispersal_mortality, heritability,
-           is.VP_dmax,is.VP_DDD) %>% 
-  summarise(mean_change=mean(mean_dmax_100-start_dmax),
-            sd_change=sd(mean_dmax_100-start_dmax)) %>% 
-  ggplot()+
-    geom_hline(yintercept = 0,lty=2)+
-    geom_jitter(data=tab_evolx,
-               aes(0,
-                                 mean_dmax_100-start_dmax,
-                                 col=where),alpha=0.2)+
-  geom_pointrange(aes(x=0,
-                      y=mean_change,
-                      ymin=mean_change-sd_change,
-                      ymax=mean_change+sd_change))+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))
+               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
+  theme_bw()
 ```
 
 

@@ -45,8 +45,7 @@ We rewrite variance variables to be in 0/1 mode to not be distracted
 ```{r}
 data<- raw_data  %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
-  filter(ticks!=10)
+           is.VP_DDD=as.numeric(VP_slope >0))
 ```
 
 what width do we use to define a "front" for sampling purposes?
@@ -133,3 +132,82 @@ data %>%
 (well we can, but we have to caveat it)
 
 lots of things to do to strengthen this, but we can carry on assuming convergence at g100 for the enxt steps
+
+
+
+## comparing core and edge
+
+# making sub data tables
+
+a table with summary variables at the edge (we define edge as patch <5 patchs from tip, see suppl for justification)
+```{r}
+tab_edge<-data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor > front-5 ) %>%
+  ungroup() %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(
+    min_N=min(N_predispersal,na.rm=TRUE),
+    max_N=max(N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
+    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
+    front=mean(front)
+  ) %>% 
+  ungroup() %>% 
+  group_by(replicateID) %>% 
+  mutate(range_N=max(max_N)-min(min_N)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
+                          range_N),
+              names_from=ticks,
+              values_from=c(mean_dmax,mean_slope,mean_midpoint,
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
+                            mean_varslope,mean_vard0,
+                            front)) %>% 
+  mutate(where="edge")
+```
+
+we do the same for core patches
+
+```{r}
+tab_core<-data %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor < 5 ) %>%
+  ungroup() %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  summarise(
+    min_N=min(N_predispersal,na.rm=TRUE),
+    max_N=max(N_predispersal,na.rm=TRUE),
+    mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
+    mean_slope=weighted.mean(mean_slope,N_predispersal,na.rm=TRUE),
+    mean_midpoint=weighted.mean(mean_midpoint,N_predispersal,na.rm=TRUE),
+    mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
+    mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
+    mean_varslope=weighted.mean(var_slopeA_0_avg,N_predispersal,na.rm=TRUE),
+    mean_vard0=weighted.mean(var_d0,N_predispersal,na.rm=TRUE),
+    front=mean(front)
+  ) %>% 
+  ungroup() %>% 
+  group_by(replicateID) %>% 
+  mutate(range_N=max(max_N)-min(min_N)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,
+                          range_N),
+              names_from=ticks,
+              values_from=c(mean_dmax,mean_slope,mean_midpoint,
+                            mean_d0,mean_avgslope,mean_Kslope,mean_uncond,
+                            mean_varslope,mean_vard0,
+                            front)) %>% 
+  mutate(where="core")
+```
