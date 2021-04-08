@@ -388,36 +388,84 @@ our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation
 tab$test_davg=tab$mean_d0_100+tab$mean_avgslope_100
 tab$test_start_davg=tab$start_d0+tab$start_avgslope
 
-ribboning=tab %>% 
-  select(is.VP_dmax,is.VP_DDD,heritability,mortality) %>% 
-  distinct() %>% 
-  expand_grid(x=c(-100:100)/100)
-
-
-tab %>% 
+p11<- tab %>% 
+  filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
   ggplot()+
-    geom_ribbon(data=ribboning,
-                aes(x=x,ymin=0.5+0.5*(is.VP_dmax==1)-1*x,ymax=1),
-                fill="darkgrey",alpha=0.5)+
-      geom_ribbon(data=ribboning,
-                aes(x=x,ymax=-0.5-0.5*(is.VP_dmax==1)-1*x,ymin=-1),
-                fill="darkgrey",alpha=0.5)+
-    geom_hline(yintercept = 0,lty=2)+
-    geom_abline(aes(intercept=0.5+0.5*(is.VP_dmax==1),slope=-1))+
-    geom_abline(aes(intercept=-0.5-0.5*(is.VP_dmax==1),slope=-1))+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=1-x,ymax=1),
+                fill="darkgrey",col="black",alpha=0.5)+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=-1-x,ymax=-1),
+                fill="darkgrey",col="black",alpha=0.5)+
   # denotes the strategies possibles (davg>dmax not possible)
     geom_point(aes(start_avgslope,
-                                 mean_avgslope_100-start_avgslope),alpha=0.2)+
+                   mean_avgslope_100-start_avgslope),alpha=0.1)+
     geom_smooth(aes(start_avgslope,
-                                 mean_avgslope_100-start_avgslope),method="lm")+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
-  theme_bw()+
-  coord_cartesian(xlim=c(-0.3,0.3),ylim=c(-0.25,0.8))
+                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
+  ggtitle('D: Individual variation in slope and dmax')
 
-
+p10<- tab %>% 
+  filter(is.VP_dmax==1 & is.VP_DDD==0) %>% 
+  ggplot()+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=1-x,ymax=1),
+                fill="darkgrey",col="black",alpha=0.5)+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=-1-x,ymax=-1),
+                fill="darkgrey",col="black",alpha=0.5)+
+  # denotes the strategies possibles (davg>dmax not possible)
+    geom_point(aes(start_avgslope,
+                   mean_avgslope_100-start_avgslope),alpha=0.1)+
+    geom_smooth(aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
+  ggtitle('C: Individual variation in dmax')
 #the white area delimitate the maximal space available for evolution (slope or davg after avolution cannot go higher than abs(maximal dmax possible under the variance conditions))
 #note that no var vignettes should probably be all grey (no evolution possible)
+
+p01<- tab %>% 
+  filter(is.VP_dmax==0 & is.VP_DDD==1) %>% 
+  ggplot()+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=0.5-x,ymax=1),
+                fill="darkgrey",col="black",alpha=0.5)+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=-0.5-x,ymax=-1),
+                fill="darkgrey",col="black",alpha=0.5)+
+  # denotes the strategies possibles (davg>dmax not possible)
+    geom_point(aes(start_avgslope,
+                   mean_avgslope_100-start_avgslope),alpha=0.1)+
+    geom_smooth(aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
+  ggtitle('B: Individual variation in slope')
+
+p00<- tab %>% 
+  filter(is.VP_dmax==0 & is.VP_DDD==0) %>% 
+  ggplot()+
+    geom_ribbon(data=tibble(x=c(-100:100)/100),
+                aes(x=x,ymin=-1,ymax=1),
+                fill="darkgrey",alpha=0.5)+
+  # denotes the strategies possibles (davg>dmax not possible)
+    geom_point(aes(start_avgslope,
+                   mean_avgslope_100-start_avgslope),alpha=0.1)+
+    geom_smooth(aes(start_avgslope,
+                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
+  ggtitle('A: No individual variation') 
+
+result<- ((p00|p01)/(p10+p11)) &
+  geom_hline(yintercept = 0,lty=2) &
+  scale_x_continuous("") &
+  scale_y_continuous("") &
+  coord_cartesian(xlim=c(-0.3,0.3),ylim=c(-0.25,0.8))  & 
+  facet_grid(rows=vars(paste("m =",dispersal_mortality)),
+               cols=vars(paste("h2 =",heritability))) &
+  theme_bw()
+
+gt <- patchwork::patchworkGrob(result)
+gridExtra::grid.arrange(gt, 
+                        left = "Change in density-dependence at the expanding edge between t = 0 et t = 100", 
+                        bottom = "Density-dependence at t = 0")
+
+
 
 
 
