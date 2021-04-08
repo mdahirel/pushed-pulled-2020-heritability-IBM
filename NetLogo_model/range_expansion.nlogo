@@ -79,7 +79,7 @@ patches-own [
   ;; counts of individuals
   carrying_capacity ;; carrying capacity/ equilibrium pop size of the patch,
                     ;; regulation happens by making growth rate fall below 0 if population size > carrying capacity
-  population_size   ;; current population size (actualised frequently through life cycle, as up to date values needed quite often)
+  population_size   ;; current population size (refreshed several times through life cycle, as up to date values needed quite often)
   N_predispersal    ;; adult population size right before the dispersal phase
   N_postdispersal   ;; adult population size after the dispersal phase
   N_sedentary       ;; number of turtles who did not move
