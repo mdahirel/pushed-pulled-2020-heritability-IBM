@@ -156,8 +156,8 @@ tab <- exp_h2 %>%
     fecundity, K, reproduction,
     seedID = `random-seed`,siminputrow,
     metrics.patches,
-    start_d0, start_slopeA_0_K,
-    start_slopeA_0_avg, start_uncond_0_K
+    start_d0, start_dK, start_davg_0_K, 
+    start_slopeA_0_K, start_slopeA_0_avg, start_uncond_0_K
   )  %>%
   mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
   unnest(cols = c(metrics.patches)) %>%
