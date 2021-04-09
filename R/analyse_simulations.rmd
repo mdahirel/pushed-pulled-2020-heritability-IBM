@@ -503,3 +503,97 @@ tab %>%
 ```
 
 
+```{r fig 1}
+
+tt=tibble(x=c(0:120)/100) %>% 
+  expand_grid(dmax=c(0.2,0.5,0.7),
+              a=c(-10,0,10),
+              b=c(0.2,0.5,1.1)) %>% 
+  mutate(group=paste(dmax,a,b)) %>% 
+  mutate(d=dmax/(1+exp(-a*(x-b))))
+
+p_dmax <- tt %>% 
+  filter(b==0.5 & a==10)%>% 
+  ggplot()+
+  geom_line(aes(x,d,group=group))+
+  geom_textbox(data=tibble(dmax=unique(tt$dmax)),
+                 aes(x=1,
+                 y=dmax-0.05,
+                 label=paste("*d<sub>max</sub>* = ",dmax)),
+               width = grid::unit(0.3, "npc")
+                 )+
+  scale_x_continuous("N/K")+
+  scale_y_continuous("Dispersal probability")+
+  theme_bw()
+
+p_alpha <- tt %>% 
+  filter(b==0.5 & dmax==0.7)%>% 
+  ggplot()+
+  geom_line(aes(x,d,group=group))+
+  geom_textbox(data=tibble(b=0.5,
+                           dmax=0.7,
+                           a=unique(tt$a)),
+               aes(x=1,
+                 y=dmax/(1+exp(-a*(1-b))),
+                 label=paste("*&alpha;* =",a)),
+               width = grid::unit(0.22, "npc"))+
+  scale_x_continuous("N/K")+
+  scale_y_continuous("")+
+  theme_bw()
+
+p_beta <- tt %>% 
+  filter(a==10 & dmax==0.7)%>% 
+  ggplot()+
+  geom_line(aes(x,d,group=group))+
+  geom_textbox(data=tibble(b=unique(tt$b),
+                           dmax=0.7,
+                           a=10),
+               aes(x=b,
+                 y=0.4,
+                 label=paste("*&beta;* =",b)),
+               width = grid::unit(0.15, "npc"))+
+  scale_x_continuous("N/K")+
+  scale_y_continuous("")+
+  theme_bw()
+
+
+tt2=tibble(dmax=c(0.734,0.8),
+              a=c(20,6),
+              b=c(0.2,0.6)) %>%
+  expand_grid(x=rep(c(0:10)/10,2)) %>% 
+  mutate(d=dmax/(1+exp(-a*(x-b))))
+
+
+p1<-tt2 %>% 
+  ggplot(aes(x=x,y=d))+
+  geom_line(aes(col=factor(dmax)))+
+  geom_point(aes(col=factor(dmax),shape=factor(dmax)),size=5,fill="white")+
+  scale_x_continuous("N/K")+
+  scale_y_continuous("Dispersal probability")+
+  scale_shape_discrete()+
+  theme_bw()
+
+p2<-tt2 %>% 
+  group_by(dmax) %>% 
+  summarise(d0=subset(d,x==0),
+            dK=subset(d,x==1),
+            davg=mean(d)) %>% 
+  pivot_longer(cols=c(d0,dK,davg)) %>% 
+  mutate(name=fct_recode(name,
+                         `*d<sub>0</sub>*`="d0",
+                         `*d<sub>avg</sub>*`="davg",
+                         `*d<sub>K</sub>*`="dK")) %>% 
+  ggplot()+
+  geom_point(aes(name,value,col=factor(dmax),shape=factor(dmax)),
+             size=5,fill="white",position=position_dodge(width=0.4))+
+  scale_x_discrete("dispersal variable")+
+  scale_y_continuous("value")+
+  scale_shape_discrete()+
+  theme_bw()+
+  theme(axis.text.x = element_markdown())
+
+(p_dmax|p_alpha|p_beta)/(p1+p2)&
+  theme(legend.position = "none")
+
+```
+
