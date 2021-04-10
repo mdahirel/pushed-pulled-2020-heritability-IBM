@@ -163,11 +163,24 @@ oo=NA
 for(i in 1:length(d0)){
 opti=optimize(f=v,d=d0[i],fec=f0[i],lower=0,upper=700)
 
+#if brm (to avoid speeds >=1)
+#if(opti$objective>0.9999){oo[i]=0.9999}
+#else{oo[i]=opti$objective}
+
 oo[i]=opti$objective
 }
-
 return(oo)
 }
+
+###we could use that vf in a proper brm, if we account for sources of stochasticity reducing
+# true vf compare to nominal vf
+#mod<-brm(bf(advance|trials(20)~logit(vf3)+d,
+#         d~(mean_d0_100+mean_avgslope_100)*mortality+is.VP_DDD+is.VP_dmax,
+#         nl=TRUE,family=binomial),
+#         data=subset(tab2,advance>-1),
+#         prior=c(set_prior("normal(0,1)",nlpar="d",class="b")),
+#         chains=4,iter=200,backend="cmdstanr")
+
 
 
 tab2 <-tab %>% 
@@ -179,13 +192,20 @@ tab2 <-tab %>%
   arrange(d0_eff)
 
 tab2 %>% 
-  filter(mean_avgslope_100>-0.05 & mean_avgslope_100<0.05) %>% 
+  filter(mean_avgslope_100>-0.005 & mean_avgslope_100<0.005) %>% 
   ggplot()+ #only slope close to 0
   geom_point(aes(d0_eff, ##use effective d0, accounting for motality
                  advance/20,col=mortality))+
   geom_line(aes(d0_eff,vf2))+
   geom_line(aes(d0_eff,vf3))+
   geom_line(aes(d0_eff,vf),lty=2)+
+  facet_wrap(~dispersal_mortality+heritability)
+
+
+tab2 %>% 
+  ggplot()+ #only slope close to 0
+  geom_point(aes(mean_avgslope_100, ##use effective d0, accounting for motality
+                 (advance/20)/vf3,col=mortality))+
   facet_wrap(~dispersal_mortality)
 
 ## shows that the continuum approx for v is goodish until it bumps into the v=1 boundary
@@ -201,9 +221,10 @@ tab2 %>%
 ```{r}
 mod_100=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
+              ##read up on smooths before final model to be sure to use them correctly
               s(mean_avgslope_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 ###does better than the nonlinear at d0=nearly 0 because d0 is an average
 ### even when d0=0, some individuals may not be at d0
 
@@ -211,34 +232,34 @@ mod_100_K=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
               s(mean_Kslope_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 
 mod_100_noDDD=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 
 
 mod_00=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               s(start_avgslope,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 
 mod_00_K=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               s(start_Kslope,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 
 mod_00_noDDD=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 
 mod_null=gam(cbind(advance,20-advance)~
               mortality, 
-            family=binomial,data=subset(tab,advance>-1))
+            family=binomial,data=subset(tab,advance>-1), method = "REML")
 ```
 
 ```{r}
@@ -267,20 +288,18 @@ model.sel(list(mod_100=mod_100,
                                      T~"included (shape-dep.)")) %>% 
   filter(model_name!="mod_null") %>% 
   ggplot()+
-  geom_point(aes(is.evo,AICc,
+  geom_point(aes(is.evo,gam_r2,
                          col=is.DDD),
                      size=3)+
-  geom_line(aes(is.evo,AICc,
+  geom_line(aes(is.evo,gam_r2,
                 group=is.DDD,
                 col=is.DDD))+
-  geom_hline(yintercept=AICc(mod_null),lty=2)+ ## the aicc of the mortality only model
+  geom_hline(yintercept=summary(mod_null)$r.sq,lty=2)+ ## the aicc of the mortality only model
   scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("AICc")+
+  scale_y_continuous("R2")+
   labs(col="Density dependence?")
 
 
-
-draw(mod_100)
 ```
 
 
@@ -619,57 +638,45 @@ p2<-tt2 %>%
 
 ```
 
+
 ```{r}
 
-p_d0_m0.1<- draw(mod_100,
-                 select="s(mean_d0_100):mortality0.1",rug=FALSE)+
-  scale_x_continuous("")+
+newdata<-tibble(mean_avgslope_100=0,
+                mean_d0_100=c(0:100)/100) %>%
+  expand_grid(mortality=c("0.1","0.5","0.9")) %>% 
+  mutate(row=1:length(mortality))
+
+p1<-fitted_samples(mod_100,n=1000,newdata=newdata,seed=42,scale="response") %>% 
+  left_join(newdata) %>% 
+  ggplot()+
+  ggdist::stat_lineribbon(aes(mean_d0_100,fitted),.width=c(0.001,0.95),fill="grey")+
+  scale_y_continuous("predicted expansion velocity (patches/generation)")+
+  scale_x_continuous("d0")+
+  facet_grid(rows=vars(paste("m = ", mortality)),
+                       cols=vars("effect of d0"))+
+  coord_cartesian(ylim=c(0,1))
+
+newdata<-tibble(mean_avgslope_100=seq(
+  from=range(tab$mean_avgslope_100)[1],
+  to=range(tab$mean_avgslope_100)[2],
+  length.out=100),
+                mean_d0_100=mean(tab$mean_d0_100)) %>%
+  expand_grid(mortality=c("0.1","0.5","0.9")) %>% 
+  mutate(row=1:length(mortality))
+
+p2<-fitted_samples(mod_100,n=1000,newdata=newdata,seed=42,scale="response") %>% 
+  left_join(newdata) %>% 
+  ggplot()+
+  ggdist::stat_lineribbon(aes(mean_avgslope_100,fitted),.width=c(0.001,0.95),fill="grey")+
   scale_y_continuous("")+
-  coord_cartesian(ylim=c(-5,25))+facet_grid(cols=vars("effect of d0"))
-
-p_d0_m0.5<- draw(mod_100,
-                 select="s(mean_d0_100):mortality0.5",rug=FALSE)+
-  scale_x_continuous("")+
-  scale_y_continuous("Effect on velocity (logit scale)")+
-  coord_cartesian(ylim=c(-5,25))
-
-p_d0_m0.9<- draw(mod_100,
-                 select="s(mean_d0_100):mortality0.9",rug=FALSE)+
-  scale_x_continuous("low-density dispersal rate d0")+
-  scale_y_continuous("")+
-  coord_cartesian(ylim=c(-5,25))
-
-p_slope_m0.1<- draw(mod_100,
-                    select="s(mean_avgslope_100):mortality0.1",rug=FALSE)+
-  scale_x_continuous("")+
-  scale_y_continuous("")+
-  coord_cartesian(ylim=c(-5,25))+facet_grid(cols=vars("effect of slope"),rows = vars("m=0.1"))
-
-p_slope_m0.5<- draw(mod_100,
-                    select="s(mean_avgslope_100):mortality0.5",rug=FALSE)+
-  scale_x_continuous("")+
-  scale_y_continuous("")+
-  coord_cartesian(ylim=c(-5,25))+facet_grid(rows = vars("m=0.5"))
-
-p_slope_m0.9<- draw(mod_100,
-                    select="s(mean_avgslope_100):mortality0.9",rug=FALSE)+
   scale_x_continuous("slope")+
-  scale_y_continuous("")+
-  coord_cartesian(ylim=c(-5,25))+facet_grid(rows = vars("m=0.9"))
+    facet_grid(rows=vars(paste("m = ", mortality)),
+                       cols=vars("effect of slope"))+
+  coord_cartesian(ylim=c(0,1))
 
-p_mortality<-draw(mod_100,rug=FALSE)[[7]]+
-  scale_x_discrete("Dispersal mortality m")+
-  scale_y_continuous("")
+(p1|p2)&
+  theme_bw()
 
-((p_d0_m0.1[[1]]+p_slope_m0.1[[1]])/
-    (p_d0_m0.5[[1]]+p_slope_m0.5[[1]])/
-    (p_d0_m0.9[[1]]+p_slope_m0.9[[1]])/
-    p_mortality)&
-  theme_bw() &
-  theme(plot.title=element_blank(),
-        plot.subtitle = element_blank())&
-  geom_hline(yintercept=0,lty=2)##brackets needed because draw outputs patchworks, even when only one plot is output
-## so we get the internal ggplot before repatchworking it the way we want
-##rug off in draft to save time, on on final??
+appraise(mod_100)[[4]]+geom_abline(intercept=0,slope=1)
 ```
 
