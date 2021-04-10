@@ -224,7 +224,7 @@ mod_100=gam(cbind(advance,20-advance)~
               ##read up on smooths before final model to be sure to use them correctly
               s(mean_avgslope_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 ###does better than the nonlinear at d0=nearly 0 because d0 is an average
 ### even when d0=0, some individuals may not be at d0
 
@@ -232,34 +232,34 @@ mod_100_K=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
               s(mean_Kslope_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 
 mod_100_noDDD=gam(cbind(advance,20-advance)~
               s(mean_d0_100,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 
 
 mod_00=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               s(start_avgslope,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 
 mod_00_K=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               s(start_Kslope,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 
 mod_00_noDDD=gam(cbind(advance,20-advance)~
               s(start_d0,by=mortality)+
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 
 mod_null=gam(cbind(advance,20-advance)~
               mortality, 
-            family=binomial,data=subset(tab,advance>-1), method = "REML")
+            family=binomial,data=tab, method = "REML")
 ```
 
 ```{r}
@@ -334,25 +334,25 @@ so let's go with that as a check (supplement?)
 
 ```{r}
 
-library(cmdstanr)
-library(brms)
-
-tab_brm <- tab %>%
-  mutate(scale_d0_100=scale(mean_d0_100)[,1], #standardisation only used for the brms check
-         scale_d0_start=scale(start_d0)[,1],
-         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
-         s_avgslope_start=start_avgslope/sd(start_avgslope),
-         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
-         s_Kslope_start=start_Kslope/sd(start_Kslope))
-
-prior<-c(
-  set_prior("normal(0,1.5)",class="b")
-)
-
-mod_100_ordinal=brm(bf((advance+1)~ #because the first category must be 1
-          (scale_d0_100+s_avgslope_100)*mortality),
-        family=sratio,data=tab_brm,prior=prior,
-        chains=4,seed=42,iter=2000,backend="cmdstanr")
+#library(cmdstanr)
+#library(brms)
+#
+#tab_brm <- tab %>%
+#  mutate(scale_d0_100=scale(mean_d0_100)[,1], #standardisation only used for the brms check
+#         scale_d0_start=scale(start_d0)[,1],
+#         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
+#         s_avgslope_start=start_avgslope/sd(start_avgslope),
+#         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
+#         s_Kslope_start=start_Kslope/sd(start_Kslope))
+#
+#prior<-c(
+#  set_prior("normal(0,1.5)",class="b")
+#)
+#
+#mod_100_ordinal=brm(bf((advance+1)~ #because the first category must be 1
+#          (scale_d0_100+s_avgslope_100)*mortality),
+#        family=sratio,data=tab_brm,prior=prior,
+#        chains=4,seed=42,iter=2000,backend="cmdstanr")
 
 ## easy to expand to the otehr models
 ```
@@ -402,6 +402,9 @@ mod_div_null=clm(fixinterval~
         data=filter(tab,front_120>0),
         link="cloglog")#one front did not advance) 
 
+
+## the cloglog/proportional hazards more "traditional" for survival data
+## also easy to change family and see it is a better fit
 ```
 
 

@@ -102,37 +102,45 @@ takeaway: convergence in speed (which depends on both the stochasticity of the i
 let's do the same to look at evolutionary stability at the edge
 
 
-```{r}
-data %>% 
-  mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
-  select(pxcor,ticks,heritability,is.VP_dmax,is.VP_DDD,replicateID,present_front,dispersal_mortality,
-         var_dmax,var_midpoint,var_slope, VP_slope,VP_midpoint,VP_logit_dmax,
-         var_genotype_logit_dmax,var_genotype_midpoint,var_genotype_slope,
-         var_noise_logit_dmax,var_noise_midpoint,var_noise_slope) %>%
-  filter(pxcor==present_front-5) %>%  
-  group_by(replicateID) %>% 
-  filter(ticks>=100 |ticks==1) %>% 
-  mutate(relative_v=(var_slope)) %>%  ##initial variances: logitdmax 1.5^2, slope 6^2, midpoint 0.5^2
-  ungroup() %>% 
-  ggplot()+
-  geom_line(aes(ticks,relative_v,group=replicateID),col="lightgrey")+
-  stat_lineribbon(aes(ticks,relative_v),.width=c(0.001,0.95),point_interval = median_qi,
-                  alpha=0.5)+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+
-  geom_hline(aes(yintercept = (1-heritability)*VP_slope),lty=2,col="red")+
-  geom_hline(aes(yintercept = VP_slope),lty=2,col="red")+
-  scale_y_continuous("proportion of initial VP remaining")+
-  scale_x_continuous("generations")+
-  theme(legend.position = "none")
-```
-
 (we can NOT use "check if vA falls to zero" as a check for evolutionary stability, because in case of branching within a replicate, dynamics can be stable but vA very high, even higher than at t0 if "core" of the genotypic distri has been carved out)
 (well we can, but we have to caveat it)
 
 lots of things to do to strengthen this, but we can carry on assuming convergence at g100 for the enxt steps
 
+```{r}
+data %>% 
+  filter(heritability>0) %>% 
+  mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
+           is.VP_DDD=as.numeric(VP_slope >0)) %>% 
+  group_by(replicateID,ticks) %>% 
+  mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
+  filter(pxcor>front-5) %>%  
+  group_by(replicateID,ticks,heritability,is.VP_dmax,is.VP_DDD,dispersal_mortality,
+           VP_logit_dmax,VP_slope,VP_midpoint) %>%
+  mutate(var_genotype_logit_dmax=replace_na(var_genotype_logit_dmax,0),
+         var_genotype_midpoint=replace_na(var_genotype_midpoint,0),
+         var_genotype_slope=replace_na(var_genotype_slope,0)) %>% 
+  summarise(var_genotype_logit_dmax=weighted.mean(var_genotype_logit_dmax,N_predispersal,na.rm=TRUE),
+            var_genotype_midpoint=weighted.mean(var_genotype_midpoint,N_predispersal,na.rm=TRUE),
+            var_genotype_slope=weighted.mean(var_genotype_slope,N_predispersal,na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+    is.fixed_dmax=var_genotype_logit_dmax<(0.05*VP_logit_dmax),
+    is.fixed_slope=var_genotype_slope<(0.05*VP_slope),
+    is.fixed_midpoint=var_genotype_midpoint<(0.05*VP_midpoint)
+  ) %>% 
+  group_by(ticks,heritability,is.VP_dmax,is.VP_DDD,dispersal_mortality) %>% 
+  summarise(prop_dmax=mean(is.fixed_dmax),
+            prop_slope=mean(is.fixed_slope),
+            prop_midpoint=mean(is.fixed_midpoint)) %>% 
+  ggplot()+
+  geom_line(aes(ticks,prop_midpoint))+
+  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
+               cols=vars(heritability,is.VP_DDD))+
+  scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
+  scale_x_continuous("generations")+
+  theme(legend.position = "none")
+```
 
 
 ## comparing core and edge
