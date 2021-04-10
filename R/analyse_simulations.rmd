@@ -150,12 +150,32 @@ patches are discrete entities, and speed is capped at one patch/generation. So l
 
 ```{r}
 
+vf_dd=function(d0,f0){ # version for discrete space and time in Wang et al 2019
+  ### 10.1016/j.tpb.2019.04.003
+  
+if(length(d0)!=length(f0)){stop("f0 and d0 must have same length")}
+    
+v=function(K,d,fec){
+  return(log(fec*(1+d*(cosh(K)-1)))/K)
+}
+
+oo=NA
+for(i in 1:length(d0)){
+opti=optimize(f=v,d=d0[i],fec=f0[i],lower=0,upper=700)
+
+oo[i]=opti$objective
+}
+
+return(oo)
+}
+
 
 tab2 <-tab %>% 
   mutate(d0_eff=(1-dispersal_mortality)*mean_d0_100,
          r0_eff=log(5-(dispersal_mortality*d0_eff)*5),
          vf=2*(log(5)*0.5*d0_eff)^0.5,
          vf2=2*(r0_eff*0.5*d0_eff)^0.5) %>% 
+  mutate(vf3=vf_dd(d0_eff,exp(r0_eff))) %>% 
   arrange(d0_eff)
 
 tab2 %>% 
@@ -164,8 +184,10 @@ tab2 %>%
   geom_point(aes(d0_eff, ##use effective d0, accounting for motality
                  advance/20,col=mortality))+
   geom_line(aes(d0_eff,vf2))+
+  geom_line(aes(d0_eff,vf3))+
   geom_line(aes(d0_eff,vf),lty=2)+
   facet_wrap(~dispersal_mortality)
+
 ## shows that the continuum approx for v is goodish until it bumps into the v=1 boundary
 ## birzu says approach is very good when r0<<0 and d0/r0 >>1
 ## we're not in these conditions but still good enough
@@ -595,5 +617,59 @@ p2<-tt2 %>%
 (p_dmax|p_alpha|p_beta)/(p1+p2)&
   theme(legend.position = "none")
 
+```
+
+```{r}
+
+p_d0_m0.1<- draw(mod_100,
+                 select="s(mean_d0_100):mortality0.1",rug=FALSE)+
+  scale_x_continuous("")+
+  scale_y_continuous("")+
+  coord_cartesian(ylim=c(-5,25))+facet_grid(cols=vars("effect of d0"))
+
+p_d0_m0.5<- draw(mod_100,
+                 select="s(mean_d0_100):mortality0.5",rug=FALSE)+
+  scale_x_continuous("")+
+  scale_y_continuous("Effect on velocity (logit scale)")+
+  coord_cartesian(ylim=c(-5,25))
+
+p_d0_m0.9<- draw(mod_100,
+                 select="s(mean_d0_100):mortality0.9",rug=FALSE)+
+  scale_x_continuous("low-density dispersal rate d0")+
+  scale_y_continuous("")+
+  coord_cartesian(ylim=c(-5,25))
+
+p_slope_m0.1<- draw(mod_100,
+                    select="s(mean_avgslope_100):mortality0.1",rug=FALSE)+
+  scale_x_continuous("")+
+  scale_y_continuous("")+
+  coord_cartesian(ylim=c(-5,25))+facet_grid(cols=vars("effect of slope"),rows = vars("m=0.1"))
+
+p_slope_m0.5<- draw(mod_100,
+                    select="s(mean_avgslope_100):mortality0.5",rug=FALSE)+
+  scale_x_continuous("")+
+  scale_y_continuous("")+
+  coord_cartesian(ylim=c(-5,25))+facet_grid(rows = vars("m=0.5"))
+
+p_slope_m0.9<- draw(mod_100,
+                    select="s(mean_avgslope_100):mortality0.9",rug=FALSE)+
+  scale_x_continuous("slope")+
+  scale_y_continuous("")+
+  coord_cartesian(ylim=c(-5,25))+facet_grid(rows = vars("m=0.9"))
+
+p_mortality<-draw(mod_100,rug=FALSE)[[7]]+
+  scale_x_discrete("Dispersal mortality m")+
+  scale_y_continuous("")
+
+((p_d0_m0.1[[1]]+p_slope_m0.1[[1]])/
+    (p_d0_m0.5[[1]]+p_slope_m0.5[[1]])/
+    (p_d0_m0.9[[1]]+p_slope_m0.9[[1]])/
+    p_mortality)&
+  theme_bw() &
+  theme(plot.title=element_blank(),
+        plot.subtitle = element_blank())&
+  geom_hline(yintercept=0,lty=2)##brackets needed because draw outputs patchworks, even when only one plot is output
+## so we get the internal ggplot before repatchworking it the way we want
+##rug off in draft to save time, on on final??
 ```
 
