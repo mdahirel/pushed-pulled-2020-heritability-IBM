@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(MASS)
+library(ordinal)
 library(arm)
 library(matrixStats)
 library(MuMIn)
@@ -272,13 +272,15 @@ gam_r2=function(mod){
           }
 
 
-model.sel(list(mod_100=mod_100,
+modsel_table<-model.sel(list(mod_100=mod_100,
                mod_100_K=mod_100_K,
                mod_100_noDDD=mod_100_noDDD,
                mod_00=mod_00,
                mod_00_K=mod_00_K,
                mod_00_noDDD=mod_00_noDDD,
-               mod_null=mod_null),extra=list(gam_dev.expl,gam_r2)) %>%  ##zero doubt the evol model is better
+               mod_null=mod_null),extra=list(gam_dev.expl,gam_r2))   ##zero doubt the evol model is better
+
+modsel_table %>%
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
@@ -358,45 +360,67 @@ mod_100_ordinal=brm(bf((advance+1)~ #because the first category must be 1
 ## genetic evidence
 
 ```{r}
-mod_div_00=polr(fixinterval~
+###do double checks for logit vs cloglog and adjust text in manuscript
+mod_div_00=clm(fixinterval~
+                     mortality*(start_d0+start_avgslope),
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance)    
+
+
+mod_div_00=clm(fixinterval~
                      mortality+mortality:(start_d0+start_avgslope),
-        data=filter(tab,front_120>0))#one front did not advance)    
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance)    
 
-mod_div_00_K=polr(fixinterval~
+mod_div_00_K=clm(fixinterval~
                      mortality+mortality:(start_d0+start_Kslope),
-        data=filter(tab,front_120>0))#one front did not advance) 
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance) 
 
-mod_div_00_noDDD=polr(fixinterval~
+mod_div_00_noDDD=clm(fixinterval~
                      mortality+mortality:(start_d0),
-        data=filter(tab,front_120>0))#one front did not advance) 
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance) 
 
-mod_div_100=polr(fixinterval~
+mod_div_100=clm(fixinterval~
                      mortality+mortality:(mean_d0_100+mean_avgslope_100),
-        data=filter(tab,front_120>0))#one front did not advance)    
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance)    
 
-mod_div_100_K=polr(fixinterval~
+mod_div_100_K=clm(fixinterval~
                      mortality+mortality:(mean_d0_100+mean_Kslope_100),
-        data=filter(tab,front_120>0))#one front did not advance) 
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance) 
 
-mod_div_100_noDDD=polr(fixinterval~
+mod_div_100_noDDD=clm(fixinterval~
                      mortality+mortality:(mean_d0_100),
-        data=filter(tab,front_120>0))#one front did not advance) 
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance) 
 
-mod_div_null=polr(fixinterval~
+mod_div_null=clm(fixinterval~
                      mortality,
-        data=filter(tab,front_120>0))#one front did not advance) 
+        data=filter(tab,front_120>0),
+        link="cloglog")#one front did not advance) 
 
 ```
 
 
 ```{r}
+clm_pseudo_r2<- function(model,data=tab){
+  pp<-predict(model,newdata=data %>% select(-fixinterval))$fit
+  preds<-1*pp[,1]+2*pp[,2]+3*pp[,3]+4*pp[,4]+pp[,5]+6*pp[,6]+7*pp[,7]
+  obs<-as.numeric(tab$fixinterval)
+  return(summary(lm(obs~preds))$r.squared)
+}
 
-model.sel(list(mod_div_100=mod_div_100,
+modsel_table<-model.sel(list(mod_div_100=mod_div_100,
                mod_div_100_K=mod_div_100_K,
                mod_div_100_noDDD=mod_div_100_noDDD,
                mod_div_00=mod_div_00,
                mod_div_00_K=mod_div_00_K,
-               mod_div_00_noDDD=mod_div_00_noDDD)) %>%  ##zero doubt the evol model is better
+               mod_div_00_noDDD=mod_div_00_noDDD),extra=list(clm_pseudo_r2))
+
+modsel_table %>%
   rownames_to_column(var="model_name") %>% 
   as_tibble() %>% 
              mutate(is.evo=case_when(str_detect(model_name,"_100")~"after evolution (t = 100)",
@@ -405,15 +429,15 @@ model.sel(list(mod_div_100=mod_div_100,
                                      str_detect(model_name,"_K")~"included (shape-indep.)",
                                      T~"included (shape-dep.)")) %>% 
   ggplot()+
-  geom_point(aes(is.evo,AICc,
+  geom_point(aes(is.evo,clm_pseudo_r2,
                          col=is.DDD),
                      size=3)+
-  geom_line(aes(is.evo,AICc,
+  geom_line(aes(is.evo,clm_pseudo_r2,
                 group=is.DDD,
                 col=is.DDD))+
-  geom_hline(yintercept=AICc(mod_div_null),lty=2)+ ## the aicc of the mortality only model
+  geom_hline(yintercept=clm_pseudo_r2(model=mod_div_null),lty=2)+ ## the aicc of the mortality only model
   scale_x_discrete("when are trait covariables sampled?")+
-  scale_y_continuous("AICc")+
+  scale_y_continuous("pseudo R2")+
   labs(col="Density dependence?")
 
 
@@ -651,7 +675,7 @@ p1<-fitted_samples(mod_100,n=1000,newdata=newdata,seed=42,scale="response") %>%
   ggplot()+
   ggdist::stat_lineribbon(aes(mean_d0_100,fitted),.width=c(0.001,0.95),fill="grey")+
   scale_y_continuous("predicted expansion velocity (patches/generation)")+
-  scale_x_continuous("d0")+
+  scale_x_continuous("d0 at t = 100")+
   facet_grid(rows=vars(paste("m = ", mortality)),
                        cols=vars("effect of d0"))+
   coord_cartesian(ylim=c(0,1))
@@ -669,7 +693,7 @@ p2<-fitted_samples(mod_100,n=1000,newdata=newdata,seed=42,scale="response") %>%
   ggplot()+
   ggdist::stat_lineribbon(aes(mean_avgslope_100,fitted),.width=c(0.001,0.95),fill="grey")+
   scale_y_continuous("")+
-  scale_x_continuous("slope")+
+  scale_x_continuous("slope at t = 100")+
     facet_grid(rows=vars(paste("m = ", mortality)),
                        cols=vars("effect of slope"))+
   coord_cartesian(ylim=c(0,1))
@@ -678,5 +702,84 @@ p2<-fitted_samples(mod_100,n=1000,newdata=newdata,seed=42,scale="response") %>%
   theme_bw()
 
 appraise(mod_100)[[4]]+geom_abline(intercept=0,slope=1)
+```
+
+
+```{r}
+newdata<-tibble(start_avgslope=0,
+                start_d0=c(0:100)/100) %>%
+  expand_grid(mortality=c("0.1","0.5","0.9")) %>% 
+  mutate(row=1:length(mortality))
+
+p1<-cbind(newdata,predict(mod_div_00,newdata=newdata)$fit) %>% 
+  pivot_longer(cols=c(`20`,`40`,`60`,`80`,`100`,`120`,`121`)) %>% 
+  mutate(name=fct_recode(name,
+                                       `< 20`="20",  ###IMPORTANT: add proper <= sign
+                                       `21 to 40`="40",
+                                       `41 to 60`="60",
+                                       `61 to 80`="80",
+                                       `81 to 100`="100",
+                                       `101 to 120`="120",
+                                       `> 120`="121")
+  ) %>% 
+  mutate(name=fct_relevel(name,
+                                        "< 20",
+                                        "21 to 40",
+                                        "41 to 60",
+                                        "61 to 80",
+                                        "81 to 100",
+                                        "101 to 120",
+                                        "> 120")) %>% 
+  ggplot()+
+  geom_area(aes(x=start_d0,y=value,fill=name),position="fill")+ 
+  scale_y_continuous("Probability of fixation")+
+  scale_x_continuous("d0 at t = 0")+
+  guides(fill="none")+
+  facet_grid(rows=vars(paste("m = ", mortality)),
+                       cols=vars("effect of d0"))+
+  coord_cartesian(ylim=c(0,1))
+
+newdata<-tibble(start_avgslope=seq(
+  from=range(tab$start_avgslope)[1],
+  to=range(tab$start_avgslope)[2],
+  length.out=100),
+                start_d0=mean(tab$start_d0)) %>%
+  expand_grid(mortality=c("0.1","0.5","0.9")) %>% 
+  mutate(row=1:length(mortality))
+
+p2<-cbind(newdata,predict(mod_div_00,newdata=newdata)$fit) %>% 
+  pivot_longer(cols=c(`20`,`40`,`60`,`80`,`100`,`120`,`121`)) %>% 
+  mutate(name=fct_recode(name,
+                                       `< 20`="20",
+                                       `21 to 40`="40",
+                                       `41 to 60`="60",
+                                       `61 to 80`="80",
+                                       `81 to 100`="100",
+                                       `101 to 120`="120",
+                                       `> 120`="121")
+  ) %>% 
+  mutate(name=fct_relevel(name,
+                                        "< 20",
+                                        "21 to 40",
+                                        "41 to 60",
+                                        "61 to 80",
+                                        "81 to 100",
+                                        "101 to 120",
+                                        "> 120")) %>% 
+  ggplot()+
+  geom_area(aes(x=start_avgslope,y=value,fill=name),position="fill")+ 
+  scale_y_continuous("")+
+  scale_x_continuous("slope at t = 0")+
+  labs(fill="generations before allele fixation:")+
+  facet_grid(rows=vars(paste("m = ", mortality)),
+                       cols=vars("effect of slope"))+
+  coord_cartesian(ylim=c(0,1))
+
+
+
+(p1|p2)&
+  theme_bw() &
+  scale_fill_brewer(palette="Greys") &
+  plot_layout(guides="collect")
 ```
 
