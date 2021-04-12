@@ -37,7 +37,7 @@ library(here)
 
 
 ```{r}
-raw_data <- read_csv(here("NetLogo_output","model-output.csv"))
+raw_data <- read_csv(here("NetLogo_output","simulation_output.csv"))
 ```
 
 We rewrite variance variables to be in 0/1 mode to not be distracted
@@ -129,14 +129,13 @@ data %>%
     is.fixed_slope=var_genotype_slope<(0.05*VP_slope),
     is.fixed_midpoint=var_genotype_midpoint<(0.05*VP_midpoint)
   ) %>% 
-  group_by(ticks,heritability,is.VP_dmax,is.VP_DDD,dispersal_mortality) %>% 
+  filter(is.VP_DDD>0) %>% 
+  group_by(ticks) %>% 
   summarise(prop_dmax=mean(is.fixed_dmax),
             prop_slope=mean(is.fixed_slope),
             prop_midpoint=mean(is.fixed_midpoint)) %>% 
   ggplot()+
   geom_line(aes(ticks,prop_midpoint))+
-  facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
-               cols=vars(heritability,is.VP_DDD))+
   scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
   scale_x_continuous("generations")+
   theme(legend.position = "none")
