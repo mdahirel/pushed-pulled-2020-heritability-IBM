@@ -507,76 +507,7 @@ p2_2 <- modsel_diversity  %>%
 our main tool: the plot y-x~x where y=trait after evol, x=trait at t0, deviation from nthe line y-x=0 indicate evolution
 
 
-```{r}
-p11<- tab %>% 
-  filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=1-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-1-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_avgslope,
-                   mean_avgslope_100-start_avgslope),alpha=0.1)+
-    geom_smooth(aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
-  ggtitle('C: Individual variation in slope and dmax')
-
-p10<- tab %>% 
-  filter(is.VP_dmax==1 & is.VP_DDD==0) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=1-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-1-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_avgslope,
-                   mean_avgslope_100-start_avgslope),alpha=0.1)+
-    geom_smooth(aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
-  ggtitle('B: Individual variation in dmax')
-#the white area delimitate the maximal space available for evolution (slope or davg after avolution cannot go higher than abs(maximal dmax possible under the variance conditions))
-#note that no var vignettes should probably be all grey (no evolution possible)
-
-p01<- tab %>% 
-  filter(is.VP_dmax==0 & is.VP_DDD==1) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=0.5-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-0.5-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_avgslope,
-                   mean_avgslope_100-start_avgslope),alpha=0.1)+
-    geom_smooth(aes(start_avgslope,
-                    mean_avgslope_100-start_avgslope),method="lm",col="red")+
-  ggtitle('A: Individual variation in slope')
-
-result<- (p01+p10+p11) &
-  geom_hline(yintercept = 0,lty=2) &
-  scale_x_continuous("") &
-  scale_y_continuous("") &
-  coord_cartesian(xlim=c(-0.3,0.3),ylim=c(-0.25,0.8))  & 
-  facet_grid(rows=vars(paste("m =",dispersal_mortality)),
-               cols=vars(paste("h2 =",heritability))) &
-  theme_bw()
-
-gt <- patchwork::patchworkGrob(result)
-gridExtra::grid.arrange(gt, 
-                        left = "Change in density-dependence at the expanding edge between t = 0 et t = 100", 
-                        bottom = "Density-dependence at t = 0")
-```
-
-
-
-
-```{r}
+```{r fig6}
 p11<- tab %>% 
   filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
   ggplot()+
@@ -657,119 +588,32 @@ p01<- tab %>%
 ```
 
 
-```{r}
-p11<- tab %>% 
-  filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=1-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-1-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_davg_0_K,
-                   mean_davg_0_K_100-start_davg_0_K),alpha=0.1)+
-    geom_smooth(aes(start_davg_0_K,
-                    mean_davg_0_K_100-start_davg_0_K),method="lm",col="red")+
-  ggtitle('C: Individual variation in slope and dmax')
-
-p10<- tab %>% 
-  filter(is.VP_dmax==1 & is.VP_DDD==0) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=1-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-1-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_davg_0_K,
-                   mean_davg_0_K_100-start_davg_0_K),alpha=0.1)+
-    geom_smooth(aes(start_davg_0_K,
-                    mean_davg_0_K_100-start_davg_0_K),method="lm",col="red")+
-  ggtitle('B: Individual variation in dmax')
-#the white area delimitate the maximal space available for evolution (slope or davg after avolution cannot go higher than abs(maximal dmax possible under the variance conditions))
-#note that no var vignettes should probably be all grey (no evolution possible)
-
-p01<- tab %>% 
-  filter(is.VP_dmax==0 & is.VP_DDD==1) %>% 
-  ggplot()+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=0.5-x,ymax=1),
-                fill="darkgrey",col="black",alpha=0.5)+
-    geom_ribbon(data=tibble(x=c(-100:100)/100),
-                aes(x=x,ymin=-0.5-x,ymax=-1),
-                fill="darkgrey",col="black",alpha=0.5)+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(start_davg_0_K,
-                   mean_davg_0_K_100-start_davg_0_K),alpha=0.1)+
-    geom_smooth(aes(start_davg_0_K,
-                    mean_davg_0_K_100-start_davg_0_K),method="lm",col="red")+
-  ggtitle('A: Individual variation in slope')
-
-result<- (p01+p10+p11) &
-  geom_hline(yintercept = 0,lty=2) &
-  scale_x_continuous("") &
-  scale_y_continuous("") &
-  coord_cartesian(xlim=c(0,0.5),ylim=c(-0.25,0.8))  & 
-  facet_grid(rows=vars(paste("m =",dispersal_mortality)),
-               cols=vars(paste("h2 =",heritability))) &
-  theme_bw()
-
-gt <- patchwork::patchworkGrob(result)
-gridExtra::grid.arrange(gt, 
-                        left = "Change in dAVG at the expanding edge between t = 0 et t = 100", 
-                        bottom = "DAVG at t = 0")
-```
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
+```{r fig5}
 tab %>% 
+  filter(is.VP_dmax==1) %>% 
+  mutate(is.VP_DDD=factor(is.VP_DDD)) %>% 
   ggplot()+
-    geom_ribbon(data=ribboning,
-                aes(x=x,ymin=0.5+0.5*(is.VP_dmax==1)-1*x,ymax=1),
-                fill="darkgrey",alpha=0.5)+
-      geom_ribbon(data=ribboning,
-                aes(x=x,ymax=-0.5-0.5*(is.VP_dmax==1)-1*x,ymin=-1),
-                fill="darkgrey",alpha=0.5)+
-    geom_hline(yintercept = 0,lty=2)+
-    geom_abline(aes(intercept=0.5+0.5*(is.VP_dmax==1),slope=-1))+
-    geom_abline(aes(intercept=-0.5-0.5*(is.VP_dmax==1),slope=-1))+
-  # denotes the strategies possibles (davg>dmax not possible)
-    geom_point(aes(test_start_davg,
-                                 test_davg-test_start_davg),alpha=0.1)+
-    geom_smooth(aes(test_start_davg,
-                                 test_davg-test_start_davg),method="lm")+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
+    geom_hline(yintercept = 0.5,lty=2)+
+    geom_jitter(aes(is.VP_DDD,mean_dmax_100),
+               col="grey80")+
+    stat_summary(aes(is.VP_DDD,mean_dmax_100),
+                 fun = "mean",fun.min="mean",fun.max="mean",size=1)+
+  scale_x_discrete("sources of individual variation",
+                   labels=c("*d<sub>max</sub>* only",
+                            "*&alpha;*, *&beta;*, and *d<sub>max</sub>*"))+
+  scale_y_continuous("*d<sub>max</sub>* at *t* = 100")+
+  facet_grid(rows=vars(paste("*m* =",dispersal_mortality)),
+               cols=vars(paste("*h^2* =",heritability))) +
   theme_bw()+
-  scale_x_continuous("starting average dispersal")+
-  scale_y_continuous("change in average dispersal during evolution")+
-  coord_cartesian(xlim=c(0,0.5),ylim=c(-0.5,0.8))
-
-tab %>% 
-  ggplot()+
-    geom_hline(yintercept = 0,lty=2)+
-    geom_jitter(aes(0,
-                                 mean_dmax_100-start_dmax),alpha=0.3,col="grey")+
-    facet_grid(rows=vars(dispersal_mortality,paste("Vdmax",is.VP_dmax)),
-               cols=vars(heritability,paste("Vddd",is.VP_DDD)))+
-  theme_bw()
+  theme(legend.position="none",
+        strip.text.x=element_markdown(),
+        strip.text.y=element_markdown(),
+        axis.text.x = element_markdown(),
+        axis.title.y=element_markdown(),
+        plot.title=element_markdown())
 ```
 
 
