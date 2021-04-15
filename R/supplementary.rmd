@@ -67,6 +67,36 @@ data %>%
 ```
 
 
+
+# note on hwy relying on alpha rather than beta to produce flat functions is a bad idea
+
+```{r}
+library(arm)
+
+K=250
+x=c(0:K)
+
+plot(x,invlogit(3*(x-0.01))) ##generates indeed the flat function
+abline(h=0.95)
+
+ plot(x,invlogit(K*3*(x/K-0.01/K))) ##same expressed in N/K
+
+## a normal(0,1.5*K) distribution of initial slope would be able to pull those not too frequently but enough to be selected
+ slope_distri=rnorm(10000,0,1.5*K)
+hist(slope_distri)
+abline(v=c(-3*K,3*K))
+
+
+## would it lead to appropriately balanced distribution of starting function shapes?
+# we used the fact that teh typical time to go from 5% to 95% is 6/abs(alpha)
+
+quantile(6/(abs(slope_distri)),0.95)
+## almost all the starting strategies would be narrow (take less than 0.25K to)
+```
+
+
+
+
 # checking evolutionary and velocity convergence
 
 
