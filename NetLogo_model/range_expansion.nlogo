@@ -125,14 +125,14 @@ patches-own [
   ]
 
 
-to-report inverse-logit [number]
-  ifelse number >= 710
-    [ report 0 ]  ;; because exp(710 or more) would trigger overflow error, and 1/(1+exp(710 or more)) is virtually 0 anyway
+to-report invlogit [number]
+  ifelse (number <= -710)
+    [ report 0 ]  ;; because exp(- -710 or more) would trigger overflow error, and 1/(1+exp(- -710 or more)) is virtually 0 anyway
     [ report (1 / (1 + exp( - number))) ]
 end
 
 to-report logit [number]
-  ifelse number >= 0 and number <= 1
+  ifelse ((number >= 0) and (number <= 1))
     [report ln (number / (1 - number) )]
     [error "input should be a proportion (>= 0 and <= 1)"]
 end
@@ -162,7 +162,7 @@ to define-landscape
 end
 
 to setup-initial-variances
-  set logit_start_dmax logit start_dmax ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
+  set logit_start_dmax logit (start_dmax) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
   set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
   set VA_slope heritability * VP_slope
@@ -228,17 +228,17 @@ end
 
 to set_individual_traits
         set logit_dmax  genotype_logit_dmax + (random-normal 0 sqrt(VR_logit_dmax))
-        set dmax  inverse-logit logit_dmax  ;; trait = inverse logit of trait on latent scale
+        set dmax  invlogit logit_dmax  ;; trait = inverse logit of trait on latent scale
         set slope genotype_slope + (random-normal 0 sqrt(VR_slope))
         set midpoint genotype_midpoint + (random-normal 0 sqrt(VR_midpoint))
 ;; for each trait we add residual noise ; if VR = 0, there is no residual noise and the final trait value correspond to the genotypic trait value
 
         ;; set "secondary" traits
-        set d0 (dmax * inverse-logit ( slope * (0 - midpoint)))
-        set dK (dmax * inverse-logit ( slope * (1 - midpoint)))
+        set d0 (dmax * invlogit ( slope * (0 - midpoint)))
+        set dK (dmax * invlogit ( slope * (1 - midpoint)))
         set slopeA_0_K (dK - d0)
 
-        let dNs map [x -> (dmax * inverse-logit ( slope * (x - midpoint))) ] (range 0 1.01 0.1)
+        let dNs map [x -> (dmax * invlogit ( slope * (x - midpoint))) ] (range 0 1.01 0.1)
         ;; we use a sequence going from 0 to 1.01 by steps of 0.1 because weirdly the steps Netlogo adds aren't exactly 0.1 but a bit more
         ;; (ask "show map [x -> x ] (range 0 1.01 0.1)" in the command center to check)
         ;; so if we asked "from 0 to 1 by steps of 0.1", the "1" step would actually be 1.000000...001 or something, so out of boundaries, so ignored
@@ -330,7 +330,7 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax * inverse-logit ( slope * ((population_size / carrying_capacity) - midpoint))
+  set disp dmax * invlogit ( slope * ((population_size / carrying_capacity) - midpoint))
   ;; sets the individual dispersal probability based on its trait and pre-dispersal population size
   ;; based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
 
@@ -675,8 +675,8 @@ fecundity
 fecundity
 0
 20
-5.0
-1
+1.5
+0.1
 1
 NIL
 HORIZONTAL
@@ -704,8 +704,8 @@ SLIDER
 VP_slope
 VP_slope
 0
-10
-5.0
+50
+4.9
 0.1
 1
 NIL
@@ -807,8 +807,8 @@ SLIDER
 VP_midpoint
 VP_midpoint
 0
-0.5
-0.25
+5
+0.27
 0.01
 1
 NIL
