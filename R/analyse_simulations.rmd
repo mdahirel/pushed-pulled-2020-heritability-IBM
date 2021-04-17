@@ -110,18 +110,11 @@ tab_genet <- data %>%
   ) %>% 
   ungroup() %>% 
   mutate(edge_fix= N_allele0==0 | N_allele1==0) %>% 
-  group_by(replicateID) %>% 
-  mutate(time_to_fix=case_when(subset(edge_fix,ticks==20)==1 ~ 20,
-                               subset(edge_fix,ticks==40)==1 ~ 40,
-                               subset(edge_fix,ticks==60)==1 ~ 60,
-                               subset(edge_fix,ticks==80)==1 ~ 80,
-                               subset(edge_fix,ticks==100)==1 ~ 100,
-                               subset(edge_fix,ticks==120)==1 ~ 120,
+  mutate(time_to_fix=case_when(edge_fix==1 ~ ticks,
                                T~121)##not fixed yet at end of experiment
          ) %>% 
-  ungroup() %>% 
-  group_by(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
-  summarise(time_to_fix=unique(time_to_fix)) %>% 
+  group_by(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,fecundity) %>% 
+  summarise(time_to_fix=min(time_to_fix)) %>% 
   ungroup() %>% 
   mutate(fixinterval=ordered(time_to_fix,
                              levels=sort(unique(time_to_fix))
@@ -137,10 +130,16 @@ now we can mix and combine these datasets for analyses
 ```{r}
 tab <-tab_edge %>% 
   left_join(tab_start) %>% 
-  #left_join(tab_genet) %>% 
+  left_join(tab_genet) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) 
 ```
+
+```{r}
+tab<-tab %>% 
+  filter(fecundity==5)
+```
+(for the main text, we focus on the high fecundity case)
 
 for both velocity and genetics, we compare xx models:
 

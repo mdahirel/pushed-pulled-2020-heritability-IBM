@@ -57,13 +57,13 @@ what width do we use to define a "front" for sampling purposes?
 data %>% 
   group_by(replicateID,ticks) %>% 
   mutate(front=max(pxcor*(N_predispersal>0))) %>% ###works with pre or post
-  filter(pxcor>front-10) %>% ### do same plot with core
+  filter(pxcor>front-50 & pxcor<=front) %>% ### do same plot with core
   ggplot()+
-  geom_boxplot(aes(factor(front-pxcor),N_predispersal))+ ##works with pre or post
-  geom_hline(aes(yintercept = K),col="red")+
-  geom_vline(xintercept = 7,col="red")+
- facet_grid(rows=vars(dispersal_mortality,VP_logit_dmax),
-               cols=vars(heritability,VP_slope))
+  stat_pointinterval(aes(front-pxcor,N_predispersal),
+                     .width=c(0.01,0.95))+ ##works with pre or post
+  geom_vline(xintercept = c(4.5,10),col="red")+
+ facet_grid(rows=vars(dispersal_mortality),
+               cols=vars(heritability,fecundity))
 ```
 
 
@@ -102,7 +102,7 @@ quantile(6/(abs(slope_distri)),0.95)
 
 ```{r}
 tab_dynamics<-data %>% 
-  group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability) %>% 
+  group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,fecundity) %>% 
   summarise(front=max(pxcor*(N_postdispersal>0))) %>% 
   ungroup() %>% 
   group_by(replicateID) %>% 
