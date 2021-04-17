@@ -28,7 +28,6 @@ globals[
   start_davg_0_K
   start_slopeA_0_K
   start_slopeA_0_avg
-  start_uncond_0_K
 ]
 
 turtles-own[
@@ -52,7 +51,6 @@ turtles-own[
   dK                      ;; dispersal probability at N = K
   slopeA_0_K              ;; difference between d0 and dK
   slopeA_0_avg            ;; difference between d0 and davg_0_K
-  uncond_0_K              ;; unconditionality index: davg_0_K, divided by max disp rate over that range (!= dmax)
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -103,25 +101,23 @@ patches-own [
 
   ;; overall trait on observed scale
   mean_dmax
-  var_dmax
+  ;var_dmax
   mean_midpoint
-  var_midpoint
+  ;var_midpoint
   mean_slope
-  var_slope
+  ;var_slope
 
   ;; other summary traits
   mean_d0                    ;; mean dispersal probability at N = 0
-  var_d0
+  ;var_d0
   mean_dK                    ;; mean dispersal probability at N = K
-  var_dK
+  ;var_dK
   mean_davg_0_K
-  var_davg_0_K
+  ;var_davg_0_K
   mean_slopeA_0_K            ;; average absolute slope over the range 0-K
-  var_slopeA_0_K
+  ;var_slopeA_0_K
   mean_slopeA_0_avg          ;;
-  var_slopeA_0_avg
-  mean_uncond_0_K            ;;
-  var_uncond_0_K
+  ;var_slopeA_0_avg
   ]
 
 
@@ -162,7 +158,7 @@ to define-landscape
 end
 
 to setup-initial-variances
-  set logit_start_dmax logit (start_dmax) ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
+  set logit_start_dmax logit start_dmax ;; get starting logit(dmax) from input dmax (more natural to input dispersal rate on observed scale rather than logit)
   set VA_logit_dmax heritability * VP_logit_dmax       ;; set initial additive genetic variance VA from input heritability and total phenotypic variance
   set VR_logit_dmax (1 - heritability) * VP_logit_dmax ;; same with residual variance VR
   set VA_slope heritability * VP_slope
@@ -246,8 +242,6 @@ to set_individual_traits
 
         set davg_0_K mean (dNs)
 
-        set uncond_0_K davg_0_K / max (list d0 dK)
-
         set slopeA_0_avg davg_0_K - d0
 
 end
@@ -263,7 +257,6 @@ to setup-initial-summaries
   set start_davg_0_K mean ([davg_0_K] of turtles)
   set start_slopeA_0_K mean ([slopeA_0_K] of turtles)
   set start_slopeA_0_avg mean ([slopeA_0_avg] of turtles)
-  set start_uncond_0_K mean ([uncond_0_K] of turtles)
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -330,7 +323,7 @@ to move_turtles ;; dispersal
   if xcor = max-pxcor [set available_moves [-1]]
   if xcor = min-pxcor [set available_moves [1]]
 
-  set disp dmax * invlogit ( slope * ((population_size / carrying_capacity) - midpoint))
+  set disp (dmax * invlogit ( slope * ((population_size / carrying_capacity) - midpoint)))
   ;; sets the individual dispersal probability based on its trait and pre-dispersal population size
   ;; based on kun and scheuring 2006 doi:10.1111/j.2006.0030-1299.15061.x
 
@@ -481,18 +474,16 @@ to reset_summaries
   set mean_davg_0_K -999
   set mean_slopeA_0_K -999
   set mean_slopeA_0_avg -999
-  set mean_uncond_0_K -999
 
-  set var_dmax -999
-  set var_midpoint -999
-  set var_slope -999
+  ;set var_dmax -999
+  ;set var_midpoint -999
+  ;set var_slope -999
 
-  set var_d0 -999
-  set var_dK -999
-  set var_davg_0_K -999
-  set var_slopeA_0_K -999
-  set var_slopeA_0_avg -999
-  set var_uncond_0_K -999
+  ;set var_d0 -999
+  ;set var_dK -999
+  ;set var_davg_0_K -999
+  ;set var_slopeA_0_K -999
+  ;set var_slopeA_0_avg -999
 
   set N_disp_dead 0
   set N_allele0_pre 0
@@ -524,7 +515,6 @@ to update_summaries_means
   set mean_davg_0_K mean ([davg_0_K] of turtles-here)
   set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
   set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
-  set mean_uncond_0_K mean ([uncond_0_K] of turtles-here)
 end
 
 to update_summaries_variances
@@ -533,16 +523,15 @@ to update_summaries_variances
   set var_genotype_slope  variance ([genotype_slope] of turtles-here)
   set var_genotype_midpoint  variance ([genotype_midpoint] of turtles-here)
 
-  set var_dmax variance ([dmax] of turtles-here)
-  set var_midpoint variance ([midpoint] of turtles-here)
-  set var_slope variance ([slope] of turtles-here)
+  ;set var_dmax variance ([dmax] of turtles-here)
+  ;set var_midpoint variance ([midpoint] of turtles-here)
+  ;set var_slope variance ([slope] of turtles-here)
 
-  set var_d0 variance ([d0] of turtles-here)
-  set var_dK variance ([dK] of turtles-here)
-  set var_davg_0_K variance ([davg_0_K] of turtles-here)
-  set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
-  set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
-  set var_uncond_0_K variance ([uncond_0_K] of turtles-here)
+  ;set var_d0 variance ([d0] of turtles-here)
+  ;set var_dK variance ([dK] of turtles-here)
+  ;set var_davg_0_K variance ([davg_0_K] of turtles-here)
+  ;set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
+  ;set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
 
 end
 

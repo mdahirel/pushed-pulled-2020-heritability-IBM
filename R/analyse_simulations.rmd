@@ -44,8 +44,8 @@ We rewrite variance variables to be in 0/1 mode to not be distracted
 
 ```{r}
 data<- raw_data  %>% 
-  mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
-           is.VP_DDD=as.numeric(VP_slope >0))
+  mutate(is.VP_dmax=as.numeric(VP_logit_dmax > 0),
+           is.VP_DDD=as.numeric(VP_slope > 0))
 ```
 
 
@@ -58,14 +58,13 @@ tab_edge<-data %>%
   mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
   filter(pxcor > front-5 ) %>%
   ungroup() %>% 
-  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,fecundity) %>% 
   summarise(
     mean_dmax=weighted.mean(mean_dmax,N_predispersal,na.rm=TRUE),
     mean_davg_0_K=weighted.mean(mean_davg_0_K,N_predispersal,na.rm=TRUE),
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
-    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
     front=mean(front),
     N_sedentary=sum(N_sedentary),
     N_predispersal=sum(N_predispersal)
@@ -73,10 +72,10 @@ tab_edge<-data %>%
   ungroup() %>% 
   group_by(replicateID) %>% 
   ungroup() %>% 
-  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD),
+  pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,fecundity),
               names_from=ticks,
               values_from=c(mean_dmax, mean_davg_0_K, mean_d0, 
-                            mean_avgslope,mean_Kslope,mean_uncond,
+                            mean_avgslope,mean_Kslope,
                             front,N_sedentary,N_predispersal))
 ```
 
@@ -89,7 +88,6 @@ tab_start<-data %>% select(
   start_d0,
   start_avgslope=start_slopeA_0_avg,
   start_Kslope=start_slopeA_0_K,
-  start_uncond=start_uncond_0_K,
   replicateID
 ) %>% 
   distinct()
@@ -105,7 +103,7 @@ tab_genet <- data %>%
   mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
   filter(pxcor > front-5 ) %>%
   ungroup() %>% 
-  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD) %>% 
+  group_by(replicateID,ticks,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,fecundity) %>% 
   summarise(
     N_allele0=sum(N_allele0_post),
     N_allele1=sum(N_allele1_post)
@@ -139,7 +137,7 @@ now we can mix and combine these datasets for analyses
 ```{r}
 tab <-tab_edge %>% 
   left_join(tab_start) %>% 
-  left_join(tab_genet) %>% 
+  #left_join(tab_genet) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) 
 ```
