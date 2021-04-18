@@ -28,6 +28,7 @@ globals[
   start_davg_0_K
   start_slopeA_0_K
   start_slopeA_0_avg
+  start_uncond_0_K
 ]
 
 turtles-own[
@@ -51,6 +52,7 @@ turtles-own[
   dK                      ;; dispersal probability at N = K
   slopeA_0_K              ;; difference between d0 and dK
   slopeA_0_avg            ;; difference between d0 and davg_0_K
+  uncond_0_K              ;; unconditionality index: davg_0_K, divided by max disp rate over that range (!= dmax)
 
   ;; growth and reproduction
   adult          ;; a 0/1 flag indicating if the individual is adult (used during reproductive phase)
@@ -118,6 +120,8 @@ patches-own [
   ;var_slopeA_0_K
   mean_slopeA_0_avg          ;;
   ;var_slopeA_0_avg
+  mean_uncond_0_K            ;;
+  ;var_uncond_0_K
   ]
 
 
@@ -242,6 +246,8 @@ to set_individual_traits
 
         set davg_0_K mean (dNs)
 
+        set uncond_0_K davg_0_K / max (list d0 dK)
+
         set slopeA_0_avg davg_0_K - d0
 
 end
@@ -257,6 +263,7 @@ to setup-initial-summaries
   set start_davg_0_K mean ([davg_0_K] of turtles)
   set start_slopeA_0_K mean ([slopeA_0_K] of turtles)
   set start_slopeA_0_avg mean ([slopeA_0_avg] of turtles)
+  set start_uncond_0_K mean ([uncond_0_K] of turtles)
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -474,6 +481,7 @@ to reset_summaries
   set mean_davg_0_K -999
   set mean_slopeA_0_K -999
   set mean_slopeA_0_avg -999
+  set mean_uncond_0_K -999
 
   ;set var_dmax -999
   ;set var_midpoint -999
@@ -484,6 +492,7 @@ to reset_summaries
   ;set var_davg_0_K -999
   ;set var_slopeA_0_K -999
   ;set var_slopeA_0_avg -999
+  ;set var_uncond_0_K -999
 
   set N_disp_dead 0
   set N_allele0_pre 0
@@ -515,6 +524,7 @@ to update_summaries_means
   set mean_davg_0_K mean ([davg_0_K] of turtles-here)
   set mean_slopeA_0_K mean ([slopeA_0_K] of turtles-here)
   set mean_slopeA_0_avg mean ([slopeA_0_avg] of turtles-here)
+  set mean_uncond_0_K mean ([uncond_0_K] of turtles-here)
 end
 
 to update_summaries_variances
@@ -532,6 +542,7 @@ to update_summaries_variances
   ;set var_davg_0_K variance ([davg_0_K] of turtles-here)
   ;set var_slopeA_0_K variance ([slopeA_0_K] of turtles-here)
   ;set var_slopeA_0_avg variance ([slopeA_0_avg] of turtles-here)
+  ;set var_uncond_0_K variance ([uncond_0_K] of turtles-here)
 
 end
 

@@ -97,7 +97,7 @@ nl_object@experiment <- experiment(
   # code crashes if some metrics.patches report nothing
   metrics = c("ticks",
               "start_d0", "start_dK","start_davg_0_K",
-              "start_slopeA_0_K", "start_slopeA_0_avg"),
+              "start_slopeA_0_K", "start_slopeA_0_avg","start_uncond_0_K"),
   metrics.patches = c("pxcor", "founding",
                       "N_predispersal", "N_postdispersal",  
                       "N_sedentary", "N_disp_dead",
@@ -108,7 +108,7 @@ nl_object@experiment <- experiment(
                       "mean_genotype_midpoint", "var_genotype_midpoint",
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_dK", "mean_davg_0_K",
-                      "mean_slopeA_0_K", "mean_slopeA_0_avg"),
+                      "mean_slopeA_0_K", "mean_slopeA_0_avg","mean_uncond_0_K"),
   constants = list(
     "duration" = duration
   ),
@@ -157,7 +157,7 @@ tab <- exp_h2 %>%
     seedID = `random-seed`,siminputrow,
     metrics.patches,
     start_d0, start_dK, start_davg_0_K, 
-    start_slopeA_0_K, start_slopeA_0_avg
+    start_slopeA_0_K, start_slopeA_0_avg, start_uncond_0_K
   )  %>%
   mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
   unnest(cols = c(metrics.patches)) %>%

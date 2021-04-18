@@ -65,6 +65,7 @@ tab_edge<-data %>%
     mean_d0=weighted.mean(mean_d0,N_predispersal,na.rm=TRUE),
     mean_avgslope=weighted.mean(mean_slopeA_0_avg,N_predispersal,na.rm=TRUE),
     mean_Kslope=weighted.mean(mean_slopeA_0_K,N_predispersal,na.rm=TRUE),
+    mean_uncond=weighted.mean(mean_uncond_0_K,N_predispersal,na.rm=TRUE),
     front=mean(front),
     N_sedentary=sum(N_sedentary),
     N_predispersal=sum(N_predispersal)
@@ -75,7 +76,7 @@ tab_edge<-data %>%
   pivot_wider(id_cols = c(replicateID,dispersal_mortality,heritability,is.VP_dmax,is.VP_DDD,fecundity),
               names_from=ticks,
               values_from=c(mean_dmax, mean_davg_0_K, mean_d0, 
-                            mean_avgslope,mean_Kslope,
+                            mean_avgslope,mean_Kslope,mean_uncond,
                             front,N_sedentary,N_predispersal))
 ```
 
@@ -88,6 +89,7 @@ tab_start<-data %>% select(
   start_d0,
   start_avgslope=start_slopeA_0_avg,
   start_Kslope=start_slopeA_0_K,
+  start_uncond=start_uncond_0_K,
   replicateID
 ) %>% 
   distinct()
