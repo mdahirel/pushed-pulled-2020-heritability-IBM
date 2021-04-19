@@ -148,7 +148,7 @@ We can now process the result for the main analyses. first we start by extractin
 
 ```{r processing-output-presaving}
 tab <- exp_h2 %>%
-  dplyr::select(ticks,
+  select(ticks,
     start_dmax,start_slope, start_midpoint,
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
