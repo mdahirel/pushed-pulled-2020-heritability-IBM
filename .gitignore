@@ -6,3 +6,5 @@ NetLogo_output/model-output-clonal.csv
 NetLogo_output/model-output.csv
 *.csv
 *.Rdata
+Rplot.pdf
+Rplot01.pdf

@@ -768,7 +768,7 @@ v=function(K,d,fec){
 
 oo=NA
 for(i in 1:length(d0)){
-opti=optimize(f=v,d=d0[i],fec=f0[i],lower=0,upper=700)
+opti=optimize(f=v,d=d0[i],fec=f0[i],lower=0,upper=50)
 
 #if brm (to avoid speeds >=1)
 #if(opti$objective>0.9999){oo[i]=0.9999}
@@ -792,28 +792,34 @@ return(oo)
 
 tab2 <-tab %>% 
   mutate(d0_eff=(1-dispersal_mortality)*mean_d0_100,
-         r0_eff=log(5-(dispersal_mortality*d0_eff)*5),
-         vf=2*(log(5)*0.5*d0_eff)^0.5,
-         vf2=2*(r0_eff*0.5*d0_eff)^0.5) %>% 
-  mutate(vf3=vf_dd(d0_eff,exp(r0_eff))) %>% 
+         r0_eff=log(fecundity-(dispersal_mortality*mean_d0_100)*fecundity),
+         vf=2*(r0_eff*0.5*d0_eff)^0.5) %>% 
+#  mutate(vf3=vf_dd(d0_eff,exp(r0_eff))) %>% 
   arrange(d0_eff)
 
 tab2 %>% 
   filter(mean_avgslope_100>-0.005 & mean_avgslope_100<0.005) %>% 
   ggplot()+ #only slope close to 0
-  geom_point(aes(d0_eff, ##use effective d0, accounting for motality
-                 advance/20,col=mortality))+
-  geom_line(aes(d0_eff,vf2))+
-  geom_line(aes(d0_eff,vf3))+
-  geom_line(aes(d0_eff,vf),lty=2)+
-  facet_wrap(~dispersal_mortality+heritability)
+  geom_point(aes(vf, ##use effective d0, accounting for motality
+                 advance/20,col=mortality,shape=factor(fecundity)))+
+  geom_abline(intercept=0,slope=1)+
+  facet_wrap(~fecundity)
 
 
 tab2 %>% 
-  ggplot()+ #only slope close to 0
-  geom_point(aes(mean_avgslope_100, ##use effective d0, accounting for motality
-                 (advance/20)/vf3,col=mortality))+
-  facet_wrap(~dispersal_mortality)
+    filter(mean_avgslope_100>-0.005 & mean_avgslope_100<0.005) %>% 
+  lm(advance/20~vf,data=.,subset=vf<1) %>% 
+  summary()
+
+
+
+tab3=tab2 %>% 
+  mutate(vfx=vf*(vf<1)+1*(vf>1)) %>% 
+  mutate(expected=20*vfx)
+
+hist(tab3$ratio)
+
+mod=mgcv::gam(cbind(advance,20-advance)~s(expected)+s(mean_avgslope_100,by=mortality)+mortality,data=subset(tab3,fecundity==5),family=binomial)
 
 ## shows that the continuum approx for v is goodish until it bumps into the v=1 boundary
 ## birzu says approach is very good when r0<<0 and d0/r0 >>1

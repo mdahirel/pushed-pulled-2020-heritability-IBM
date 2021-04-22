@@ -102,9 +102,15 @@ quantile(6/(abs(slope_distri)),0.95)
 
 ```{r}
 tab_dynamics<-data %>% 
+  filter(ticks>1) %>% 
   group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,fecundity) %>% 
   summarise(front=max(pxcor*(N_postdispersal>0))) %>% 
   ungroup() %>% 
+  group_by(replicateID) %>% 
+  mutate(persist=max(ticks)) %>% 
+  ungroup() %>% 
+  filter(persist==120) %>% # to evaluate long-run speed we need to keep only exp that were long run
+  ## a problem for fec=1.5 only
   group_by(replicateID) %>% 
   arrange(ticks) %>% 
   mutate(prev_front=lag(front)) %>% 
@@ -114,14 +120,42 @@ tab_dynamics<-data %>%
   ungroup()
 
   ggplot(tab_dynamics)+
+    geom_hline(yintercept=0,lty=2)+
   geom_boxplot(aes(factor(ticks),speed_segment-overall_speed))+
   #facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
   #             cols=vars(heritability,is.VP_DDD))+
   scale_y_continuous("deviation from overall velocity (in patches per generation)")+
   scale_x_discrete("time interval (generations)",
                    labels=c("0-20","20-40","40-60","60-80","80-100","100-120"))+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+    facet_wrap(~fecundity)
 
+## add test to see if noise deviate from binomial expectation?  
+  
+expected=tibble(x=c(1:99)/100) %>% 
+  mutate(y=map(.x=x,.f=function(.x){return(rbinom(n=1000,size=20,prob=.x)/20)})) %>% 
+  unnest(cols=y)
+
+tab_dynamics %>% 
+  mutate(ticks2=fct_recode(factor(ticks),
+                           `0-20`="20",
+                           `20-40`="40",
+                           `40-60`="60",
+                           `60-80`="80",
+                           `80-100`="100",
+                           `100-120`="120")) %>% 
+ggplot()+
+  stat_lineribbon(data=expected,aes(x,y),.width=c(0.001,0.95),col=NA,alpha=0.5)+
+  geom_point(aes(overall_speed,speed_segment),alpha=0.3)+
+  geom_abline(intercept=0,slope=1)+
+  scale_x_continuous("overall expansion velocity from t=0 to t=120 (patches/generation)")+
+  scale_y_continuous("expansion velocity over a 20 generations interval (patches/generation)")+
+  theme(legend.position = "none")+
+    facet_grid(cols=vars(ticks2),rows=vars(paste("r0 = log(",fecundity,")")))  
+  
+
+mod=lm(speed_segment~0+interaction(ticks,fecundity)+overall_speed:interaction(ticks,fecundity),data=tab_dynamics)
+summary(mod)
 ```
 
 
@@ -138,7 +172,7 @@ let's do the same to look at evolutionary stability at the edge
 lots of things to do to strengthen this, but we can carry on assuming convergence at g100 for the enxt steps
 
 ```{r}
-data %>% 
+test= data %>% 
   filter(heritability>0) %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
            is.VP_DDD=as.numeric(VP_slope >0)) %>% 
@@ -146,7 +180,7 @@ data %>%
   mutate(front=max(pxcor*(N_postdispersal>0))) %>% 
   filter(pxcor>front-5) %>%  
   group_by(replicateID,ticks,heritability,is.VP_dmax,is.VP_DDD,dispersal_mortality,
-           VP_logit_dmax,VP_slope,VP_midpoint) %>%
+           VP_logit_dmax,VP_slope,VP_midpoint,fecundity) %>%
   mutate(var_genotype_logit_dmax=replace_na(var_genotype_logit_dmax,0),
          var_genotype_midpoint=replace_na(var_genotype_midpoint,0),
          var_genotype_slope=replace_na(var_genotype_slope,0)) %>% 
@@ -158,17 +192,33 @@ data %>%
     is.fixed_dmax=var_genotype_logit_dmax<(0.05*VP_logit_dmax),
     is.fixed_slope=var_genotype_slope<(0.05*VP_slope),
     is.fixed_midpoint=var_genotype_midpoint<(0.05*VP_midpoint)
-  ) %>% 
-  filter(is.VP_DDD>0) %>% 
-  group_by(ticks) %>% 
-  summarise(prop_dmax=mean(is.fixed_dmax),
-            prop_slope=mean(is.fixed_slope),
-            prop_midpoint=mean(is.fixed_midpoint)) %>% 
+  ) 
+
+test %>% 
+  filter(is.VP_dmax>0) %>% 
+  group_by(ticks,fecundity) %>% 
+  summarise(prop_dmax=mean(is.fixed_dmax)) %>% 
   ggplot()+
-  geom_line(aes(ticks,prop_midpoint))+
+  geom_line(aes(ticks,prop_dmax))+
+  geom_hline(yintercept=0.9,lty=2)+
   scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
   scale_x_continuous("generations")+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  facet_wrap(~fecundity)
+
+
+test %>% 
+  filter(is.VP_DDD>0) %>% 
+  group_by(ticks,fecundity) %>% 
+  summarise(prop_slope=mean(is.fixed_slope),
+            prop_midpoint=mean(is.fixed_midpoint)) %>% 
+  ggplot()+
+  geom_line(aes(ticks,prop_slope))+
+  geom_hline(yintercept=0.9,lty=2)+
+  scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
+  scale_x_continuous("generations")+
+  theme(legend.position = "none")+
+  facet_wrap(~fecundity)
 ```
 
 
