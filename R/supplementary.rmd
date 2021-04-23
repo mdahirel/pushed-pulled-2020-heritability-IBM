@@ -57,13 +57,15 @@ what width do we use to define a "front" for sampling purposes?
 data %>% 
   group_by(replicateID,ticks) %>% 
   mutate(front=max(pxcor*(N_predispersal>0))) %>% ###works with pre or post
-  filter(pxcor>front-50 & pxcor<=front) %>% ### do same plot with core
+  filter(pxcor>front-20 & pxcor<=front) %>% ### do same plot with core
   ggplot()+
   stat_pointinterval(aes(front-pxcor,N_predispersal),
                      .width=c(0.01,0.95))+ ##works with pre or post
-  geom_vline(xintercept = c(4.5,10),col="red")+
- facet_grid(rows=vars(dispersal_mortality),
-               cols=vars(heritability,fecundity))
+  scale_x_continuous("distance to edge")+
+  scale_y_continuous("pre-dispersal population size")+
+  geom_vline(xintercept = c(4.5),col="red")+
+ facet_grid(rows=vars(paste("m =",dispersal_mortality)),
+               cols=vars(paste("h2=",heritability),paste("fec=",fecundity)))
 ```
 
 
@@ -200,11 +202,11 @@ test %>%
   summarise(prop_dmax=mean(is.fixed_dmax)) %>% 
   ggplot()+
   geom_line(aes(ticks,prop_dmax))+
-  geom_hline(yintercept=0.9,lty=2)+
+  #geom_hline(yintercept=0.9,lty=2)+
   scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
   scale_x_continuous("generations")+
   theme(legend.position = "none")+
-  facet_wrap(~fecundity)
+  facet_wrap(~paste("fecundity=",fecundity))
 
 
 test %>% 
@@ -213,12 +215,12 @@ test %>%
   summarise(prop_slope=mean(is.fixed_slope),
             prop_midpoint=mean(is.fixed_midpoint)) %>% 
   ggplot()+
-  geom_line(aes(ticks,prop_slope))+
-  geom_hline(yintercept=0.9,lty=2)+
+  geom_line(aes(ticks,prop_midpoint))+
+  #geom_hline(yintercept=0.9,lty=2)+
   scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge")+
   scale_x_continuous("generations")+
   theme(legend.position = "none")+
-  facet_wrap(~fecundity)
+  facet_wrap(~paste("fecundity=",fecundity))
 ```
 
 
