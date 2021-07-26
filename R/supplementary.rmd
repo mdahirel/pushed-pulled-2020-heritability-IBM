@@ -1,6 +1,6 @@
 ---
-title: 'supplementary'
-author: "Maxime Dahirel & Chloé Guicharnaud"
+title: 'Supplementary Material for "Individual variation in dispersal, and its sources, shape the fate of pushed vs. pulled range expansions"'
+author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken"
 date:
 output:
   html_document:
@@ -22,97 +22,103 @@ library(matrixStats)
 library(tidyverse)
 library(cowplot)
 library(patchwork)
-library(tidybayes)
-
-
-library(cmdstanr)
-library(brms)
-options(mc.cores = 4)
+library(ggdist)
 
 library(tidyverse)
 
 library(here)
 ```
 
+# S1 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
 
+In the main text, we discuss how allowing for negative $\beta$ is the only way we have to allow for mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, allowing very large $|\alpha|$ values so that dispersal goes from 0 to $d_{max}$ in less than 1 individual, is not viable. We expand this argument here:
+
+- first, using $\alpha$ in this way would mean that $d_{0}$ becomes, in a way, a by-product of adjusting the shape of the curve, rather than its own trait of interest. This is not a good option when studying pushed vs. pulled expansions;
+
+- second, we'd need the initial trait distribution to contain both these very large $\alpha$ (positive and negative) *and* $\alpha$ close to 0, for evolution to be possible. It's easy to demonstrate that distributions that fulfill this requirement are actually biased towards very sharp density-dispersal functions. If we assume $K = 250$ as in our simulations, and population densities are expressed as $N/K$, then $\alpha = 300$ (with $\beta$ very close to 0) is high enough to generate one of these nearly flat functions:
 
 ```{r}
-raw_data <- read_csv(here("NetLogo_output","simulation_output.csv"))
+tab<- expand_grid(
+  K=250,
+  x=0:50)
+
+ggplot(tab)+
+  geom_line(aes(x,0.5/(1+exp(-1000*(x/K-0.000000000000001)))))+
+  scale_x_continuous("Population density")+
+  scale_y_continuous("Dispersal rate")+
+  geom_vline(xintercept = 1, lty=2)+
+  geom_hline(yintercept = 0.95*0.5, lty=2)+
+  theme_bw()
 ```
 
-We rewrite variance variables to be in 0/1 mode to not be distracted
+So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neigbourhood of 1000 (i.e. $4K$) to be able to produce such shapes. An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extremes with a low but non-negligible probability (about 5%). And we've established (see main text) that $6/\alpha$ expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,1.5)$ :
 
 ```{r}
+set.seed(42)
+tibble(x=rnorm(10000,0,500)) %>% 
+  ggplot()+
+  geom_histogram(aes(6/abs(x)),binwidth = 0.1)+
+  geom_vline(xintercept = 1, lty=2)+
+  coord_cartesian(xlim=c(0,5))+
+  scale_x_continuous("increase in density needed to go from 5% dmax to 95% dmax (or vice-versa)(expressed in units of K)")+
+  theme_bw()
+```
+
+It's easy to see that this initial distribution of $\alpha$ would almost only allow sharp slopes, that take less than 20-50%$K$ to reach $d_{max}$, and disallow shallower slopes. This is not a choice that is sound in our opinion, hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \simeq d_{max}$ functions.
+
+# S2 - How do we define the "range front"?
+
+```{r load data}
+### let's start by loading the data
+raw_data <- read_csv(here("NetLogo_output","simulation_output.csv"))
+
+#We rewrite variance variables to be in 0/1 mode to not be distracted
+
 data<- raw_data  %>% 
   mutate(is.VP_dmax=as.numeric(VP_logit_dmax >0),
            is.VP_DDD=as.numeric(VP_slope >0))
 ```
 
-what width do we use to define a "front" for sampling purposes?
-
+We are interested in how traits at the front of the expansion are shaped by, and shape, the expansion process. To do that right, we need an operational definition of what is the front/edge. A "traditional" one is the range of patches where a density gradient is seen, i.e. where population density has not yet reached its equilibrium. Let's have a look: 
 
 ```{r}
 ##supplementary plot to justify arbitrary front size =5 ish
 
 data %>% 
   group_by(replicateID,ticks) %>% 
-  mutate(front=max(pxcor*(N_predispersal>0))) %>% ###works with pre or post
-  filter(pxcor>front-20 & pxcor<=front) %>% ### do same plot with core
+  mutate(edge=max(pxcor*(N_predispersal>0))) %>% ###works with pre or post
+  filter(pxcor>edge-20 & pxcor<=edge) %>%
   ggplot()+
-  stat_pointinterval(aes(front-pxcor,N_predispersal),
-                     .width=c(0.01,0.95))+ ##works with pre or post
+  geom_boxplot(aes(edge-pxcor,N_predispersal,group=edge-pxcor))+ ##works with pre or post
   scale_x_continuous("distance to edge")+
   scale_y_continuous("pre-dispersal population size")+
   geom_vline(xintercept = c(4.5),col="red")+
  facet_grid(rows=vars(paste("m =",dispersal_mortality)),
-               cols=vars(paste("h2=",heritability),paste("fec=",fecundity)))
+               cols=vars(paste("h2=",heritability),paste("fec=",fecundity)))+
+  theme_bw()
 ```
 
 
+We can see that a threshold where we consider all patches < 5 patches from the edge as belonging to the range front is a good compromise that works across conditions (Narrower fronts would probably work for fecundity = 5, but would not work for fecundity = 1.5 and in addition would limit the number of individuals included, reducing precision of our trait means; wider fronts would lead us to fronts that are dominated by what are clearly non-front patches when fecundity =5)
 
-# note on hwy relying on alpha rather than beta to produce flat functions is a bad idea
+# S3 - Checking velocity and evolutionary convergence
 
-```{r}
-library(arm)
+## velocity convergence
 
-K=250
-x=c(0:K)
-
-plot(x,invlogit(3*(x-0.01))) ##generates indeed the flat function
-abline(h=0.95)
-
- plot(x,invlogit(K*3*(x/K-0.01/K))) ##same expressed in N/K
-
-## a normal(0,1.5*K) distribution of initial slope would be able to pull those not too frequently but enough to be selected
- slope_distri=rnorm(10000,0,1.5*K)
-hist(slope_distri)
-abline(v=c(-3*K,3*K))
-
-
-## would it lead to appropriately balanced distribution of starting function shapes?
-# we used the fact that teh typical time to go from 5% to 95% is 6/abs(alpha)
-
-quantile(6/(abs(slope_distri)),0.95)
-## almost all the starting strategies would be narrow (take less than 0.25K to)
-```
-
-
-
-
-# checking evolutionary and velocity convergence
+If an expansion has converged to its asymptotic speed after a time $t$, then it means that its speed over the full duration of the simulation (if >$t$) and its speed over any interval after $t$ should be identical (to noise, of course). We sampled our simulations every 20 generations; it is relatively easy to test for convergence then by regressing expansion speeds over each of these 20 generations periods on the corresponding overall speed:
 
 
 ```{r}
 tab_dynamics<-data %>% 
   filter(ticks>1) %>% 
   group_by(replicateID,ticks,dispersal_mortality,is.VP_dmax,is.VP_DDD,heritability,fecundity) %>% 
-  summarise(front=max(pxcor*(N_postdispersal>0))) %>% 
+  summarise(edge=max(pxcor*(N_postdispersal>0))) %>% 
   ungroup() %>% 
   group_by(replicateID) %>% 
   mutate(persist=max(ticks)) %>% 
   ungroup() %>% 
-  filter(persist==120) %>% # to evaluate long-run speed we need to keep only exp that were long run
-  ## a problem for fec=1.5 only
+  filter(persist==120) %>% # to be able to evaluate long-run speed we need to keep only these that persisted
+  ## remove a few expansions for fecundity =1.5 only
   group_by(replicateID) %>% 
   arrange(ticks) %>% 
   mutate(prev_front=lag(front)) %>% 
@@ -120,10 +126,13 @@ tab_dynamics<-data %>%
   mutate(speed_segment=(front-prev_front)/20) %>% 
   mutate(overall_speed=subset(front,ticks==120)/120) %>% 
   ungroup()
+```
 
-  ggplot(tab_dynamics)+
+
+```{r}
+ggplot(tab_dynamics)+
     geom_hline(yintercept=0,lty=2)+
-  geom_boxplot(aes(factor(ticks),speed_segment-overall_speed))+
+  geom_boxplot(aes(factor(ticks),speed_segment/overall_speed))+
   #facet_grid(rows=vars(dispersal_mortality,is.VP_dmax),
   #             cols=vars(heritability,is.VP_DDD))+
   scale_y_continuous("deviation from overall velocity (in patches per generation)")+
@@ -131,7 +140,10 @@ tab_dynamics<-data %>%
                    labels=c("0-20","20-40","40-60","60-80","80-100","100-120"))+
   theme(legend.position = "none")+
     facet_wrap(~fecundity)
+```
 
+
+```{r}
 ## add test to see if noise deviate from binomial expectation?  
   
 expected=tibble(x=c(1:99)/100) %>% 
@@ -153,17 +165,12 @@ ggplot()+
   scale_x_continuous("overall expansion velocity from t=0 to t=120 (patches/generation)")+
   scale_y_continuous("expansion velocity over a 20 generations interval (patches/generation)")+
   theme(legend.position = "none")+
-    facet_grid(cols=vars(ticks2),rows=vars(paste("r0 = log(",fecundity,")")))  
-  
-
-mod=lm(speed_segment~0+interaction(ticks,fecundity)+overall_speed:interaction(ticks,fecundity),data=tab_dynamics)
-summary(mod)
+    facet_grid(cols=vars(ticks2),rows=vars(paste("r0 = log(",fecundity,")")))
 ```
 
-
-
-
 takeaway: convergence in speed (which depends on both the stochasticity of the invasion smoothing itself out and the evolutionary process finishing) is fast, and speeds at g100 or g120 can reasonably be used as measures of long-run speed
+
+## evolutionary convergence
 
 let's do the same to look at evolutionary stability at the edge
 
