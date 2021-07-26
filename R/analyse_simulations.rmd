@@ -130,15 +130,17 @@ now we can mix and combine these datasets for analyses
 
 
 ```{r}
-tab <-tab_edge %>% 
+tab_all <-tab_edge %>% 
   left_join(tab_start) %>% 
   left_join(tab_genet) %>% 
   mutate(mortality=factor(dispersal_mortality)) %>% 
   mutate(advance=front_120-front_100) 
+
+write_csv(tab_all,here("R_output","processed_data_all_fecundities.csv"))
 ```
 
 ```{r}
-tab<-tab %>% 
+tab<-tab_all %>% 
   filter(fecundity==5)
 ```
 (for the main text, we focus on the high fecundity case)
@@ -743,113 +745,5 @@ p2<-cbind(newdata,predict(mod_div_00,newdata=newdata)$fit) %>%
   theme(axis.title.x = element_markdown(),
         strip.text.x = element_markdown(),
         strip.text.y = element_markdown())
-```
-
-
-###
-
-to move to supplementary
-
-## velocity evidence
-
-patches are discrete entities, and speed is capped at one patch/generation. So let's start with binomial models:
-
-
-```{r}
-
-vf_dd=function(d0,f0){ # version for discrete space and time in Wang et al 2019
-  ### 10.1016/j.tpb.2019.04.003
-  
-if(length(d0)!=length(f0)){stop("f0 and d0 must have same length")}
-    
-v=function(K,d,fec){
-  return(log(fec*(1+d*(cosh(K)-1)))/K)
-}
-
-oo=NA
-for(i in 1:length(d0)){
-opti=optimize(f=v,d=d0[i],fec=f0[i],lower=0,upper=50)
-
-#if brm (to avoid speeds >=1)
-#if(opti$objective>0.9999){oo[i]=0.9999}
-#else{oo[i]=opti$objective}
-
-oo[i]=opti$objective
-}
-return(oo)
-}
-
-###we could use that vf in a proper brm, if we account for sources of stochasticity reducing
-# true vf compare to nominal vf
-#mod<-brm(bf(advance|trials(20)~logit(vf3)+d,
-#         d~(mean_d0_100+mean_avgslope_100)*mortality+is.VP_DDD+is.VP_dmax,
-#         nl=TRUE,family=binomial),
-#         data=subset(tab2,advance>-1),
-#         prior=c(set_prior("normal(0,1)",nlpar="d",class="b")),
-#         chains=4,iter=200,backend="cmdstanr")
-
-
-
-tab2 <-tab %>% 
-  mutate(d0_eff=(1-dispersal_mortality)*mean_d0_100,
-         r0_eff=log(fecundity-(dispersal_mortality*mean_d0_100)*fecundity),
-         vf=2*(r0_eff*0.5*d0_eff)^0.5) %>% 
-#  mutate(vf3=vf_dd(d0_eff,exp(r0_eff))) %>% 
-  arrange(d0_eff)
-
-tab2 %>% 
-  filter(mean_avgslope_100>-0.005 & mean_avgslope_100<0.005) %>% 
-  ggplot()+ #only slope close to 0
-  geom_point(aes(vf, ##use effective d0, accounting for motality
-                 advance/20,col=mortality,shape=factor(fecundity)))+
-  geom_abline(intercept=0,slope=1)+
-  facet_wrap(~fecundity)
-
-
-tab2 %>% 
-    filter(mean_avgslope_100>-0.005 & mean_avgslope_100<0.005) %>% 
-  lm(advance/20~vf,data=.,subset=vf<1) %>% 
-  summary()
-
-
-
-tab3=tab2 %>% 
-  mutate(vfx=vf*(vf<1)+1*(vf>1)) %>% 
-  mutate(expected=20*vfx)
-
-hist(tab3$ratio)
-
-mod=mgcv::gam(cbind(advance,20-advance)~s(expected)+s(mean_avgslope_100,by=mortality)+mortality,data=subset(tab3,fecundity==5),family=binomial)
-
-## shows that the continuum approx for v is goodish until it bumps into the v=1 boundary
-## birzu says approach is very good when r0<<0 and d0/r0 >>1
-## we're not in these conditions but still good enough
-
-## we won't use our models to try and disentangle effect of mortality on effective d0 versus
-## other effects, but nice to know it exists
-```
-
-
-
-```{r}
-tab %>% 
-  mutate(round_d0=round(start_d0,1)) %>% 
-  filter(start_avgslope <0.05 & start_avgslope>-0.05) %>% 
-  group_by(round_d0,mortality,fixinterval) %>% 
-  count() %>% 
-  ggplot()+
-  geom_col(aes(x=round_d0,y=n,fill=fixinterval),position=position_fill())+
-  facet_grid(rows=vars(mortality))
-
-
-tab %>% 
-  mutate(round_slope=round(start_avgslope,2)) %>% 
-  #filter(start_avgslope <0.05 & start_avgslope>-0.05) %>% 
-  group_by(round_slope,mortality,fixinterval) %>% 
-  count() %>% 
-  ggplot()+
-  geom_col(aes(x=round_slope,y=n,fill=fixinterval),position=position_fill())+
-  facet_grid(rows=vars(mortality))
-
 ```
 
