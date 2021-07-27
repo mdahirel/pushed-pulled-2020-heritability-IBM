@@ -1,6 +1,6 @@
 ---
-title: 'Pushed expansions and sources of variation- individual-based model, model creation'
-author: "Maxime Dahirel & Chloé Guicharnaud"
+title: 'simulation management code for "Individual variation in dispersal, and its sources, shape the fate of pushed vs. pulled range expansions"'
+author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken (code by Maxime Dahirel and Chloé Guicharnaud)"
 date:
 output:
   html_document:
@@ -17,14 +17,12 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(nlrx)     
-library(tidyverse)
-library(here)     
+library(nlrx)      # CRAN v0.4.2     
+library(tidyverse) # CRAN v1.3.1
+library(here)      # CRAN v1.0.1     
 ```
 
-# Introduction
-
-<!--to detail-->
+This is the code used to "talk" with the NetLogo simulation and make it run the experiment described in the Methods of the Manuscript (see there and the Info pane of the NetLogo model for details). Briefly, we simulate asexual haploid individuals spreading in a linear discrete landscape. Runs differ on whether individuals very or not in traits shaping dispersal and its density-dependence, on whether that variation is heritable (and how much), and on the costs of dispersal.
 
 # Setup
 
@@ -48,8 +46,17 @@ nl_object <- nl(
 )
 ```
 
+Then, let's set the experimental design:
 
-Then, let's set the experimental design. <!--to detail-->
+- `VP_logit_dmax`, `VP_slope` and `VP_midpoint` are the initial phenotypic variances for the traits underlying the dispersal function
+- `heritability` is the proportion of that variance that is, at t=0, attributable to genetic factors versus noise
+- `start_dmax`, `start_slope`, `start_midpoint` are the starting median values for the dispersal traits (note how dmax is entered **not** on the logit scale here _ compared to VP_ easier and more intuitive to come up with "natural" starting points this way, converted to logit internally)
+- `dispersal_mortality` is the probability of dying if you disperse 
+- `reproduction` governs the type of reproduction and is fixed to "clonal" here (the NetLogo code allows it to be "sexual")`
+- `fecundity` is the theoretical mean *per capita* fecundity at density 0
+- `K` is patch carrying capacity
+
+Again, see the Methods and the Info pane for more details.
 
 ```{r design-grid}
 ### designing the experiment
@@ -91,9 +98,10 @@ nl_object@experiment <- experiment(
   stopcond = "not any? turtles",
   runtime = duration,
   evalticks = c(1, 20, 40, 60, 80, 100, 120), 
-  # the evalticks = 1 is to guarantee something is saved everytime
+  # the evalticks = 1 is to guarantee something is saved every time
   # even in runs that never produce any valid value for one of metrics
   # code crashes if some metrics.patches report nothing
+  ### metrics and metrics. patches: what we want the model to report back
   metrics = c("ticks",
               "start_d0", "start_dK","start_davg_0_K",
               "start_slopeA_0_K", "start_slopeA_0_avg","start_uncond_0_K"),
@@ -108,6 +116,7 @@ nl_object@experiment <- experiment(
                       "mean_dmax","mean_slope","mean_midpoint",
                       "mean_d0","mean_dK", "mean_davg_0_K",
                       "mean_slopeA_0_K", "mean_slopeA_0_avg","mean_uncond_0_K"),
+  ### constants and variables: what we feed the models
   constants = list(
     "duration" = duration
   ),
@@ -129,7 +138,7 @@ nl_object@experiment <- experiment(
 
 
 And we're go for running the simulations! We set a "distinct" simulation design (see `nlrx` help).
-(Careful, script is not parallelized, so running <!--the final version--> is expected to take up to a few hours <!-- about 20 hours on my laptop-->)
+(Careful, script is not parallelized, so running the final version is expected to take up to a few hours <!-- about 20 hours on my laptop-->)
 
 ```{r running-simulations}
 
@@ -173,5 +182,5 @@ then we save the file for later use
 write_csv(tab, file = here("NetLogo_output","simulation_output.csv"))
 ```
 
-We can now use the `ibm-analysis` scripts to analyse the model outputs.
+We can now use the `analyse_simulations` and `supplementary` scripts to analyse the model outputs.
 
