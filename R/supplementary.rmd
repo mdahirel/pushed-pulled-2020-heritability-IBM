@@ -17,16 +17,16 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(arm)
-library(matrixStats)
-library(tidyverse)
-library(cowplot)
-library(patchwork)
-library(ggdist)
+library(arm)         # CRAN v1.11-2
+library(matrixStats) # CRAN v0.60.0
+library(tidyverse)   # CRAN v1.3.1 # CRAN v1.3.1
+library(cowplot)     # [github::wilkelab/cowplot] v1.1.1
+library(patchwork)   # CRAN v1.1.1
+library(ggdist)      # CRAN v3.0.0
 
-library(tidyverse)
+library(tidyverse)   # CRAN v1.3.1 # CRAN v1.3.1
 
-library(here)
+library(here)        # CRAN v1.0.1
 ```
 
 # S1 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
