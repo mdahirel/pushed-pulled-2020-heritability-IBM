@@ -78,20 +78,30 @@ tab_intermediate <- data %>%
 
 ## from here we summarise every key phenotypic trait with weighted averages
 
-tab_front <- tab_intermediate %>%
-  group_by(
-    replicateID, ticks,
+## we first isolate variables that won't be modified by wrangling for a while
+## to reduce memory size of the big table that will be manipulated
+## we'll put back everything together later
+tab_annotation=tab_intermediate %>% 
+  select(
+    replicateID,
     dispersal_mortality, heritability,
     is.VP_dmax, is.VP_DDD,
-    fecundity
-  ) %>%
+    fecundity) %>% 
+  distinct()
+
+tab_front <- tab_intermediate %>%
+  select(replicateID,ticks,
+         mean_dmax,mean_davg_0_K,mean_d0,
+         mean_slopeA_0_avg,mean_slopeA_0_K,mean_uncond_0_K,
+         edge_pxcor,N_sedentary,N_predispersal) %>%
+  group_by(replicateID, ticks) %>% 
   summarise(
-    mean_dmax = weighted.mean(mean_dmax, N_predispersal, na.rm = TRUE),
-    mean_davg_0_K = weighted.mean(mean_davg_0_K, N_predispersal, na.rm = TRUE),
-    mean_d0 = weighted.mean(mean_d0, N_predispersal, na.rm = TRUE),
-    mean_avgslope = weighted.mean(mean_slopeA_0_avg, N_predispersal, na.rm = TRUE),
-    mean_Kslope = weighted.mean(mean_slopeA_0_K, N_predispersal, na.rm = TRUE),
-    mean_uncond = weighted.mean(mean_uncond_0_K, N_predispersal, na.rm = TRUE),
+    mean_dmax = weighted.mean(mean_dmax, w=N_predispersal, na.rm = TRUE),
+    mean_davg_0_K = weighted.mean(mean_davg_0_K, w=N_predispersal, na.rm = TRUE),
+    mean_d0 = weighted.mean(mean_d0, w=N_predispersal, na.rm = TRUE),
+    mean_avgslope = weighted.mean(mean_slopeA_0_avg, w=N_predispersal, na.rm = TRUE),
+    mean_Kslope = weighted.mean(mean_slopeA_0_K, w=N_predispersal, na.rm = TRUE),
+    mean_uncond = weighted.mean(mean_uncond_0_K, w=N_predispersal, na.rm = TRUE),
     ## and the other non-trait metrics using means or sum as relevant
     edge_pxcor = mean(edge_pxcor),
     N_sedentary = sum(N_sedentary),
@@ -109,8 +119,7 @@ tab_front <- tab_front %>%
   ungroup() %>%
   pivot_wider(
     id_cols = c(
-      replicateID, dispersal_mortality,
-      heritability, is.VP_dmax, is.VP_DDD, fecundity
+      replicateID
     ),
     names_from = ticks,
     values_from = c(
@@ -118,7 +127,8 @@ tab_front <- tab_front %>%
       mean_avgslope, mean_Kslope, mean_uncond,
       edge_pxcor, N_sedentary, N_predispersal
     )
-  )
+  ) %>% 
+  left_join(tab_annotation) #get these info variables back in
 ```
 
 ## sub-table 2: starting conditions
