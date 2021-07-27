@@ -23,6 +23,7 @@ library(tidyverse)   # CRAN v1.3.1 # CRAN v1.3.1
 library(cowplot)     # [github::wilkelab/cowplot] v1.1.1
 library(patchwork)   # CRAN v1.1.1
 library(ggdist)      # CRAN v3.0.0
+library(ggtext)      # CRAN v0.1.1
 
 library(tidyverse)   # CRAN v1.3.1 # CRAN v1.3.1
 
@@ -37,13 +38,17 @@ In the main text, we discuss how allowing for negative $\beta$ is the only way w
 
 - second, we'd need the initial trait distribution to contain both these very large $\alpha$ (positive and negative) *and* $\alpha$ close to 0, for evolution to be possible. It's easy to demonstrate that distributions that fulfill this requirement are actually biased towards very sharp density-dispersal functions. If we assume $K = 250$ as in our simulations, and population densities are expressed as $N/K$, then $\alpha = 300$ (with $\beta$ very close to 0) is high enough to generate one of these nearly flat functions:
 
-```{r}
+```{r fig-s1-1}
 tab<- expand_grid(
   K=250,
   x=0:50)
 
+dmax <- 0.5
+alpha <- 1000
+beta <- 0.000000000000001
+  
 ggplot(tab)+
-  geom_line(aes(x,0.5/(1+exp(-1000*(x/K-0.000000000000001)))))+
+  geom_line(aes(x,dmax/(1+exp(-alpha*(x/K-beta)))))+
   scale_x_continuous("Population density")+
   scale_y_continuous("Dispersal rate")+
   geom_vline(xintercept = 1, lty=2)+
@@ -51,24 +56,34 @@ ggplot(tab)+
   theme_bw()
 ```
 
-So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neigbourhood of 1000 (i.e. $4K$) to be able to produce such shapes. An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extremes with a low but non-negligible probability (about 5%). And we've established (see main text) that $6/\alpha$ expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,1.5)$ :
+**Figure S1.1**. Example of how one can produce a functionally flat density-dispersal function using very sharp slope. $d_{max}$ = 0.5, $\alpha$ = 1000, $\beta = 10^{-15}$. The dashed lines mark $N=1$ (vertical) and $d_{N}=0.95 \times d_{max}$ (horizontal).
 
-```{r}
+
+So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neighbourhood of 1000 to be able to produce such shapes (when, as a reminder, $\alpha=6$ is needed to get a slope that takes $K$ to go from 5% to 95% of $d_{max}$, so a reasonably shallow, but not too shallow function). An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extreme $\alpha$ with a low but non-negligible probability (about 5%). And we've established (see main text) that $6/\alpha$ expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,1.5)$ :
+
+```{r fig-s1-2}
 set.seed(42)
 tibble(x=rnorm(10000,0,500)) %>% 
   ggplot()+
   geom_histogram(aes(6/abs(x)),binwidth = 0.1)+
   geom_vline(xintercept = 1, lty=2)+
   coord_cartesian(xlim=c(0,5))+
-  scale_x_continuous("increase in density needed to go from 5% dmax to 95% dmax (or vice-versa)(expressed in units of K)")+
-  theme_bw()
+  scale_x_continuous("increase in density needed to go from 5% *d<sub>max</sub>* to 95% *d<sub>max</sub>* (or vice-versa)",
+                     breaks=c(0:5),
+                     labels=c(0,"1*K*","2*K*","3*K*","4*K*","5*K*"))+
+  theme_bw()+
+    theme(
+    axis.title.x = element_markdown(),
+    axis.text.x = element_markdown())
 ```
+
+**Figure S1.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 1000 samples.
 
 It's easy to see that this initial distribution of $\alpha$ would almost only allow sharp slopes, that take less than 20-50%$K$ to reach $d_{max}$, and disallow shallower slopes. This is not a choice that is sound in our opinion, hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \simeq d_{max}$ functions.
 
 # S2 - How do we define the "range front"?
 
-```{r load data}
+```{r load-data}
 ### let's start by loading the data
 raw_data <- read_csv(here("NetLogo_output","simulation_output.csv"))
 
@@ -79,27 +94,40 @@ data<- raw_data  %>%
            is.VP_DDD=as.numeric(VP_slope >0))
 ```
 
-We are interested in how traits at the front of the expansion are shaped by, and shape, the expansion process. To do that right, we need an operational definition of what is the front/edge. A "traditional" one is the range of patches where a density gradient is seen, i.e. where population density has not yet reached its equilibrium. Let's have a look: 
+We are interested in how traits at the front of the expansion are shaped by, and shape, the expansion process. To do that right, we need an operational definition of what is the front. A "traditional" one is the range of patches where a density gradient is seen, i.e. where population density has not yet reached its equilibrium. Let's have a look: 
 
-```{r}
-##supplementary plot to justify arbitrary front size =5 ish
+```{r fig-s2-1}
+##supplementary plot to explain arbitrary front size = 5
 
-data %>% 
-  group_by(replicateID,ticks) %>% 
-  mutate(edge=max(pxcor*(N_predispersal>0))) %>% ###works with pre or post
-  filter(pxcor>edge-20 & pxcor<=edge) %>%
+#we use predispersal population size since that's when traits are recorded,
+# but the principle should work the same post-dispersal
+data %>%
+  filter(N_predispersal > 0) %>%
+  group_by(replicateID, ticks) %>% # for each time x replicate 
+  mutate(edge_pxcor = max(pxcor)) %>%
+  ungroup() %>% 
+  filter(pxcor>edge_pxcor-20 & pxcor<=edge_pxcor) %>%
   ggplot()+
-  geom_boxplot(aes(edge-pxcor,N_predispersal,group=edge-pxcor))+ ##works with pre or post
-  scale_x_continuous("distance to edge")+
+  geom_boxplot(
+    aes(edge_pxcor-pxcor,N_predispersal,
+        group=edge_pxcor-pxcor),
+    col="grey40"
+    )+ ##works with pre or post
+  scale_x_continuous("distance to edge (# of patches)")+
   scale_y_continuous("pre-dispersal population size")+
   geom_vline(xintercept = c(4.5),col="red")+
- facet_grid(rows=vars(paste("m =",dispersal_mortality)),
-               cols=vars(paste("h2=",heritability),paste("fec=",fecundity)))+
-  theme_bw()
+  facet_grid(rows=vars(paste("*m* =",dispersal_mortality)),
+               cols=vars(paste("*h^2*=",heritability),paste("*r<sub>0</sub>* = log(",fecundity,")")))+
+  theme_bw()+
+  theme(
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown()
+  )
 ```
 
+**Figure S2.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate populations < 5 patches from the edge from the others.
 
-We can see that a threshold where we consider all patches < 5 patches from the edge as belonging to the range front is a good compromise that works across conditions (Narrower fronts would probably work for fecundity = 5, but would not work for fecundity = 1.5 and in addition would limit the number of individuals included, reducing precision of our trait means; wider fronts would lead us to fronts that are dominated by what are clearly non-front patches when fecundity =5)
+We can see that a threshold where we consider all patches < 5 patches from the edge as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
 
 # S3 - Checking velocity and evolutionary convergence
 
