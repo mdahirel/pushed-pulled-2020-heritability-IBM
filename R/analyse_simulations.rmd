@@ -89,6 +89,10 @@ tab_annotation=tab_intermediate %>%
     fecundity) %>% 
   distinct()
 
+## code slows down *a lot* here for a while, probably due to the size of the summarise call
+## tried to fix it a bit, but not worth investing more time
+## so expect a wait time of about 5min here before the code carries on:
+
 tab_front <- tab_intermediate %>%
   select(replicateID,ticks,
          mean_dmax,mean_davg_0_K,mean_d0,
@@ -590,7 +594,7 @@ clm_pseudo_r2 <- function(model, data = tab) { ##given a model and the *original
   pp <- predict(model, newdata = data %>% select(-fixinterval))$fit
   #it gets us probabilities for each categories, we sum them to get the rank of the average category
   preds <- 1 * pp[, 1] + 2 * pp[, 2] + 3 * pp[, 3] + 4 * pp[, 4] + pp[, 5] + 6 * pp[, 6] + 7 * pp[, 7]
-  obs <- as.numeric(tab$fixinterval)
+  obs <- as.numeric(data$fixinterval)
   # the we use that and the rank of the observed category in a linear regression
   return(summary(lm(obs ~ preds))$r.squared)
 }
@@ -710,7 +714,7 @@ p1 <- fitted_samples(mod_100, n = 1000, newdata = newdata, seed = 42, scale = "r
   ggplot() +
   stat_lineribbon(aes(mean_d0_100, fitted), .width = c(0.001, 0.95), fill = "grey") +
   scale_y_continuous("predicted expansion velocity (patches/generation)") +
-  scale_x_continuous("*d<sub>0</sub>* at *t* = 100") +
+  scale_x_continuous("*Mean d<sub>0</sub>* at *t* = 100") +
   facet_grid(
     rows = vars(paste("*m* = ", mortality)),
     cols = vars("effect of *d<sub>0</sub>*")
@@ -735,7 +739,7 @@ p2 <- fitted_samples(mod_100, n = 1000, newdata = newdata, seed = 42, scale = "r
   ggplot() +
   stat_lineribbon(aes(mean_avgslope_100, fitted), .width = c(0.001, 0.95), fill = "grey") +
   scale_y_continuous("") +
-  scale_x_continuous("*&Delta;<sub>avg-0</sub>* at *t* = 100") +
+  scale_x_continuous("*Mean &Delta;<sub>avg-0</sub>* at *t* = 100") +
   facet_grid(
     rows = vars(paste("*m* = ", mortality)),
     cols = vars("effect of density-dependence *&Delta;<sub>avg-0</sub>*")
@@ -791,7 +795,7 @@ p1 <- cbind(newdata, predict(mod_div_00, newdata = newdata)$fit) %>%
   ggplot() +
   geom_area(aes(x = start_d0, y = value, fill = name), position = "fill") +
   scale_y_continuous("") +
-  scale_x_continuous("*d<sub>0</sub>* at *t* = 0") +
+  scale_x_continuous("Mean *d<sub>0</sub>* at *t* = 0") +
   guides(fill = "none") +
   facet_grid(
     rows = vars(paste("*m* = ", mortality)),
@@ -835,7 +839,7 @@ p2 <- cbind(newdata, predict(mod_div_00, newdata = newdata)$fit) %>%
   ggplot() +
   geom_area(aes(x = start_avgslope, y = value, fill = name), position = "fill") +
   scale_y_continuous("") +
-  scale_x_continuous("*&Delta;<sub>avg-0</sub>* at *t* = 0") +
+  scale_x_continuous("Mean *&Delta;<sub>avg-0</sub>* at *t* = 0") +
   labs(fill = "generations before allele fixation:") +
   facet_grid(
     rows = vars(paste("*m* = ", mortality)),
@@ -881,7 +885,7 @@ tab %>%
       "*&alpha;*, *&beta;*, and *d<sub>max</sub>*"
     )
   ) +
-  scale_y_continuous("*d<sub>max</sub>* at *t* = 100") +
+  scale_y_continuous("Mean *d<sub>max</sub>* at the front at *t* = 100") +
   facet_grid(
     rows = vars(paste("*m* =", dispersal_mortality)),
     cols = vars(paste("*h^2* =", heritability))
@@ -969,7 +973,7 @@ p10 <- tab %>%
   col = "black", fill = "#d95f02"
   ) +
   labs(title = "B: Individual variation in *d<sub>max</sub>*") +
-  scale_x_continuous("Density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
+  scale_x_continuous("Mean density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
   scale_y_continuous("")
 
 p01 <- tab %>%
@@ -998,7 +1002,7 @@ p01 <- tab %>%
   method = "lm",
   col = "black", fill = "#d95f02"
   ) +
-  scale_y_continuous("Change in *&Delta;<sub>avg-0</sub>* at the edge between *t* = 0 et *t* = 100") +
+  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at the front between *t* = 0 and *t* = 100") +
   scale_x_continuous("") +
   ggtitle("A: Individual variation in *&alpha;* and *&beta;*")
 
