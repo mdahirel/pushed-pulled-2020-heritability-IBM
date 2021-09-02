@@ -213,6 +213,13 @@ tab_all <- tab_front %>%
 write_csv(tab_all, here("R_output", "processed_data_all_fecundities.csv"))
 ```
 
+```{r reimport}
+
+# TO DO: add a read_csv to re-import
+# with code to reconvert fixinterval to ordered factor and
+# mortality to factor
+```
+
 # Figures and analyses
 
 For the main text, we focus on the high fecundity case (the same analyses with low fecundity are in supplementary):
