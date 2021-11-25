@@ -817,6 +817,8 @@ HORIZONTAL
 @#$#@#$#@
 # Range expansion model
 
+Please notice that this model is made to be used and analyzed through the R software ( version 4.1.0, R Core Team 2021), and nlrx package (Salecker et al. 2019). This NetLogo model is not fully independent from the rest of its repository (GitHub repository link: to add).
+
 ## WHAT IS IT?
 
 This is a general spatial range expansion model, designed to study how trait distribution at the start of an expansion can shape evolutionary dynamics, and therefor influencing expansion velocity on "small" population sizes.
@@ -831,16 +833,16 @@ The model allows for density-dependency in dispersal and growth, as well as indi
 (what rules the agents use to create the overall behavior of the model)
 
 ### Set-up phase
-The model is initiated by placing K adult individuals that are yet to reproduce or disperse in the patch of coordinates pxcor 0 and pycor 0, and by drawing the allele at the neutral locus from a Bernoulli distribution with p = 0.5. Their phenotypic dispersal traits are initialized by summing a genetical with a noise component both drawn from normal distributions. 
+The model is initiated by placing K adult individuals that are yet to reproduce or disperse in the patch of coordinates pxcor 0 and pycor 0, and by drawing the allele at the neutral locus from a Bernoulli distribution with p = 0.5. Their phenotypic dispersal traits are initialized by summing a genetical and a noise component both drawn from normal distributions. 
+
 Secondary individual-level statistics are calculated using those dispersal traits.
 
 ### Go phase
 Individuals then live the following life cycle:
 
--once adults, they disperse or not with a probability d, based on their individual traits and current patch population size
+-once adults, they disperse or not with a probability d, depending on their individual traits and current patch population size. This dispersal function is based on Kun and Scheuring 2006
 
--they reproduce clonally or sexually and transmit their neutral allele and genetic values to offspring without any mutation. The noise component is drawn again from a normal distribution
-the fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
+-they reproduce clonally or sexually and transmit their neutral allele and genetic values to offspring without any mutation. The noise component is drawn again from a normal distribution. The fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
 
 -they die
 
@@ -872,35 +874,36 @@ The landscape window shows the progression of the current wave through the lands
 
 ### Report graphs
 
-Because the model is designed to be analysed through R (package nlrx), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added
-(suggestions: front position (or maximal x coordinate of patch with at least 1 individual) through time
-Genetic diversity (formula for expected heterozygosity when 2 alleles = 2pq where p and q are allelic proportions) in front patch through time)
-
+Because the model is designed to be analysed through R (package nlrx), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added (see suggestions in "extending the model")
 
 
 ## THINGS TO NOTICE
 
 (suggested things for the user to notice while running the model)
 
+There is not many thing to notice in the interface, as the model is not meant to be analyzed through it, but it is always possible to observe a qualitative expansion success depending on different parameter combinations with the landscape window
 
-- to do
 
 ## THINGS TO TRY
 
 (suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
-- to do
+Even if the model is made to be analyzed with R, and we invite you to run it through the nlrx package, you can try to see what happen when reproduction is set to clonal or sexual, or compare expansion with different levels of heritability
+
 
 ## EXTENDING THE MODEL
 
 (suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
 
-More complex evolutionary dynamics:
-- dispersal/growth trade-offs
+- More complex evolutionary dynamics, dispersal/growth trade-offs
 
-Landscape heterogeneity in space and or time
+- Landscape heterogeneity in space and or time
 
-Invasions in 2D space
+- Invasions in 2D space
+
+- Add graphs: 
+	- front position (or maximal x coordinate of patch with at least 1 individual) through time
+	- Genetic diversity (formula for expected neutral heterozygosity when 2 alleles = 2pq where p and q are allelic proportions) in front and/or core patch through time)
 
 ## NETLOGO FEATURES
 
@@ -915,6 +918,16 @@ Invasions in 2D space
 ## CREDITS AND REFERENCES
 
 (a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+
+Birzu, G., Hallatschek, O., & Korolev, K. S. (2018). Fluctuations uncover a distinct class of traveling waves. *Proceedings of the National Academy of Sciences*, 115(16), E3645–E3654
+
+Birzu, G., Matin, S., Hallatschek, O., & Korolev, K. S. (2019). Genetic drift in range expansions is very sensitive to density dependence in dispersal and growth. *Ecology Letters*, 22(11), 1817–1827
+
+Kun, Á., & Scheuring, I. (2006). The evolution of density-dependent dispersal in a noisy spatial population model. *Oikos*, 115(2), 308–320
+
+R Core Team. (2021). *R: a language and environment for statistical computing* (Version 4.0.4) [Computer software]. R Foundation for Statistical Computing. https://www.R-project.org/
+
+Salecker, J., Sciaini, M., Meyer, K. M., & Wiegand, K. (2019). The nlrx R package: a next-generation framework for reproducible NetLogo model analyses. *Methods in Ecology and Evolution*, 10(11), 1854–1863.
 
 written by Maxime Dahirel, from an initial Matlab model by Marjorie Haond
 DOI: https://doi.org/10.5281/zenodo.3702252
