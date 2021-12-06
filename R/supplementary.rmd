@@ -2,12 +2,7 @@
 title: 'Supplementary Material for "Individual variation in dispersal, and its sources, shape the fate of pushed vs. pulled range expansions"'
 author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken"
 date:
-output:
-  html_document:
-    theme: yeti
-    toc: TRUE
-    toc_float: TRUE
-    code_download: TRUE
+output: pdf_document
 editor_options:
   chunk_output_type: console
 bibliography: references.bib
@@ -39,7 +34,129 @@ library(ggtext)      # CRAN v0.1.1
 library(here)        # CRAN v1.0.1 
 ```
 
-# S1 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
+# S1 - Detailed description of the individual-based model in the ODD format
+
+<!--TO COMPLETE/UPDATE-->
+## Purpose
+
+The model simulates asexual individuals reproducing and dispersing in a linear landscape following an initial introduction, in order to approximate processes at play during natural and experimental range expansions. The aim is to gather insights into how evolutionary dynamics (neutral diversity and especially dispersal-related traits) are shaped by trait distribution (means and variances) at the start of the expansion, and how they influence expansion velocity in turn. We specifically focus on traits driving the position of expansions on the pushed/pulled continuum [@birzuFluctuationsUncoverDistinct2018; @birzuGeneticDriftRange2019], namely traits describing the shape of the density-dispersal function. Importantly, dispersal and reproduction are stochastic. The focus of the model is on studying the effects of initial trait variation at introduction; as such there is no mutation, for simplicity.
+
+## Entities, state variables and scale
+
+Individuals are haploid and reproduce asexually, and can vary in:
+
+- their location in the landscape ($x$ coordinate only, since we simulate linear landscapes. $x$ can only take $\geq 0$ integer values);
+- their dispersal probability $d$ and the underlying dispersal traits ($d_{max}$, $\alpha$, $\beta$). Each trait is the (transformed) sum of an additive genetic component ($\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$) and of a noise/residual part ($\mathrm{logit}(d_{max})_{[r]}$, $\alpha_{[r]}$, $\beta_{[r]}$). See **Initialization** and **Submodels** below for details about the dispersal function (see also **Fig. 1**); 
+- the allelic value at a neutral locus $\gamma$ (0 or 1);
+- their life stage (juvenile, adult);
+- their fecundity $F$.
+
+We note that the model as it is coded and made available (**Data availability**) is more general and allows the use of diploid, sexually reproducing individuals, with some slight adaptations in the reproduction submodel. For simplicity we only use and describe the "haploid asexual" scenario here.
+
+Individuals live in discrete patches, which form the spatial units of our model. The model world is one dimensional, and has closed boundaries. Patches can be described by:
+
+- their location in the landscape ($x$ coordinate; $\geq 0$ integer values); 
+- their population size at the last count $N$ (population counts occur at points of the cycle where only adults are present);
+- their carrying capacity $K$ (in the present study, $K$ is fixed and constant across all patches);
+- a series of variables summarizing the trait distributions of the individuals born in the patch (see **Submodels**).
+
+One time step in the model represent one generation of the simulated species' life cycle, and each individual grid cell corresponds to an individual patch. The potentially hostile matrix between patches is abstracted out (there are no "matrix" grid cells) and its effects are summarised in a global environmental variable, dispersal mortality $m$.
+
+
+<!--ADD FIGURE BACK, MAYBE, DEPENDS ON WHETHER IT GOES TO MAIN ![](images/fig1.png)
+
+**Figure 1.** Illustration of the dispersal function used in the individual-based model [based on @kunEvolutionDensitydependentDispersal2006] and some of its properties. A, B, C: effect of changing one of the three underlying variables while keeping the other two constant. Values when kept constant: $d_{max}=0.5$, $\alpha=10$, $\beta=0.5$. D: illustration of the sampling points used to estimate $d_{avg}$ for two example functions, E: effect of the function general shape on $d_{avg}$. Note how two functions can have (nearly) the same $d_{0}$ and $d_{K}$ (and therefore the same density-dependence $\Delta_{K-0}$), while differing in $d_{avg}$ (and therefore in $\Delta_{avg-0}$); see **Submodels** for details.
+-->
+
+## Process overview and scheduling
+
+Generations start at the point of the life cycle where only pre-dispersal, pre-reproduction adults are present. The schedule of a generation can be divided in 6 processes; all individuals and patches must go through one process before the model proceeds to the next. The order in which individuals/patches go through a given process is random. 
+
+- *Population count:* Individuals at each patch are counted to update the patch population sizes $N$ and the neutral allele frequencies for each patch.
+- *Summary statistics:* We estimate a series of summary variables for each patch, describing the distribution of traits. This is done because exporting and analyzing individual-level traits would be computationally expensive. A detailed list of these summary variables is provided in **Submodels** below.
+- *Dispersal:* Adult individuals may disperse with a probability $d$ depending on their individual traits ($d_{max}$, $\alpha$, $\beta$) and local population size $N$. The dispersal model is taken from Kun and Scheuring [-@kunEvolutionDensitydependentDispersal2006] and described in **Submodels** below. If an individual attempts to disperse, it dies during the attempt with a probability $m$. In practice, we draw random values from a $\mathrm{Uniform}(0,1)$ distribution; if the draw is lower than $d$ (respectively $m$), the individual disperses (respectively dies). Surviving dispersers are randomly moved to one of the nearest neighbouring patches; that is, the maximal dispersal distance is of 1 patch.
+- *Second population count:* The population sizes $N$ and neutral alleles frequencies at each patch are updated again.
+- *Reproduction:* Each remaining adult then produces $F$ juveniles, with $F$ drawn from a Poisson distribution and depending on the general growth rate $r_0$, $K$ and $N$.  Juveniles are born in the patch currently occupied by their parent (same $x$), and also inherit their genetic values for dispersal-related and neutral loci. Their values for the noise part of the dispersal traits are redrawn at random. The exact fecundity model and inheritance procedures are described in **Submodels** below.
+- *Death and end of cycle:* All adults die; juveniles then become adults.
+
+The model then starts the next generation.
+
+## Design concepts
+
+**Basic principles:** This model follows previous attempts to model evolution in range expansions using an individual-based simulation framework [e.g. @travisAcceleratingInvasionRates2009], including in the context of pushed expansions [e.g. @ermEvolutionTransformsPushed2020]. This model is a theoretical investigation tool and is not built to make any real-world quantitative prediction, but to develop new qualitative insights about evolutionary dynamics during range expansions. It differentiates itself from previous modelling studies of pushed expansions in an ecological/evolutionary context by:  
+
+- the use of a more flexible dispersal function [@kunEvolutionDensitydependentDispersal2006].
+- a focus on "small" population sizes that are realistic for many "macroscopic" organisms, giving a more important role to discreteness, drift and stochasticity in general, compared to models assuming much larger population sizes either implicitly (e.g. when using continuum models) or explicitly [@birzuGeneticDriftRange2019]. 
+- allowing for varying levels of trait heritability, where most models either ignore evolutionary dynamics in focal traits [e.g. @birzuGeneticDriftRange2019] or assume all variation is genetic [e.g. @ermEvolutionTransformsPushed2020]. 
+
+**Emergence:** The number and distribution of individuals and alleles in space are the emergent result of individual dispersal and reproduction, which are stochastic. Most if not all variables of interest are summaries from these distributions.
+
+**Adaptation:** As population size vary in space and time along the range expansion, dispersal is costly, and fitness is density-dependent (see **Submodels**), dispersal can evolve in an adaptive way in replicates where dispersal traits are heritable. 
+
+**Learning:** Individuals do not learn (see **Sensing**).
+
+**Prediction:** There is no prediction component to individuals' choices: individuals behave only based on currently available information, including their phenotype.
+
+**Sensing:** In addition to its own trait values, the only information an individual can sense and use is the (last updated) population size $N$ in the patch it is currently in. Individuals automatically know $N$ when needed, and immediately forget it afterwards (there is no memory).
+
+**Interaction:** Individuals do not interact directly with each other. Individuals in the same patch may influence each other indirectly, through the patch population size variable $N$ which plays a role in both individual dispersal and reproduction.
+
+**Stochasticity:** Dispersal and reproduction are both stochastic. First, for dispersal, the individual probability of dispersing depends on three traits, the values of which are determined stochastically. The genetic components are drawn from Normal distributions at the start of the experiments (and then transmitted deterministically), and the noise components drawn from Normal distributions at the birth of every individual. Second, once the individual dispersal probability is set, whether or not an individual actually disperses, and whether or not it dies if it disperses, is in effect determined by Bernoulli trials. Finally, the actual fecundity of each individual is a random draw from the relevant Poisson distribution. See **Initialization** and **Submodels** for more details.
+
+**Collectives:** Individuals do not belong to any kind of identifiable social group or collective *per se*. Individuals in the same discrete patch nonetheless influence each other through $N$ (see **Interaction**)
+
+**Observation:** For memory reasons, it is impractical to save the state of every individual. We instead measure and record patch-level metrics, which convey information about population size, neutral allele frequencies and the means and variances of variables summarizing the dispersal-density functions of individuals born in the patch (see **Submodels**). The user can choose to save these metrics every generation, or for only a subset of generations of interest.
+
+## Initialization
+
+Each expansion starts by creating the landscape (which, as we use stepping-stone dispersal, can be any length higher than the number of generations), and setting the carrying capacity of all patches to $K$. We then introduce $K$ adult individuals that have not yet dispersed or reproduced to the left-most patch of the landscape ($x = 0$). All other patches are empty. Individual traits and alleles are then initialized as follows:
+
+- the value (0 or 1) at the neutral allele $\gamma$ is drawn from $\mathrm{Bernoulli}(0.5)$.
+- for each dispersal trait $z$ ($\mathrm{logit}(d_{max})$, $\alpha$, $\beta$), the genetic component is drawn from $\textrm{Normal}(\overline{z}_{t=0}, \sqrt{h^2 V_{P[z]}})$ , the noise component from $\textrm{Normal}(0, \sqrt{(1-h^2) V_{P[z]}})$ , where $\overline{z}_{t=0}$ is the initial mean trait value,  $h^2$ is the initial trait heritability and $V_{P[z]}$ the initial phenotypic variance (see **Table 1**). The trait value is then obtained by summing the genetic and noise components, and in the case of $d_{max}$, back-transforming from the logit scale. 
+- we calculate secondary individual-level statistics from $d_{max}$, $\alpha$ and $\beta$ (see the Dispersal submodel description below).
+
+## Input data
+
+The model is self-sufficient and does not use external input data to represent time-varying processes.
+
+## Submodels
+
+**Dispersal:** during the dispersal phase, an individual leaves its natal patch with a probability $d$, which depends on individual traits and local population size $N$ (here expressed relative to the constant $K$) based on Kun and Scheuring [-@kunEvolutionDensitydependentDispersal2006]'s model [see also @travisAcceleratingInvasionRates2009]:
+
+$d_{N} = \frac{d_{max}}{1+\exp(-\alpha(\frac{N}{K}-\beta))}.$
+
+Compared to other dispersal models [such as those reviewed in @hovestadtInformationProcessingModels2010], this three-parameter model has the advantage of flexibility, can model a wide variety of realistic dispersal curves, and allows for both negative and positive density-dependent dispersal. In addition, all three parameters have an ecologically relevant interpretation (**Fig. 1**):
+
+- $d_{max}$ is the maximal dispersal rate, and can be seen as a measure of dispersal capacity. Note that depending on the other parameters, $d_{max}$ may not be reachable at any of the population sizes actually experienced during the simulation.
+- $\alpha$ is the slope of the dispersal-density relationship and describes the "strength" of the response to population density (relative to $d_{max}$). Whether $\alpha$ is positive or negative determines whether dispersal increases or decreases with population size. Depending on $\beta$, $\alpha$ may or may not influence meaningfully the actual dispersal strategy at the population sizes experienced during the simulation.
+- $\beta$ is the inflection point of the dispersal function, i.e. the density at which $d = 0.5 \times d_{max}$. It can be interpreted as a response threshold, i.e. how high (or low) density must get for the individual to substantially alter its dispersal response. We allow $\beta$ to be negative; this can be interpreted as individuals being so sensitive to density that they already are close to their high density dispersal behaviour at low densities. For our purpose, this is the only practical way the model can produce density-independent functions where $d \approx d_{max}$ (as setting $\alpha$ to 0 actually sets $d$ to be constant, but $= 0.5 \times d_{max}$). Another way is theoretically possible: allowing $\beta$ to be close to 0 or $K$ but positive, and $\lvert\alpha\rvert$ to be so high (for a given $K$) that dispersal goes from 0 to $d_{max}$, or the opposite, between $N=0$ and $N=1$ [as in e.g. @travisAcceleratingInvasionRates2009]. However, due to how $\alpha$ influences the shape of the dispersal function, Normal distributions of initial $\alpha$ (see **Virtual experiment design** below) that allow for such high $\lvert\alpha\rvert$ would be strongly biased against shallower slopes (see **Supplementary Material S2**).
+
+Following the terminology in Cote et al [-@coteEvolutionDispersalStrategies2017], variation in $d_{max}$ can be interpreted as encoding variation in dispersal enhancing or enabling traits, while variation in $\alpha$ or $\beta$ corresponds to variation in dispersal matching traits.
+
+Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additionally calculate five statistics at the individual-level (**Fig. 1D-E**):  
+
+- $d_{0}$, the hypothetical dispersal rate at $N=0$. The theoretical distinction between pulled and pushed expansions hinges on whether expansion move as fast as expected from $d_{0}$ or faster [e.g. @birzuGeneticDriftRange2019].
+- $d_{K}$, the expected dispersal rate at $N=K$.
+- $d_{avg}$, the average dispersal over the range of densities $0-K$. For computational reasons, we approximate it by calculating $d_{N}$ every $0.1K$ from 0 to $K$.
+- Two measures of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$ and $\Delta_{avg-0}=d_{avg}-d_{0}$. The former is independent of the shape of the dispersal function between 0 and $K$, while the latter accounts for it at least in part.
+
+**Reproduction:** Each individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
+
+$\lambda_{N} = \mathrm{e}^{r_{N}}, r_{N}=r_{0}(1-N/K),$
+
+where $r_{0}$ is the hypothetical *per capita* growth rate at $N=0$. 
+
+Parent transmit their genetic values (dispersal-related: $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ and neutral: $\gamma$) directly to their offspring without any mutation. Offspring then draw random values of $\mathrm{logit}(d_{max})_{[r]}$, $\alpha_{[r]}$, $\beta_{[r]}$ from $\mathrm{Normal}(0,\sqrt{V_{R[z]}})$, where $z$ is the trait in question. For each trait $z$, the "random noise" variance $V_{R}$ is equal to $(1-h^{2})V_{P[z]}$ , where $h^{2}$ is the *initial* heritability at $t=0$ and $V_{P}$ the *initial* phenotypic variance (see **Table 1**).
+
+**Observation:**
+
+The code estimates and reports a variety of summary variables at the patch level, and can easily be modified to add more. Of interest for the present study are the following:
+- the means of $d_{max}$, $d_{0}$, $d_{avg}$, $d_{K}$, $\Delta_{K-0}$, $\Delta_{avg-0}$ for all individuals born in a patch.
+- the variances of the genetic components $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ for all individuals born in a patch.
+- population sizes $N$ pre- and post-dispersal phase.
+- the frequencies of the two neutral alleles in a patch, both pre- and post-dispersal phase.
+
+# S2 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
 
 In the main text, we discuss how allowing for negative $\beta$ is the only way we have to create mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, allowing very large $|\alpha|$ values so that dispersal goes from 0 to $d_{max}$ in less than 1 individual, is not viable. We expand this argument here:
 
@@ -49,7 +166,7 @@ In the main text, we discuss how allowing for negative $\beta$ is the only way w
 
 <br/>
 
-```{r fig-s1-1, fig.width=4, fig.height=4}
+```{r fig-s2-1, fig.width=4, fig.height=4}
 tab<- expand_grid(
   K=250,
   x=0:50)
@@ -68,7 +185,7 @@ ggplot(tab)+
   theme_bw()
 ```
 
-**Figure S1.1**. Example of how one can produce a functionally flat density-dispersal function using a very sharp slope, but very close to $N = 0$. $d_{max} = 0.5$, $\alpha = 1000$, $\beta = 10^{-15}$. The dashed lines mark $N=1$ (vertical) and $d_{N}=0.95 \times d_{max}$ (horizontal).
+**Figure S2.1**. Example of how one can produce a functionally flat density-dispersal function using a very sharp slope, but very close to $N = 0$. $d_{max} = 0.5$, $\alpha = 1000$, $\beta = 10^{-15}$. The dashed lines mark $N=1$ (vertical) and $d_{N}=0.95 \times d_{max}$ (horizontal).
 
 <br/>
 
@@ -76,7 +193,7 @@ So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in th
 
 <br/>
 
-```{r fig-s1-2, fig.width=6, fig.height=5}
+```{r fig-s2-2, fig.width=6, fig.height=5}
 set.seed(42)
 tibble(x=rnorm(10000,0,500)) %>% 
   ggplot()+
@@ -92,13 +209,13 @@ tibble(x=rnorm(10000,0,500)) %>%
     axis.text.x = element_markdown())
 ```
 
-**Figure S1.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 1000 samples.
+**Figure S2.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 1000 samples.
 
 <br/>
 
 It's easy to see that this initial distribution of $\alpha$ would almost only allow sharp slopes, that take less than 20-50%$K$ to go from (nearly) 0 to (nearly) $d_{max}$, and disallow shallower slopes. This is not a choice that is ecologically sound in our opinion, hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \approx d_{max}$ flat functions.
 
-# S2 - How do we define the "range front"?
+# S3 - How do we define the "range front"?
 
 ```{r load-data}
 ### let's start by loading the data
@@ -111,7 +228,7 @@ We are interested in how traits at the front of the expansion are shaped by, and
 
 <br/>
 
-```{r fig-s2-1, fig.width=6, fig.height=8}
+```{r fig-s3-1, fig.width=6, fig.height=8}
 ##supplementary plot to explain arbitrary front size = 5
 
 #we use predispersal population size since that's when traits are recorded,
@@ -142,13 +259,13 @@ data %>%
   )
 ```
 
-**Figure S2.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate populations \< 5 patches from the edge from the others.
+**Figure S3.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate populations \< 5 patches from the edge from the others.
 
 <br/>
 
 We can see that a threshold where we consider all populations \< 5 patches from the edge as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing the precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
 
-# S3 - Checking velocity and evolutionary convergence
+# S4 - Checking velocity and evolutionary convergence
 
 ## Checking velocity convergence
 
@@ -179,7 +296,7 @@ speed_convergence <-data %>%
   ungroup()
 ```
 
-```{r fig-s3-1, fig.width=9, fig.height=8}
+```{r fig-s4-1, fig.width=9, fig.height=8}
 speed_convergence %>% 
   filter(overall_speed>0) %>% #can't divide by overall speed if it is 0
   ggplot()+
@@ -202,7 +319,7 @@ speed_convergence %>%
 ##we cut outliers <0 (negative speeds over intervals) and >5 for clarity
 ```
 
-**Figure S3.1**. Convergence of expansion velocity towards an equilibrium. Ratio of the velocity observed over a 20-generation interval and the velocity over the entire 120-generation run. y-axis is cut to [0-5] to better showcase the interquartile range.
+**Figure S4.1**. Convergence of expansion velocity towards an equilibrium. Ratio of the velocity observed over a 20-generation interval and the velocity over the entire 120-generation run. y-axis is cut to [0-5] to better showcase the interquartile range.
 
 <br/>
 
@@ -245,7 +362,7 @@ ddd_convergence <- evo_convergence %>%
             prop_midpoint=mean(is.fixed_midpoint))
 ```
 
-```{r fig-s3-2, fig.width=6, fig.height=8}
+```{r fig-s4-2, fig.width=6, fig.height=8}
 
 ggplot(ddd_convergence)+
   geom_line(aes(ticks,prop_midpoint),col="#1b9e77")+
@@ -263,13 +380,13 @@ ggplot(ddd_convergence)+
     strip.text.y = element_markdown())
 ```
 
-**Figure S3.2**. Proportion of replicates that have "spent" their initial genetic variation, as a function of time. Within a panel, each line represents a different trait, with midpoint ($\beta$) in [green]{style="color: #1b9e77;"}, slope ($\alpha$) in [orange]{style="color: #d95f02;"} and $d_{max}$ in [blue]{style="color: #7570b3;"} (the trajectories for all three traits are nearly identical).
+**Figure S4.2**. Proportion of replicates that have "spent" their initial genetic variation, as a function of time. Within a panel, each line represents a different trait, with midpoint ($\beta$) in [green]{style="color: #1b9e77;"}, slope ($\alpha$) in [orange]{style="color: #d95f02;"} and $d_{max}$ in [blue]{style="color: #7570b3;"} (the trajectories for all three traits are nearly identical).
 
 <br/>
 
 Using our operational definition of evolutionary "stability", we note that a very large majority of replicates have converged by the end of the experiment, especially in high fecundity replicates. In addition, we note that our definition of evolutionary stability excludes *de facto* cases of divergent selection, so the % of "evolutionary stable" expansions by $t$=100 generations, say, is possibly even higher.
 
-# S4 - Results but for fecundity = 1.5
+# S5 - Results but for fecundity = 1.5
 
 Here we reproduce the analyses and figures displayed in the main text Results, but for the low-fecundity scenarios.
 
@@ -294,7 +411,7 @@ tab_high<-tab_all %>%  #will be used in S5, might as well create it now
   filter(fecundity==5)
 ```
 
-Regarding model selection, it is interesting to see here that, while the conclusions are the same as for fecundity = 5 for velocity (the best model includes density-dependence post-evolution, whether we use *R^2^* or AICc as a criterion), things are a little bit more complex for genetic diversity. Here, while both evaluation metrics agree on the fact the best model must include density-dependence, they disagree on whether it should be post- or pre- evolution. Note that we still decided to build **Fig. S4.4** using traits measured pre-evolution, to be comparable with the main text **Fig. 4**.
+Regarding model selection, it is interesting to see here that, while the conclusions are the same as for fecundity = 5 for velocity (the best model includes density-dependence post-evolution, whether we use *R^2^* or AICc as a criterion), things are a little bit more complex for genetic diversity. Here, while both evaluation metrics agree on the fact the best model must include density-dependence, they disagree on whether it should be post- or pre- evolution. Note that we still decided to build **Fig. S5.4** using traits measured pre-evolution, to be comparable with the main text **Fig. 4**.
 
 ```{r velocity-models}
 ## OK so first we need to recreate all the models
@@ -499,11 +616,11 @@ modsel_diversity <- model.sel(list(
 
 <br/>
 
-```{r fig-s4-1-palette}
+```{r fig-s5-1-palette}
 mypalette <- c("#1b9e77","#d95f02","#7570b3")
 ```
 
-```{r fig-s4-1, fig.width=10, fig.height=5}
+```{r fig-s5-1, fig.width=10, fig.height=5}
 
 p2_1 <- modsel_velocity %>%
   filter(model_name != "mod_null") %>%
@@ -552,11 +669,11 @@ p2_2 <- modsel_diversity %>%
   )
 ```
 
-**Figure S4.1**. R^2^ of the different models used to analyse simulations outputs with respect to expansion velocity in the last 20 generations (left) and time to loss of neutral genetic diversity in the range front (right) (case where $r_{0}=\log(1.5)$, see **main text Fig. 2** for the case where $r_{0}=\log(5)$). Dashed line: R^2^for the "baseline" model containing only dispersal mortality (all models include dispersal mortality, and its interactions with the other covariates when present).
+**Figure S5.1**. R^2^ of the different models used to analyse simulations outputs with respect to expansion velocity in the last 20 generations (left) and time to loss of neutral genetic diversity in the range front (right) (case where $r_{0}=\log(1.5)$, see **main text Fig. 2** for the case where $r_{0}=\log(5)$). Dashed line: R^2^for the "baseline" model containing only dispersal mortality (all models include dispersal mortality, and its interactions with the other covariates when present).
 
 <br/>
 
-```{r fig-s4-2, fig.width=10, fig.height=5}
+```{r fig-s5-2, fig.width=10, fig.height=5}
 
 p2_1 <- modsel_velocity %>%
   filter(model_name != "mod_null") %>%
@@ -605,11 +722,11 @@ p2_2 <- modsel_diversity %>%
   )
 ```
 
-**Figure S4.2**. Same as **Figure S4.1** except with AICc as the model evaluation criterion. Note that this time, *lower* values denote better models.
+**Figure S5.2**. Same as **Figure S5.1** except with AICc as the model evaluation criterion. Note that this time, *lower* values denote better models.
 
 <br/>
 
-```{r fig-s4-3, fig.width=6, fig.height=7}
+```{r fig-s5-3, fig.width=6, fig.height=7}
 
 # we create a grid with the full range of d0 and mortalities
 # but assuming no density dependence (avgslope = 0)
@@ -667,11 +784,11 @@ p2 <- fitted_samples(mod_100, n = 1000, newdata = newdata, seed = 42, scale = "r
   )
 ```
 
-**Figure S4.3**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on expansion velocity, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 3** for the case where $r_{0}=\log(5)$). Predictions are based on the best model **Fig. S4.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
+**Figure S5.3**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on expansion velocity, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 3** for the case where $r_{0}=\log(5)$). Predictions are based on the best model **Fig. S5.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
 
 <br/>
 
-```{r fig-s4-4, fig.width=9, fig.height=7}
+```{r fig-s5-4, fig.width=9, fig.height=7}
 newdata <- tibble(
   start_avgslope = 0,
   start_d0 = c(0:50) / 100
@@ -769,11 +886,11 @@ p2 <- cbind(newdata, predict(mod_div_00, newdata = newdata)$fit) %>%
   )
 ```
 
-**Figure S4.4**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on the loss of neutral diversity at the range front, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 4** for the case where $r_{0}=\log(5)$). Darker shades of grey indicate later fixation times. Predictions are based on the best model **Fig. S4.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
+**Figure S5.4**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on the loss of neutral diversity at the range front, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 4** for the case where $r_{0}=\log(5)$). Darker shades of grey indicate later fixation times. Predictions are based on the best model **Fig. S5.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
 
 <br/>
 
-```{r fig-s4-5, fig.width=6, fig.height=6}
+```{r fig-s5-5, fig.width=6, fig.height=6}
 tab_low %>%
   filter(is.VP_dmax == 1) %>% # does not make sense to include replicates with no variation in dmax
   mutate(is.VP_DDD = factor(is.VP_DDD)) %>%
@@ -807,11 +924,11 @@ tab_low %>%
   )
 ```
 
-**Figure S4.5**. Evolutionary changes in mean dispersal capacity $d_{max}$ at the range front as a function of sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 5** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with the average values overlaid in black. Replicates with no individual variation in $d_{max}$ at $t=0$ are not displayed.
+**Figure S5.5**. Evolutionary changes in mean dispersal capacity $d_{max}$ at the range front as a function of sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 5** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with the average values overlaid in black. Replicates with no individual variation in $d_{max}$ at $t=0$ are not displayed.
 
 <br/>
 
-```{r fig-s4-6, fig.width=12, fig.height=5}
+```{r fig-s5-6, fig.width=12, fig.height=5}
 p11 <- tab_low %>%
   filter(is.VP_dmax == 1 & is.VP_DDD == 1) %>%
   ggplot() +
@@ -923,13 +1040,13 @@ p01 <- tab_low %>%
   )
 ```
 
-**Figure S4.6**. Evolutionary changes in mean density-dependence $\Delta_{avg-0}$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 6** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed. Grey-filled areas indicate impossible phenotypes, more specifically evolved values of $\Delta_{avg-0}$ that would imply dispersal rates higher than the maximal possible $d_{max}$ (1 if $d_{max}$ is variable among individuals, 0.5 if it is not).
+**Figure S5.6**. Evolutionary changes in mean density-dependence $\Delta_{avg-0}$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 6** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed. Grey-filled areas indicate impossible phenotypes, more specifically evolved values of $\Delta_{avg-0}$ that would imply dispersal rates higher than the maximal possible $d_{max}$ (1 if $d_{max}$ is variable among individuals, 0.5 if it is not).
 
 <br/>
 
-# S5 - An unconditionality metric
+# S6 - An unconditionality metric
 
-A key result from @travis2009 is that dispersal seems to become more density-independent at range edges. That is, the dispersal-density function becomes flat over a wider and wider range of densities. However, we find (see main text) that density-dependence relevant to pushed vs pulled expansions still exists after evolution at the range edge. How to reconcile this?
+A key result from @travisAcceleratingInvasionRates2009 is that dispersal seems to become more density-independent at range edges. That is, the dispersal-density function becomes flat over a wider and wider range of densities. However, we find (see main text) that density-dependence relevant to pushed vs pulled expansions still exists after evolution at the range edge. How to reconcile this?
 
 It is relatively easy actually: the first step is to see that "flat over a larger and larger range of densities" does not mean "uniformly flat". As long as dispersal is slightly lower at specifically low densities, pushed dynamics can still happen, even if dispersal is fully independent of density over the rest of possible densities. The second step is to define an actual unconditionality index, and to test the prediction that, despite our results, our expansions still tend to become unconditional, on average.
 
@@ -943,11 +1060,11 @@ $N = \{0, 0.1K, 0.2K,...,0.9K,K\}$,
 
 $u_{[approx]} = \frac{(\sum_{n \in N}f(n))/l}{\max\limits_{n \in N} f(n)}$.
 
-We can then easily see that evolution of dispersal matching traits ($\alpha$ and $\beta$) indeed leads dispersal to become more unconditional when fecundity is high (**Fig. S5.1**).
+We can then easily see that evolution of dispersal matching traits ($\alpha$ and $\beta$) indeed leads dispersal to become more unconditional when fecundity is high (**Fig. S6.1**).
 
 <br/>
 
-```{r fig-s5-1, fig.width=12, fig.height=5}
+```{r fig-s6-1, fig.width=12, fig.height=5}
 p11<- tab_high %>% 
   filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
   ggplot()+
@@ -1006,15 +1123,15 @@ p01<- tab_high %>%
 
 ```
 
-**Figure S5.1**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(5)$, see **Supplementary Figure S5.2** for the case where $r_{0}=\log(1.5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed.
+**Figure S6.1**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(5)$, see **Supplementary Figure S6.2** for the case where $r_{0}=\log(1.5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed.
 
 <br/>
 
-When fecundity is reduced, dispersal still becomes more unconditional with expansion, unless mortality costs are high (**Fig. S5.2**, below). Jointly with our main text result, this confirms that metrics specifically targeting differences to low-density behaviour are needed to understand pushed expansions.
+When fecundity is reduced, dispersal still becomes more unconditional with expansion, unless mortality costs are high (**Fig. S6.2**, below). Jointly with our main text result, this confirms that metrics specifically targeting differences to low-density behaviour are needed to understand pushed expansions.
 
 <br/>
 
-```{r fig-s5-2, fig.width=12, fig.height=5}
+```{r fig-s6-2, fig.width=12, fig.height=5}
 p11<- tab_low %>% 
   filter(is.VP_dmax==1 & is.VP_DDD==1) %>% 
   ggplot()+
@@ -1073,7 +1190,7 @@ p01<- tab_low %>%
 
 ```
 
-**Figure S5.2**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **Supplementary Figure S5.1** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed.
+**Figure S6.2**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **Supplementary Figure S6.1** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed.
 
 <br/>
 
