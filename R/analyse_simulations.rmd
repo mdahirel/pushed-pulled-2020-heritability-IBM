@@ -211,14 +211,10 @@ tab_all <- tab_front %>%
   mutate(advance = edge_pxcor_120 - edge_pxcor_100)
 
 write_csv(tab_all, here("R_output", "processed_data_all_fecundities.csv"))
+# export to be usable by supplementary.md
 ```
 
-```{r reimport}
-
-# TO DO: add a read_csv to re-import
-# with code to reconvert fixinterval to ordered factor and
-# mortality to factor
-```
+IMPORTANT! if you read the `processed_data_all_fecundities.csv` file back into R, the **first** thing to do is tell R `mortality` is a factor and `fixinterval` is an ordered factor, or else it will read them as numeric variables and this will break all sorts of stuff (see how this is done in `supplementary.rmd`)
 
 # Figures and analyses
 
@@ -390,7 +386,8 @@ mod_100 <- gam(cbind(advance, 20 - advance) ~
                  s(mean_d0_100, by = mortality) +
                  s(mean_avgslope_100, by = mortality) +
                  mortality,
-               family = binomial, data = tab, method = "REML"
+               family = binomial, data = tab, method = "REML" 
+               # we follow e.g. Pedersen et al 10.7717/peerj.6876 in using REML for GAMs
 )
 
 mod_100_K <- gam(cbind(advance, 20 - advance) ~
@@ -439,32 +436,31 @@ mod_null <- gam(cbind(advance, 20 - advance) ~
 If you look at the model diagnostics, you'll see data look a bit underdispersed, compared to the model. Yes, *under*dispersed,
 
 ```{r}
-## function is copied unmodified from Ben Bolker FAQ 
+## function is copied from Ben Bolker FAQ 
 ## https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#overdispersion
+## with only one modification to test for under instead of overdispersion
 overdisp_fun <- function(model) {
   rdf <- df.residual(model)
   rp <- residuals(model, type = "pearson")
   Pearson.chisq <- sum(rp^2)
   prat <- Pearson.chisq / rdf
-  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = FALSE)
+  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = TRUE) #lower.tail = TRUE instead of FALSE is the only change
   c(chisq = Pearson.chisq, ratio = prat, rdf = rdf, p = pval)
 }
 
-overdisp_fun(mod_100) 
-## note: we can ignore the p value, it's for a test of overdispersion
-## the ratio is what matters
+overdisp_fun(mod_100)
 ```
 
 See also comment from Bob Carpenter here: https://discourse.mc-stan.org/t/underdispersed-binomial-glm/1540
 
-The general idea is that underdispersion relative to the binomial may be the sign that the trials that are collapsed together for each response (the generations, here) are not independent. This makes sense here: probability of advancing depend on densities at the front, and we can expect these to be temporally autocorrelated.  Intuitively this should not be as big a problem as overdispersion: underdispersion means the model will exaggerates variance compared to data, which should lead to more conservative results?
+The general idea is that underdispersion relative to the binomial may be the sign that the trials that are collapsed together for each response (the generations, here) are not independent. This makes sense here: probability of advancing depends on densities at the front, and we can expect these to be temporally autocorrelated.  Intuitively this should not be as big a problem as overdispersion: underdispersion means the model will exaggerate variance compared to data, which should lead to more conservative results?
 
 But to be sure, let's use an ordinal model as a quick comparison: 
 (see e.g. https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#underdispersion)
 
 ```{r}
 tab_ordinal <-  tab %>% 
-  mutate(scale_d0_100=scale(mean_d0_100)[,1], #standardisation only used for the brms check
+  mutate(scale_d0_100=scale(mean_d0_100)[,1],
          scale_d0_start=scale(start_d0)[,1],
          s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
          s_avgslope_start=start_avgslope/sd(start_avgslope),
@@ -483,7 +479,7 @@ If you compare the summary of the ordinal model with the effect plot of the bino
 
 ### velocity: model selection among GAMs
 
-To find out which of our seven GAMs is the best, let's make a model selection table. We first create function to extract % of deviance explained and R^2^ from the model object, to add them to the selection table:
+To find out which of our seven GAMs is the best, let's make a model selection table. We first create a function to extract % of deviance explained and R^2^ from the model objects, to add them to the selection table:
 
 ```{r GAM-R2}
 gam_dev.expl <- function(mod) {
@@ -534,11 +530,11 @@ modsel_velocity <- model.sel(list(
 modsel_velocity
 ```
 
-It is extremely clear here what model is the best, independently of the criterion used (density-dependence included, shape-dependent, post-evolution). We keep that in mind for later, and move to the analysis of genetic diversity data.
+It is extremely clear here what model is the best, independently of the criterion used (it is "density-dependence included, shape-dependent, post-evolution"). We keep that in mind for later, and move to the analysis of genetic diversity data.
 
 ### genetic diversity: fitting ordinal models
 
-Our measure of the capacity of expansions to keep **neutral** genetic diversity at the front is... the time they take to lose it, i.e. having only one allele at the front. This is time to event, so it should be easy to analyse using survival models. Except we only sampled expansions every 20 generations to save memory. But no worry, this is where discrete time-to-event models come to the rescue. A simple way to fit these is to fit an ordinal model, especially with a cloglog link, since it becomes basically a discrete proportional hazards model. So let's do that, with seven model structures, just like velocity:
+Our measure of the capacity of expansions to keep **neutral** genetic diversity at the front is... the time they take to lose it, i.e. having only one allele at the front. This is time to event data, so it should be easy to analyse using survival models. Except we only sampled expansions every 20 generations to save memory. But no worry, this is where discrete time-to-event models come to the rescue. A simple way to fit these is to fit an ordinal model, especially with a cloglog link, since it becomes basically a discrete proportional hazards model (see e.g. Bürkner and Vuorre 2019 doi: 10.1177/2515245918823199). So let's do that, with seven model structures, just like velocity:
 
 ```{r genetic-models}
 mod_div_00 <- clm(fixinterval ~
@@ -602,7 +598,7 @@ clm_pseudo_r2 <- function(model, data = tab) { ##given a model and the *original
   #it gets us probabilities for each categories, we sum them to get the rank of the average category
   preds <- 1 * pp[, 1] + 2 * pp[, 2] + 3 * pp[, 3] + 4 * pp[, 4] + pp[, 5] + 6 * pp[, 6] + 7 * pp[, 7]
   obs <- as.numeric(data$fixinterval)
-  # the we use that and the rank of the observed category in a linear regression
+  # then we use that and the rank of the observed category in a linear regression
   return(summary(lm(obs ~ preds))$r.squared)
 }
 ```
@@ -886,10 +882,10 @@ tab %>%
   stat_summary(aes(is.VP_DDD, mean_dmax_100),
     fun = "mean", fun.min = "mean", fun.max = "mean", size = 1
   ) +
-  scale_x_discrete("sources of individual variation",
+  scale_x_discrete("individual variation in dispersal traits",
     labels = c(
-      "*d<sub>max</sub>* only",
-      "*&alpha;*, *&beta;*, and *d<sub>max</sub>*"
+      "in *d<sub>max</sub>* only",
+      "in *&alpha;*, *&beta;*, and *d<sub>max</sub>*"
     )
   ) +
   scale_y_continuous("Mean *d<sub>max</sub>* at the front at *t* = 100") +
@@ -922,6 +918,8 @@ Finally, it is possible to identify regions of plotted space that are impossible
 p11 <- tab %>%
   filter(is.VP_dmax == 1 & is.VP_DDD == 1) %>%
   ggplot() +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   # denoting the strategies that are possible (davg>dmax not possible):
   geom_ribbon(   #shading impossible region
     data = tibble(x = c(-100:100) / 100),
@@ -950,11 +948,19 @@ p11 <- tab %>%
   ) +
   labs(title = "C: Individual variation in *&alpha;*, *&beta;*, and *d<sub>max</sub>*") +
   scale_y_continuous("") +
-  scale_x_continuous("")
+  scale_x_continuous("Mean density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
+  facet_grid(
+    rows = vars(paste("*m* =", dispersal_mortality)),
+    cols = vars(paste("*h^2* =", heritability))
+  )+
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  theme_bw()
 
 p10 <- tab %>%
   filter(is.VP_dmax == 1 & is.VP_DDD == 0) %>%
   ggplot() +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   geom_ribbon(
     data = tibble(x = c(-100:100) / 100),
     aes(x = x, ymin = 1 - x, ymax = 1),
@@ -981,11 +987,19 @@ p10 <- tab %>%
   ) +
   labs(title = "B: Individual variation in *d<sub>max</sub>*") +
   scale_x_continuous("Mean density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
-  scale_y_continuous("")
+  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at front between *t* = 0 and *t* = 100") +
+  facet_grid(
+    rows = vars(paste("*m* =", dispersal_mortality)),
+    cols = vars(paste("*h^2* =", heritability))
+  )+
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  theme_bw()
 
 p01 <- tab %>%
   filter(is.VP_dmax == 0 & is.VP_DDD == 1) %>%
   ggplot() +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_vline(xintercept = 0, lty = 2) +
   geom_ribbon(
     data = tibble(x = c(-100:100) / 100),
     aes(x = x, ymin = 0.5 - x, ymax = 1), # impossible space larger because dmax cannot evolve
@@ -1009,18 +1023,41 @@ p01 <- tab %>%
   method = "lm",
   col = "black", fill = "#d95f02"
   ) +
-  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at the front between *t* = 0 and *t* = 100") +
+  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at front between *t* = 0 and *t* = 100") +
   scale_x_continuous("") +
-  ggtitle("A: Individual variation in *&alpha;* and *&beta;*")
-
-(p01 + p10 + p11) &
-  geom_hline(yintercept = 0, lty = 2) &
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) &
+  ggtitle("A: Individual variation in *&alpha;* and *&beta;*") + 
   facet_grid(
     rows = vars(paste("*m* =", dispersal_mortality)),
     cols = vars(paste("*h^2* =", heritability))
-  ) &
-  theme_bw() &
+  )+
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  theme_bw()
+
+
+p_explainer <- ggplot()+
+  geom_tile(aes(x=0,y=0,width=2.2,height=2),fill="white",col="black")+
+  scale_x_continuous("",breaks=0)+
+  scale_y_continuous("",breaks=0)+
+  geom_segment(aes(x=0,xend=0,y=1,yend=-1),lty=2) +
+  geom_segment(aes(x=-1.1,xend=1.1,y=0,yend=0),lty=2) +
+  geom_label(aes(x=0.55,y=-1,label="starts \n(more) pushed"),size=3.5)+
+  geom_label(aes(x=-0.5,y=-1,label="starts \n(more) pulled"),size=3.5)+
+  geom_label(aes(x=-1.2,y=0.37,label="becomes \n(more) pushed"),size=3.5)+
+  geom_label(aes(x=-1.2,y=-0.37,label="becomes \n(more) pulled"),size=3.5)+
+  coord_cartesian(xlim = c(-1.6, 1.5), ylim = c(-1.4, 1.4))+
+  theme_void()
+
+layout <- "
+AAA###
+AAABBB
+AAABBB
+CCCDDD
+CCCDDD
+CCCDDD
+"
+
+ p01 + p_explainer + p10 + p11 + 
+  plot_layout(design = layout) &
   theme(
     strip.text.x = element_markdown(),
     strip.text.y = element_markdown(),
