@@ -14,7 +14,7 @@ globals[
   ;; fixed once set up
 
   ;; parameters shaping the initial distributions of traits
-  logit_start_dmax     ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
+  logit_start_dmax      ;; a placeholder global variable used to translate the initial maximal dispersal rate (entered on the probability scale as it's easier) to the logit scale
   VA_logit_dmax         ;; initial genetic additive variance of logit(dmax)
   VR_logit_dmax         ;; residual (i.e. environmental) variance of logit(dmax)
   VA_slope              ;; initial genetic additive variance of the dispersal-density reaction norm slope
@@ -817,32 +817,32 @@ HORIZONTAL
 @#$#@#$#@
 # Range expansion model
 
+Please notice that this model is made to be used and analyzed through the R software ( version 4.1.0, R Core Team 2021), and nlrx package (Salecker et al. 2019). This NetLogo model is not fully independent from the rest of its repository (GitHub repository link: to add).
+
 ## WHAT IS IT?
 
-This is a general spatial range expansion model, designed to study what leads to pushed versus pushed range expansions, and the possible evolutionary consequences.
+This is a general spatial range expansion model, designed to study how trait distribution at the start of an expansion can shape evolutionary dynamics, and therefor influencing expansion velocity on "small" population sizes.
 
-This model is designed to operate at "low" densities (equilibrium population size < 1000), at least several orders of magnitude lower than the one classically used in the theoretical literature, which are adapted to microbial species, but may not be applicable to macroscopic species with lower population sizes.
+We specifically focus on traits driving the position of expansions on the pushed/pulled continuum (Birzu et al., 2018, 2019), namely traits describing the shape of the density-dispersal function. 
 
-From an initial population, haploid individuals reproduce, compete and disperse and as a result the species colonizes the landscape.
+The model allows for density-dependency in dispersal and growth, as well as individual variation and stochasticity in dispersal and growth. Traits heritability and phenotypic variances values can also be changed.
 
-The model allows for density-dependency in dispersal and growth, as well as individual variation in dispersal and growth.
-
-When there is individual variation in traits, evolution can be activated (individuals inherit their parental allele) or turned down (trait values are drawn at random every generation).
 
 ## HOW IT WORKS
 
 (what rules the agents use to create the overall behavior of the model)
 
 ### Set-up phase
-The model is initiated by placing K adult individuals in the patch of coordinates pxcor 0 and pycor 0, and setting their phenotypic traits from the distribution described by parameters, and by drawing the allele at the neutral locus from a Bernoulli distribution with p = 0.5.
+The model is initiated by placing K adult individuals that are yet to reproduce or disperse in the patch of coordinates pxcor 0 and pycor 0, and by drawing the allele at the neutral locus from a Bernoulli distribution with p = 0.5. Their phenotypic dispersal traits are initialized by summing a genetical and a noise component both drawn from normal distributions. 
+
+Secondary individual-level statistics are calculated using those dispersal traits.
 
 ### Go phase
 Individuals then live the following life cycle:
 
--once adults, they disperse or not based on their dispersal-density reaction norm and current patch population size
+-once adults, they disperse or not with a probability d, depending on their individual traits and current patch population size. This dispersal function is based on Kun and Scheuring 2006
 
--they reproduce clonally and transmit their neutral allele (and in the evolutionary setting trait alleles to offspring
-the fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
+-they reproduce clonally or sexually and transmit their neutral allele and genetic values to offspring without any mutation. The noise component is drawn again from a normal distribution. The fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
 
 -they die
 
@@ -855,14 +855,18 @@ the fecundity formula directly gives the number of offspring post-competition in
 
 The following global parameters can be set up in the Interface tab:
 
-- *trait_variation*: two settings; whether or not phenotypic traits are re-drawn at random at each generation, blocking evolutionary change
 - *K*: (average) carrying capacity/ equilibrium population density
 - *duration*: duration of a run, in generations
-- *disp0_mean*: average dispersal rate at the start of the run
-- *slope_disp_mean*: slope of the relationship between relative density (population size/K) and dispersal rate **on the logit scale**
-- *logit_disp0_sd*: standard deviation of the distribution of dispersal rates at the start of the run **on the logit scale**
-- *slope_disp_sd*: standard deviation of the distribution of dispersal reaction norm slopes at the start of the run **on the logit scale**
-- *fecundity*: average fecundity at the start of the run
+- *fecundity*: average growth rate at the start of the run
+- *heritability*: traits heritability
+- *start_dmax*: initial average maximal dispersal probability
+- *start_slope*: initial average relative slope parameter of the dispersal-density function
+- *start_midpoint*: initial average midpoint (dispersal probability 50% of dmax) of the dispersal-density function
+- *VP_logit_dmax*: initial phenotypic variance for dmax (on a logit scale)
+- *VP_slope*: initial phenotypic variance for slope parameter
+- *VP_midpoint*: initial phenotypic variance for midpoint
+- *dispersal mortality*: mortality during dispersal
+- *reproduction*: either clonal or sexual (where both individuals reproduce) reproduction
 
 ### Landscape window
 
@@ -870,36 +874,36 @@ The landscape window shows the progression of the current wave through the lands
 
 ### Report graphs
 
-Because the model is designed to be analysed through R (package nlrx), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added
-(suggestions: front position (or maximal x coordinate of patch with at least 1 individual) through time
-Genetic diversity (formula for expected heterozygosity when 2 alleles = 2pq where p and q are allelic proportions) in front patch through time)
-
+Because the model is designed to be analysed through R (package nlrx), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added (see suggestions in "extending the model")
 
 
 ## THINGS TO NOTICE
 
 (suggested things for the user to notice while running the model)
 
+There is not many thing to notice in the interface, as the model is not meant to be analyzed through it, but it is always possible to observe a qualitative expansion success depending on different parameter combinations with the landscape window
 
-- to do
 
 ## THINGS TO TRY
 
 (suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
-- to do
+Even if the model is made to be analyzed with R, and we invite you to run it through the nlrx package, you can try to see what happen when reproduction is set to clonal or sexual, or compare expansion with different levels of heritability
+
 
 ## EXTENDING THE MODEL
 
 (suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
 
-More complex evolutionary dynamics:
-- dispersal/growth trade-offs
-- heritability values different from 0 (implied in current "reshuffled" mode) or 1 (implied in current "evolutionary" mode)
+- More complex evolutionary dynamics, dispersal/growth trade-offs
 
-Landscape heterogeneity in space and or time
+- Landscape heterogeneity in space and or time
 
-Invasions in 2D space
+- Invasions in 2D space
+
+- Add graphs: 
+	- front position (or maximal x coordinate of patch with at least 1 individual) through time
+	- Genetic diversity (formula for expected neutral heterozygosity when 2 alleles = 2pq where p and q are allelic proportions) in front and/or core patch through time)
 
 ## NETLOGO FEATURES
 
@@ -914,6 +918,16 @@ Invasions in 2D space
 ## CREDITS AND REFERENCES
 
 (a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+
+Birzu, G., Hallatschek, O., & Korolev, K. S. (2018). Fluctuations uncover a distinct class of traveling waves. *Proceedings of the National Academy of Sciences*, 115(16), E3645–E3654
+
+Birzu, G., Matin, S., Hallatschek, O., & Korolev, K. S. (2019). Genetic drift in range expansions is very sensitive to density dependence in dispersal and growth. *Ecology Letters*, 22(11), 1817–1827
+
+Kun, Á., & Scheuring, I. (2006). The evolution of density-dependent dispersal in a noisy spatial population model. *Oikos*, 115(2), 308–320
+
+R Core Team. (2021). *R: a language and environment for statistical computing* (Version 4.0.4) [Computer software]. R Foundation for Statistical Computing. https://www.R-project.org/
+
+Salecker, J., Sciaini, M., Meyer, K. M., & Wiegand, K. (2019). The nlrx R package: a next-generation framework for reproducible NetLogo model analyses. *Methods in Ecology and Evolution*, 10(11), 1854–1863.
 
 written by Maxime Dahirel, from an initial Matlab model by Marjorie Haond
 DOI: https://doi.org/10.5281/zenodo.3702252
