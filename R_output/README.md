@@ -1,5 +1,3 @@
+# Saved R outputs
 
-
-repo for the "dispersal heritability and consequences for expansion pushiness" project
-
-avec Chloé
+This is where some outputs produced when running the R analysis code (`analyse_simulations`) are saved.
