@@ -815,36 +815,37 @@ NIL
 HORIZONTAL
 
 @#$#@#$#@
-# Range expansion model
+# A one-dimensional range expansion model with dispersal evolution
 
-Please notice that this model is made to be used and analyzed through the R software ( version 4.1.0, R Core Team 2021), and nlrx package (Salecker et al. 2019). This NetLogo model is not fully independent from the rest of its repository (GitHub repository link: to add).
+written by Maxime Dahirel and Chloé Guicharnaud, building on and expanding the basic simulation model in Dahirel et al. (2021)
+
+Please note that this model is made to be used and analyzed through R (versions 4.1.0 and higher, R Core Team 2021), using the `nlrx` package (Salecker et al. 2019). As a result, while code from this NetLogo model can be run as a standalone, it is not fully independent from the rest of its repository.
 
 ## WHAT IS IT?
 
-This is a general spatial range expansion model, designed to study how trait distribution at the start of an expansion can shape evolutionary dynamics, and therefor influencing expansion velocity on "small" population sizes.
+This is a general spatial range expansion model, designed to study how trait distribution at the start of an expansion can shape evolutionary dynamics, and therefore influencing expansion velocity on "small" population sizes (small here is meant by contrast to the functionally infinite sizes in many theoretical models).
 
 We specifically focus on traits driving the position of expansions on the pushed/pulled continuum (Birzu et al., 2018, 2019), namely traits describing the shape of the density-dispersal function. 
 
-The model allows for density-dependency in dispersal and growth, as well as individual variation and stochasticity in dispersal and growth. Traits heritability and phenotypic variances values can also be changed.
-
+The model allows for highly flexible density-dependency as well as individual variation in dispersal. Growth rates decline with increased population sizes (Allee effects are *not* supported). Both dispersal and growth are stochastic. Traits heritability and phenotypic variances values can also be changed. Reproduction can be set to be clonal or sexual.
 
 ## HOW IT WORKS
 
 (what rules the agents use to create the overall behavior of the model)
 
 ### Set-up phase
-The model is initiated by placing K adult individuals that are yet to reproduce or disperse in the patch of coordinates pxcor 0 and pycor 0, and by drawing the allele at the neutral locus from a Bernoulli distribution with p = 0.5. Their phenotypic dispersal traits are initialized by summing a genetical and a noise component both drawn from normal distributions. 
-
-Secondary individual-level statistics are calculated using those dispersal traits.
+The model is initiated by introducing *K* adult individuals that are yet to reproduce or disperse in the patch of coordinates `pxcor` 0 and `pycor` 0, and by drawing their allelic values at the neutral locus from a Bernoulli distribution with *p* = 0.5. Their three phenotypic dispersal traits are initialized by summing a genetic and a noise component both drawn from Normal distributions.
 
 ### Go phase
 Individuals then live the following life cycle:
 
--once adults, they disperse or not with a probability d, depending on their individual traits and current patch population size. This dispersal function is based on Kun and Scheuring 2006
+- once adults, they disperse or not with a probability *d*, depending on their individual traits and current patch population size. This dispersal function is directly based on Kun and Scheuring (2006). It is basically a three parameter logistic function with two parameters (here termed `slope` and `midpoint`) influencing the shape of the function, and one parameter (here `dmax`) being the asymptote and describing the maximum possible dispersal rate for the individual.
 
--they reproduce clonally or sexually and transmit their neutral allele and genetic values to offspring without any mutation. The noise component is drawn again from a normal distribution. The fecundity formula directly gives the number of offspring post-competition in one step, to avoid wasting computing power by creating individuals that would then be killed
+- they reproduce clonally or sexually and transmit their neutral allele(s) and genetic values to offspring without any mutation. If they reproduce sexually, they choose a partner at random among individuals in the same patch (all are hermaphrodite). The noise components for each traits are drawn again from Normal distributions. The number of offspring is drawn from a Poisson distribution, with the mean based on a Ricker model (and thus depending on local population density). As a simplification, the result is directly the number of offspring post-competition in one step (no explicit juvenile competition phase), to avoid wasting computing power by creating individuals that would then be killed.
 
--they die
+- they die
+
+Meanwhile the model records various patch-level summaries (about genetic diversity, mean and variances of trait values, population sizes), to be exported and used in further analyses.
 
 
 ## HOW TO USE IT
@@ -855,40 +856,40 @@ Individuals then live the following life cycle:
 
 The following global parameters can be set up in the Interface tab:
 
-- *K*: (average) carrying capacity/ equilibrium population density
-- *duration*: duration of a run, in generations
-- *fecundity*: average growth rate at the start of the run
-- *heritability*: traits heritability
-- *start_dmax*: initial average maximal dispersal probability
-- *start_slope*: initial average relative slope parameter of the dispersal-density function
-- *start_midpoint*: initial average midpoint (dispersal probability 50% of dmax) of the dispersal-density function
-- *VP_logit_dmax*: initial phenotypic variance for dmax (on a logit scale)
-- *VP_slope*: initial phenotypic variance for slope parameter
-- *VP_midpoint*: initial phenotypic variance for midpoint
-- *dispersal mortality*: mortality during dispersal
-- *reproduction*: either clonal or sexual (where both individuals reproduce) reproduction
+- `K`: (average) carrying capacity/ equilibrium population density
+- `duration`: duration of a run, in generations
+- `fecundity`: average growth rate at the start of the run
+- `heritability`: **initial** traits heritability. For simplicity, we assume all three dispersal traits have the same
+- `start_dmax`: **initial** average maximal dispersal probability
+- `start_slope`: **initial** average relative slope parameter of the dispersal-density function
+- `start_midpoint`: **initial** average midpoint (density at which dispersal probability *d* is 50% of `dmax`) of the dispersal-density function
+- `VP_logit_dmax`: **initial** phenotypic variance for `dmax` (on a logit scale)
+- `VP_slope`: **initial** phenotypic variance for `slope` parameter
+- `VP_midpoint`: **initial** phenotypic variance for `midpoint`
+- `dispersal mortality`: mortality during dispersal (conditional on the individual actually dispersing)
+- `reproduction`: either clonal or sexual (assume hermaphrodite species) reproduction
 
 ### Landscape window
 
-The landscape window shows the progression of the current wave through the landscape. The whiter the patch, the larger the population, empty patches are black.
+The landscape window shows the progression of the current wave through the 1D landscape. The whiter the patch, the larger the population, empty patches are black.
 
 ### Report graphs
 
-Because the model is designed to be analysed through R (package nlrx), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added (see suggestions in "extending the model")
+Because the model is designed to be analysed through R (package `nlrx`), there is only one graph in the Interface tab, showing the total metapopulation size through time. But more can easily be added (see suggestions in "extending the model")
 
 
 ## THINGS TO NOTICE
 
 (suggested things for the user to notice while running the model)
 
-There is not many thing to notice in the interface, as the model is not meant to be analyzed through it, but it is always possible to observe a qualitative expansion success depending on different parameter combinations with the landscape window
+There is not many things to notice in the interface, as the model is not meant to be analyzed through it, but it is always possible to manually vary the initial parameter combinations and observe a qualitative expansion success or failure.
 
 
 ## THINGS TO TRY
 
 (suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
-Even if the model is made to be analyzed with R, and we invite you to run it through the nlrx package, you can try to see what happen when reproduction is set to clonal or sexual, or compare expansion with different levels of heritability
+Even if the model is made to be analyzed with R, and we invite you to run it through the `nlrx` package, you can try to see what happen when reproduction is set to clonal or sexual, or compare expansion with different levels of heritability
 
 
 ## EXTENDING THE MODEL
@@ -902,8 +903,8 @@ Even if the model is made to be analyzed with R, and we invite you to run it thr
 - Invasions in 2D space
 
 - Add graphs: 
-	- front position (or maximal x coordinate of patch with at least 1 individual) through time
-	- Genetic diversity (formula for expected neutral heterozygosity when 2 alleles = 2pq where p and q are allelic proportions) in front and/or core patch through time)
+	- front position (or maximal *x* coordinate of patch with at least 1 individual) through time
+	- Genetic diversity (formula for expected neutral heterozygosity when 2 alleles = 2*pq* where *p* and *q* are allelic proportions) in front and/or core patches through time
 
 ## NETLOGO FEATURES
 
@@ -919,18 +920,19 @@ Even if the model is made to be analyzed with R, and we invite you to run it thr
 
 (a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 
-Birzu, G., Hallatschek, O., & Korolev, K. S. (2018). Fluctuations uncover a distinct class of traveling waves. *Proceedings of the National Academy of Sciences*, 115(16), E3645–E3654
+GitHub repository for the model: https://github.com/mdahirel/pushed-pulled-2020-heritability-IBM
 
-Birzu, G., Matin, S., Hallatschek, O., & Korolev, K. S. (2019). Genetic drift in range expansions is very sensitive to density dependence in dispersal and growth. *Ecology Letters*, 22(11), 1817–1827
+Birzu, G., Hallatschek, O., & Korolev, K. S. (2018). Fluctuations uncover a distinct class of traveling waves. *Proceedings of the National Academy of Sciences*, 115: E3645–E3654. https://doi.org/10.1073/pnas.1715737115
 
-Kun, Á., & Scheuring, I. (2006). The evolution of density-dependent dispersal in a noisy spatial population model. *Oikos*, 115(2), 308–320
+Birzu, G., Matin, S., Hallatschek, O., & Korolev, K. S. (2019). Genetic drift in range expansions is very sensitive to density dependence in dispersal and growth. *Ecology Letters*, 22: 1817–1827. https://doi.org/10.1111/ele.13364
 
-R Core Team. (2021). *R: a language and environment for statistical computing* (Version 4.0.4) [Computer software]. R Foundation for Statistical Computing. https://www.R-project.org/
+Dahirel, M., Bertin, A., Haond, M., Blin, A., Lombaert, E., Calcagno, V., Fellous, S., Mailleret, L., Malausa, T. and Vercken, E. (2021), Shifts from pulled to pushed range expansions caused by reduction of landscape connectivity. *Oikos*, 130: 708-724. https://doi.org/10.1111/oik.08278
 
-Salecker, J., Sciaini, M., Meyer, K. M., & Wiegand, K. (2019). The nlrx R package: a next-generation framework for reproducible NetLogo model analyses. *Methods in Ecology and Evolution*, 10(11), 1854–1863.
+Kun, Á., & Scheuring, I. (2006). The evolution of density-dependent dispersal in a noisy spatial population model. *Oikos*, 115: 308–320. https://doi.org/10.1111/j.2006.0030-1299.15061.x
 
-written by Maxime Dahirel, from an initial Matlab model by Marjorie Haond
-DOI: https://doi.org/10.5281/zenodo.3702252
+R Core Team. (2021). *R: a language and environment for statistical computing* [Computer software]. R Foundation for Statistical Computing. https://www.R-project.org/
+
+Salecker, J., Sciaini, M., Meyer, K. M., & Wiegand, K. (2019). The nlrx R package: a next-generation framework for reproducible NetLogo model analyses. *Methods in Ecology and Evolution*, 10: 1854–1863. https://doi.org/10.1111/2041-210X.13286
 @#$#@#$#@
 default
 true
