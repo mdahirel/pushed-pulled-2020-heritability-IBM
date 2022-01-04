@@ -1,5 +1,3 @@
+# NetLogo outputs
 
-
-repo for the "dispersal heritability and consequences for expansion pushiness" project
-
-avec Chloé
+This is where the files produced after running the simulations (using `R/generate_simulations.Rmd`) are saved.
