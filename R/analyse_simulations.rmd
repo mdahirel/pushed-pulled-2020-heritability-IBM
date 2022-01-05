@@ -89,9 +89,7 @@ tab_annotation=tab_intermediate %>%
     fecundity) %>% 
   distinct()
 
-## code slows down *a lot* here for a while, probably due to the size of the summarise call
-## tried to fix it a bit, but not worth investing more time
-## so expect a wait time of about 5min here before the code carries on:
+## code may slow down here for a while, probably due to the size of the summarise call
 
 tab_front <- tab_intermediate %>%
   select(replicateID,ticks,

@@ -22,7 +22,7 @@ library(tidyverse) # CRAN v1.3.1
 library(here)      # CRAN v1.0.1     
 ```
 
-This is the code used to "talk" with the NetLogo simulation and make it run the experiment described in the Methods of the Manuscript (see there and the Info pane of the NetLogo model for details). Briefly, we simulate asexual haploid individuals spreading in a linear discrete landscape. Runs differ on whether individuals very or not in traits shaping dispersal and its density-dependence, on whether that variation is heritable (and how much), and on the costs of dispersal.
+This is the code used to "talk" with the NetLogo simulation and make it run the experiment described in the Methods and Supplementary Materials of the Manuscript (see there and the Info pane of the NetLogo model for details). Briefly, we simulate asexual haploid individuals spreading in a linear discrete landscape. Runs differ on whether individuals very or not in traits shaping dispersal and its density-dependence, on whether that variation is heritable (and how much), and on the costs of dispersal.
 
 # Setup
 
@@ -56,7 +56,7 @@ Then, let's set the experimental design:
 - `fecundity` is the theoretical mean *per capita* fecundity at density 0
 - `K` is patch carrying capacity
 
-Again, see the Methods and the Info pane for more details.
+Again, see the Methods, Supplementary Materials and the Info pane for more details.
 
 ```{r design-grid}
 ### designing the experiment
@@ -142,9 +142,10 @@ And we're go for running the simulations! We set a "distinct" simulation design 
 
 ```{r running-simulations}
 
-# set.seed(1989) ## we can set a seed here to guarantee the seeds selected below are the same everytime
+# set.seed(1989) ## we can set a seed here to guarantee the set of seeds selected below in nseeds is the same everytime
 nl_object@simdesign <- simdesign_distinct(nl = nl_object, nseeds = nreplicates)
-nl_object@simdesign@simseeds <- 1:nreplicates # or we can force rewrite the nseeds here (to guarantee they are all actually different)
+nl_object@simdesign@simseeds <- 1:nreplicates # or we can force rewrite the nseeds here 
+#(to guarantee they are all actually different)(sometimes when drawing seeds at random you will have duplicates when you don't want to)
 length(unique(nl_object@simdesign@simseeds)) == nreplicates # either way, check that all generated seeds are different
 exp_h2 <- run_nl_all(nl_object)
 
