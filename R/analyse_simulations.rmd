@@ -169,8 +169,8 @@ tab_genet <- tab_intermediate %>%
   # (see above how tab_intermediate was built)
   # and now sum the individuals with each neutral allele within the front
   summarise(
-    N_allele0 = sum(N_allele0_post),
-    N_allele1 = sum(N_allele1_post)
+    N_allele0 = sum(N_allele0_pre),
+    N_allele1 = sum(N_allele1_pre)
   ) %>%
   ungroup() %>%
   # for each time x replicate combination, genetic diversity is lost if

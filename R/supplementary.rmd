@@ -37,9 +37,11 @@ library(here)        # CRAN v1.0.1
 # S1 - Detailed description of the individual-based model in the ODD format
 
 <!--TO COMPLETE/UPDATE-->
-## Purpose
+## Purpose and patterns <!--check last odd paper for names of parts-->
 
 The model simulates asexual individuals reproducing and dispersing in a linear landscape following an initial introduction, in order to approximate processes at play during natural and experimental range expansions. The aim is to gather insights into how evolutionary dynamics (neutral diversity and especially dispersal-related traits) are shaped by trait distribution (means and variances) at the start of the expansion, and how they influence expansion velocity in turn. We specifically focus on traits driving the position of expansions on the pushed/pulled continuum [@birzuFluctuationsUncoverDistinct2018; @birzuGeneticDriftRange2019], namely traits describing the shape of the density-dispersal function. Importantly, dispersal and reproduction are stochastic. The focus of the model is on studying the effects of initial trait variation at introduction; as such there is no mutation, for simplicity.
+
+<!--To judge model usefulness, we observe the ability of our model to reproduce general patterns expected from pulled and pushed expansions theory, like a slower neutral genetic loss with a higher expansion velocity in case of positive density-dependent dispersal [see @birzuGeneticDriftRange2019].-->
 
 ## Entities, state variables and scale
 
@@ -53,14 +55,14 @@ Individuals are haploid and reproduce asexually, and can vary in:
 
 We note that the model as it is coded and made available (**Data availability**) is more general and allows the use of diploid, sexually reproducing individuals, with some slight adaptations in the reproduction submodel. For simplicity we only use and describe the "haploid asexual" scenario here.
 
-Individuals live in discrete patches, which form the spatial units of our model. The model world is one dimensional, and has closed boundaries. Patches can be described by:
+Individuals live in discrete patches, which form the spatial units of our model. The model world is one-dimensional, and has closed boundaries. Patches can be described by:
 
 - their location in the landscape ($x$ coordinate; $\geq 0$ integer values); 
 - their population size at the last count $N$ (population counts occur at points of the cycle where only adults are present);
 - their carrying capacity $K$ (in the present study, $K$ is fixed and constant across all patches);
 - a series of variables summarizing the trait distributions of the individuals born in the patch (see **Submodels**).
 
-One time step in the model represent one generation of the simulated species' life cycle, and each individual grid cell corresponds to an individual patch. The potentially hostile matrix between patches is abstracted out (there are no "matrix" grid cells) and its effects are summarised in a global environmental variable, dispersal mortality $m$.
+One time step in the model represents one generation of the simulated species' life cycle, and each individual grid cell corresponds to an individual patch. The potentially hostile matrix between patches is abstracted out (there are no "matrix" grid cells) and its effects are summarised in a global environmental variable, dispersal mortality $m$.
 
 
 <!--ADD FIGURE BACK, MAYBE, DEPENDS ON WHETHER IT GOES TO MAIN ![](images/fig1.png)
@@ -78,7 +80,7 @@ Generations start at the point of the life cycle where only pre-dispersal, pre-r
 - *Second population count:* The population sizes $N$ and neutral alleles frequencies at each patch are updated again.
 - *Reproduction:* Each remaining adult then produces $F$ juveniles, with $F$ drawn from a Poisson distribution and depending on the general growth rate $r_0$, $K$ and $N$.  Juveniles are born in the patch currently occupied by their parent (same $x$), and also inherit their genetic values for dispersal-related and neutral loci. Their values for the noise part of the dispersal traits are redrawn at random. The exact fecundity model and inheritance procedures are described in **Submodels** below.
 - *Death and end of cycle:* All adults die; juveniles then become adults.
-
+<!--NOTE Chloé: Note: ODD 2020, rajouter les raisons pour lesquelles les étapes se font dans cet ordre (notamment une dispersion avant une reproduction)-->
 The model then starts the next generation.
 
 ## Design concepts
@@ -91,7 +93,9 @@ The model then starts the next generation.
 
 **Emergence:** The number and distribution of individuals and alleles in space are the emergent result of individual dispersal and reproduction, which are stochastic. Most if not all variables of interest are summaries from these distributions.
 
-**Adaptation:** As population size vary in space and time along the range expansion, dispersal is costly, and fitness is density-dependent (see **Submodels**), dispersal can evolve in an adaptive way in replicates where dispersal traits are heritable. 
+**Adaptation:** As population size varies in space and time along the range expansion, dispersal is costly, and fitness is density-dependent (see **Submodels**), dispersal can evolve in an adaptive way in replicates where dispersal traits are heritable. 
+
+<!--**Objectives**: There is no direct objectives-seeking in this model.-->
 
 **Learning:** Individuals do not learn (see **Sensing**).
 
@@ -101,7 +105,7 @@ The model then starts the next generation.
 
 **Interaction:** Individuals do not interact directly with each other. Individuals in the same patch may influence each other indirectly, through the patch population size variable $N$ which plays a role in both individual dispersal and reproduction.
 
-**Stochasticity:** Dispersal and reproduction are both stochastic. First, for dispersal, the individual probability of dispersing depends on three traits, the values of which are determined stochastically. The genetic components are drawn from Normal distributions at the start of the experiments (and then transmitted deterministically), and the noise components drawn from Normal distributions at the birth of every individual. Second, once the individual dispersal probability is set, whether or not an individual actually disperses, and whether or not it dies if it disperses, is in effect determined by Bernoulli trials. Finally, the actual fecundity of each individual is a random draw from the relevant Poisson distribution. See **Initialization** and **Submodels** for more details.
+**Stochasticity:** Dispersal and reproduction are both stochastic. First, for dispersal, the individual probability of dispersing depends on three traits, the values of which are determined stochastically. The genetic components are drawn from Normal distributions at the start of the experiments (and then transmitted deterministically), and the noise components are drawn from Normal distributions at the birth of every individual. Second, once the individual dispersal probability is set, whether or not an individual actually disperses, and whether or not it dies if it disperses, is in effect determined by Bernoulli trials. Finally, the actual fecundity of each individual is a random draw from the relevant Poisson distribution. See **Initialization** and **Submodels** for more details.
 
 **Collectives:** Individuals do not belong to any kind of identifiable social group or collective *per se*. Individuals in the same discrete patch nonetheless influence each other through $N$ (see **Interaction**)
 
@@ -133,11 +137,11 @@ Compared to other dispersal models [such as those reviewed in @hovestadtInformat
 
 Following the terminology in Cote et al [-@coteEvolutionDispersalStrategies2017], variation in $d_{max}$ can be interpreted as encoding variation in dispersal enhancing or enabling traits, while variation in $\alpha$ or $\beta$ corresponds to variation in dispersal matching traits.
 
-Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additionally calculate five statistics at the individual-level (**Fig. 1D-E**):  
+Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additionally calculate five values at the individual-level (**Fig. 1D-E**):  
 
 - $d_{0}$, the hypothetical dispersal rate at $N=0$. The theoretical distinction between pulled and pushed expansions hinges on whether expansion move as fast as expected from $d_{0}$ or faster [e.g. @birzuGeneticDriftRange2019].
 - $d_{K}$, the expected dispersal rate at $N=K$.
-- $d_{avg}$, the average dispersal over the range of densities $0-K$. For computational reasons, we approximate it by calculating $d_{N}$ every $0.1K$ from 0 to $K$.
+- $d_{avg}$, the average dispersal over the range of densities $0-K$. For computational reasons, we approximate it by calculating $d_{N}$ every $0.1K$ from 0 to $K$. <!--see suppl below-->
 - Two measures of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$ and $\Delta_{avg-0}=d_{avg}-d_{0}$. The former is independent of the shape of the dispersal function between 0 and $K$, while the latter accounts for it at least in part.
 
 **Reproduction:** Each individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
@@ -146,19 +150,23 @@ $\lambda_{N} = \mathrm{e}^{r_{N}}, r_{N}=r_{0}(1-N/K),$
 
 where $r_{0}$ is the hypothetical *per capita* growth rate at $N=0$. 
 
-Parent transmit their genetic values (dispersal-related: $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ and neutral: $\gamma$) directly to their offspring without any mutation. Offspring then draw random values of $\mathrm{logit}(d_{max})_{[r]}$, $\alpha_{[r]}$, $\beta_{[r]}$ from $\mathrm{Normal}(0,\sqrt{V_{R[z]}})$, where $z$ is the trait in question. For each trait $z$, the "random noise" variance $V_{R}$ is equal to $(1-h^{2})V_{P[z]}$ , where $h^{2}$ is the *initial* heritability at $t=0$ and $V_{P}$ the *initial* phenotypic variance (see **Table 1**).
+Parent transmit their genetic values (dispersal-related: $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ and neutral: $\gamma$) directly to their offspring without any mutation. Offspring then draw random values of noise components $\mathrm{logit}(d_{max})_{[r]}$, $\alpha_{[r]}$, $\beta_{[r]}$ from $\mathrm{Normal}(0,\sqrt{V_{R[z]}})$, where $z$ is the trait in question. For each trait $z$, the "random noise" variance $V_{R}$ is equal to $(1-h^{2})V_{P[z]}$ , where $h^{2}$ is the *initial* heritability at $t=0$ and $V_{P}$ the *initial* phenotypic variance (see **Table 1**).
 
 **Observation:**
 
 The code estimates and reports a variety of summary variables at the patch level, and can easily be modified to add more. Of interest for the present study are the following:
+
 - the means of $d_{max}$, $d_{0}$, $d_{avg}$, $d_{K}$, $\Delta_{K-0}$, $\Delta_{avg-0}$ for all individuals born in a patch.
+
 - the variances of the genetic components $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ for all individuals born in a patch.
+
 - population sizes $N$ pre- and post-dispersal phase.
+
 - the frequencies of the two neutral alleles in a patch, both pre- and post-dispersal phase.
 
 # S2 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
 
-In the main text, we discuss how allowing for negative $\beta$ is the only way we have to create mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, allowing very large $|\alpha|$ values so that dispersal goes from 0 to $d_{max}$ in less than 1 individual, is not viable. We expand this argument here:
+In the ODD description above, we discuss how allowing for negative $\beta$ is the only way we have to create mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, allowing very large $|\alpha|$ values so that dispersal goes from 0 to $d_{max}$ in less than 1 individual, is not viable. We expand this argument here:
 
 -   first, using $\alpha$ in this way would mean that $d_{0}$ becomes, in a way, a by-product of adjusting the shape of the curve, rather than its own trait of interest. This is not a good option when studying pushed vs. pulled expansions;
 
