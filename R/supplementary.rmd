@@ -9,7 +9,9 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, eval = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, 
+                      message = FALSE, eval = TRUE, dev = "cairo_pdf")
+## cairo is needed as device to properly render the plots with greek letters in pdf
 ```
 
 ```{r load-packages}
@@ -404,7 +406,7 @@ ggplot(ddd_convergence)+
 
 Using our operational definition of evolutionary "stability", we note that a very large majority of replicates have converged by the end of the experiment, especially in high fecundity replicates. In addition, we note that our definition of evolutionary stability excludes *de facto* cases of divergent selection, so the % of "evolutionary stable" expansions by $t$=100 generations, say, is possibly even higher.
 
-# S5 - Results but for fecundity = 1.5
+# S5 - Results for fecundity = 1.5
 
 Here we reproduce the analyses and figures displayed in the main text Results, but for the low-fecundity scenarios.
 
