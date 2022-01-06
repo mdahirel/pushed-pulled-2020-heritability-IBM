@@ -17,25 +17,25 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(ordinal)     # CRAN v2019.12-10 
-library(arm)         # CRAN v1.11-2 
-library(matrixStats) # CRAN v0.60.0 
+library(ordinal) # CRAN v2019.12-10
+library(arm) # CRAN v1.11-2
+library(matrixStats) # CRAN v0.60.0
 
-library(mgcv)        # CRAN v1.8-35 
-library(gratia)      # CRAN v0.6.0 
+library(mgcv) # CRAN v1.8-35
+library(gratia) # CRAN v0.6.0
 
-library(MuMIn)       # CRAN v1.43.17 
+library(MuMIn) # CRAN v1.43.17
 
-library(tidyverse)   # CRAN v1.3.1 
+library(tidyverse) # CRAN v1.3.1
 
-library(cowplot)     # [github::wilkelab/cowplot] v1.1.1 
-library(patchwork)   # CRAN v1.1.1 
+library(cowplot) # [github::wilkelab/cowplot] v1.1.1
+library(patchwork) # CRAN v1.1.1
 
-library(ggdist)      # CRAN v3.0.0
+library(ggdist) # CRAN v3.0.0
 
-library(ggtext)      # CRAN v0.1.1 
+library(ggtext) # CRAN v0.1.1
 
-library(here)        # CRAN v1.0.1 
+library(here) # CRAN v1.0.1
 ```
 
 # Introduction
@@ -46,7 +46,7 @@ After running the code in `R/generate_simulations`, we obtained, and saved, a `c
 data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
   mutate(
     is.VP_dmax = as.numeric(VP_logit_dmax > 0),
-    is.VP_DDD = as.numeric(VP_slope > 0) 
+    is.VP_DDD = as.numeric(VP_slope > 0)
     # if VP_slope >0, then VP_midpoint is also >0 in our experimental design
     # so only one binary variable needed for density-dependent dispersal variables
   )
@@ -95,7 +95,7 @@ Here we build a table that contains, for each time x replicate combination, summ
 ```{r tab-front}
 tab_speed <- data %>%
   filter(N_postdispersal > 0) %>%
-  group_by(replicateID, ticks) %>% # for each time x replicate 
+  group_by(replicateID, ticks) %>% # for each time x replicate
   summarise(edge_pxcor = max(pxcor))
 ```
 
@@ -107,9 +107,9 @@ tab_intermediate <- data %>%
   filter(N_predispersal > 0) %>%
   # Here we use predispersal population size since that's when traits are recorded,
   # but results are similar if one  use post-dispersal populations instead
-  group_by(replicateID, ticks) %>% # for each time x replicate 
+  group_by(replicateID, ticks) %>% # for each time x replicate
   mutate(limit_pxcor = max(pxcor)) %>%
-  ungroup() %>% 
+  ungroup() %>%
   filter(pxcor > limit_pxcor - 5) # and we only keep patches within the front
 
 
@@ -118,29 +118,32 @@ tab_intermediate <- data %>%
 ## we first isolate variables that won't be modified by wrangling for a while
 ## to reduce memory size of the big table that will be manipulated
 ## we'll put back everything together later
-tab_annotation=tab_intermediate %>% 
+tab_annotation <- tab_intermediate %>%
   select(
     replicateID,
     dispersal_mortality, heritability,
     is.VP_dmax, is.VP_DDD,
-    fecundity) %>% 
+    fecundity
+  ) %>%
   distinct()
 
 ## code may slow down here for a while, probably due to the size of the summarise call
 
 tab_traits <- tab_intermediate %>%
-  select(replicateID,ticks,
-         mean_dmax,mean_davg_0_K,mean_d0,
-         mean_slopeA_0_avg,mean_slopeA_0_K,mean_uncond_0_K,
-         N_sedentary,N_predispersal) %>%
-  group_by(replicateID, ticks) %>% 
+  select(
+    replicateID, ticks,
+    mean_dmax, mean_davg_0_K, mean_d0,
+    mean_slopeA_0_avg, mean_slopeA_0_K, mean_uncond_0_K,
+    N_sedentary, N_predispersal
+  ) %>%
+  group_by(replicateID, ticks) %>%
   summarise(
-    mean_dmax = weighted.mean(mean_dmax, w=N_predispersal, na.rm = TRUE),
-    mean_davg_0_K = weighted.mean(mean_davg_0_K, w=N_predispersal, na.rm = TRUE),
-    mean_d0 = weighted.mean(mean_d0, w=N_predispersal, na.rm = TRUE),
-    mean_avgslope = weighted.mean(mean_slopeA_0_avg, w=N_predispersal, na.rm = TRUE),
-    mean_Kslope = weighted.mean(mean_slopeA_0_K, w=N_predispersal, na.rm = TRUE),
-    mean_uncond = weighted.mean(mean_uncond_0_K, w=N_predispersal, na.rm = TRUE),
+    mean_dmax = weighted.mean(mean_dmax, w = N_predispersal, na.rm = TRUE),
+    mean_davg_0_K = weighted.mean(mean_davg_0_K, w = N_predispersal, na.rm = TRUE),
+    mean_d0 = weighted.mean(mean_d0, w = N_predispersal, na.rm = TRUE),
+    mean_avgslope = weighted.mean(mean_slopeA_0_avg, w = N_predispersal, na.rm = TRUE),
+    mean_Kslope = weighted.mean(mean_slopeA_0_K, w = N_predispersal, na.rm = TRUE),
+    mean_uncond = weighted.mean(mean_uncond_0_K, w = N_predispersal, na.rm = TRUE),
     ## and the other non-trait metrics using means or sum as relevant
     N_sedentary = sum(N_sedentary),
     N_predispersal = sum(N_predispersal)
@@ -154,7 +157,7 @@ tab_traits <- tab_intermediate %>%
 
 tab_traits <- tab_traits %>%
   ungroup() %>%
-  left_join(tab_speed) %>%   ## we merge back here the subtable 1 already
+  left_join(tab_speed) %>% ## we merge back here the subtable 1 already
   pivot_wider(
     id_cols = c(
       replicateID
@@ -165,8 +168,8 @@ tab_traits <- tab_traits %>%
       mean_avgslope, mean_Kslope, mean_uncond,
       edge_pxcor, N_sedentary, N_predispersal
     )
-  ) %>% 
-  left_join(tab_annotation) #get these info variables back in
+  ) %>%
+  left_join(tab_annotation) # get these info variables back in
 ```
 
 ## sub-table 3: starting conditions
@@ -213,8 +216,8 @@ tab_genet <- tab_intermediate %>%
   mutate(
     time_to_fix = case_when(
       front_fixed == 1 ~ ticks,
-      T ~ 121  ## 121 placeholder for "not fixed yet at end of experiment"
-    ) 
+      T ~ 121 ## 121 placeholder for "not fixed yet at end of experiment"
+    )
   ) %>%
   group_by(
     replicateID, dispersal_mortality,
@@ -238,7 +241,7 @@ Now we can mix and combine these datasets for analyses (and export the merged ta
 
 ```{r merge-data-tables}
 
-tab_all <- tab_traits %>%  ## tab_traits already merged with tab_speed, see above
+tab_all <- tab_traits %>% ## tab_traits already merged with tab_speed, see above
   left_join(tab_start) %>%
   left_join(tab_genet) %>%
   mutate(mortality = factor(dispersal_mortality)) %>%
@@ -344,7 +347,7 @@ p1_3_beta <- p1_tab %>%
 For the bottom part, we're gonna need some colours. So let's make a color palette, it's going to be useful later. We're using ColorBrewer () to build a 3 colour palette that is hopefully colour friendly:
 
 ```{r colour-palette}
-mypalette <- c("#1f78b4","#b2df8a")
+mypalette <- c("#1f78b4", "#b2df8a")
 ```
 
 ```{r fig1-bottom}
@@ -366,11 +369,11 @@ p1_4 <- p1_tab2 %>%
   geom_point(aes(col = factor(dmax), shape = factor(dmax)), size = 5, fill = "white") +
   scale_x_continuous("N/K") +
   scale_y_continuous("Dispersal probability") +
-  scale_colour_manual(values=mypalette) +
+  scale_colour_manual(values = mypalette) +
   scale_shape_discrete() +
   theme_bw()
 
-#you can check colors using colorblindr::cvd_grid(p1_4) if you have that package installed
+# you can check colors using colorblindr::cvd_grid(p1_4) if you have that package installed
 
 p1_5 <- p1_tab2 %>%
   group_by(dmax) %>%
@@ -391,7 +394,7 @@ p1_5 <- p1_tab2 %>%
   ) +
   scale_x_discrete("dispersal variable") +
   scale_y_continuous("value") +
-  scale_colour_manual(values=mypalette) +
+  scale_colour_manual(values = mypalette) +
   scale_shape_discrete() +
   theme_bw() +
   theme(axis.text.x = element_markdown())
@@ -417,51 +420,51 @@ Because patches are discrete, and individuals advance at most 1 patch per genera
 
 ## the models assuming traits post-evolution matter
 mod_100 <- gam(cbind(advance, 20 - advance) ~
-                 s(mean_d0_100, by = mortality) +
-                 s(mean_avgslope_100, by = mortality) +
-                 mortality,
-               family = binomial, data = tab, method = "REML" 
-               # we follow e.g. Pedersen et al 10.7717/peerj.6876 in using REML for GAMs
+s(mean_d0_100, by = mortality) +
+  s(mean_avgslope_100, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
+# we follow e.g. Pedersen et al 10.7717/peerj.6876 in using REML for GAMs
 )
 
 mod_100_K <- gam(cbind(advance, 20 - advance) ~
-                   s(mean_d0_100, by = mortality) +
-                   s(mean_Kslope_100, by = mortality) +
-                   mortality,
-                 family = binomial, data = tab, method = "REML"
+s(mean_d0_100, by = mortality) +
+  s(mean_Kslope_100, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
 )
 
 mod_100_noDDD <- gam(cbind(advance, 20 - advance) ~
-                       s(mean_d0_100, by = mortality) +
-                       mortality,
-                     family = binomial, data = tab, method = "REML"
+s(mean_d0_100, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
 )
 
 ## the models assuming initial traits matter
 mod_00 <- gam(cbind(advance, 20 - advance) ~
-                s(start_d0, by = mortality) +
-                s(start_avgslope, by = mortality) +
-                mortality,
-              family = binomial, data = tab, method = "REML"
+s(start_d0, by = mortality) +
+  s(start_avgslope, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
 )
 
 mod_00_K <- gam(cbind(advance, 20 - advance) ~
-                  s(start_d0, by = mortality) +
-                  s(start_Kslope, by = mortality) +
-                  mortality,
-                family = binomial, data = tab, method = "REML"
+s(start_d0, by = mortality) +
+  s(start_Kslope, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
 )
 
 mod_00_noDDD <- gam(cbind(advance, 20 - advance) ~
-                      s(start_d0, by = mortality) +
-                      mortality,
-                    family = binomial, data = tab, method = "REML"
+s(start_d0, by = mortality) +
+  mortality,
+family = binomial, data = tab, method = "REML"
 )
 
 ## the mortality only model
 mod_null <- gam(cbind(advance, 20 - advance) ~
-                  mortality,
-                family = binomial, data = tab, method = "REML"
+mortality,
+family = binomial, data = tab, method = "REML"
 )
 ```
 
@@ -470,7 +473,7 @@ mod_null <- gam(cbind(advance, 20 - advance) ~
 If you look at the model diagnostics, you'll see data look a bit underdispersed, compared to the model. Yes, *under*dispersed,
 
 ```{r dispersion-test}
-## function is copied from Ben Bolker FAQ 
+## function is copied from Ben Bolker FAQ
 ## https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#overdispersion
 ## with only one modification to test for under instead of overdispersion
 overdisp_fun <- function(model) {
@@ -478,7 +481,7 @@ overdisp_fun <- function(model) {
   rp <- residuals(model, type = "pearson")
   Pearson.chisq <- sum(rp^2)
   prat <- Pearson.chisq / rdf
-  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = TRUE) #lower.tail = TRUE instead of FALSE is the only change
+  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = TRUE) # lower.tail = TRUE instead of FALSE is the only change
   c(chisq = Pearson.chisq, ratio = prat, rdf = rdf, p = pval)
 }
 
@@ -493,17 +496,20 @@ But to be sure, let's use an ordinal model as a quick comparison:
 (see e.g. https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#underdispersion)
 
 ```{r ordinal-velocity}
-tab_ordinal <-  tab %>% 
-  mutate(scale_d0_100=scale(mean_d0_100)[,1],
-         scale_d0_start=scale(start_d0)[,1],
-         s_avgslope_100=mean_avgslope_100/sd(mean_avgslope_100),
-         s_avgslope_start=start_avgslope/sd(start_avgslope),
-         s_Kslope_100=mean_Kslope_100/sd(mean_Kslope_100),
-         s_Kslope_start=start_Kslope/sd(start_Kslope))
-  
-mod_100_ordinal=clm(ordered(advance) ~
-          (scale_d0_100+s_avgslope_100)*mortality,
-        link="cloglog",data=tab_ordinal)
+tab_ordinal <- tab %>%
+  mutate(
+    scale_d0_100 = scale(mean_d0_100)[, 1],
+    scale_d0_start = scale(start_d0)[, 1],
+    s_avgslope_100 = mean_avgslope_100 / sd(mean_avgslope_100),
+    s_avgslope_start = start_avgslope / sd(start_avgslope),
+    s_Kslope_100 = mean_Kslope_100 / sd(mean_Kslope_100),
+    s_Kslope_start = start_Kslope / sd(start_Kslope)
+  )
+
+mod_100_ordinal <- clm(ordered(advance) ~
+(scale_d0_100 + s_avgslope_100) * mortality,
+link = "cloglog", data = tab_ordinal
+)
 
 summary(mod_100_ordinal)
 draw(mod_100)
@@ -545,21 +551,21 @@ modsel_velocity <- model.sel(list(
   # re: does it include density-dependency? use traits pre/post evolution?
   mutate(
     is.evo = case_when(
-      str_detect(model_name,"null") ~ NA_character_,
+      str_detect(model_name, "null") ~ NA_character_,
       str_detect(model_name, "_100") ~ "after evolution (t = 100)",
       T ~ "before evolution (t = 0)"
     ),
     is.DDD = case_when(
-      str_detect(model_name,"null") ~ NA_character_,
+      str_detect(model_name, "null") ~ NA_character_,
       str_detect(model_name, "_noDDD") ~ "ignored",
       str_detect(model_name, "_K") ~ "*&Delta;<sub>K-0</sub>* (shape-indep.)",
       T ~ "*&Delta;<sub>avg-0</sub>* (shape-dep.)"
     )
   ) %>%
   mutate(is.evo = fct_relevel(is.evo, "before evolution (t = 0)", after = 0)) %>%
-  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0)) %>% 
-  select(model_name,gam_dev.expl:is.DDD) #let's remove all the coef columns
-  # that model.sel adds automatically
+  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0)) %>%
+  select(model_name, gam_dev.expl:is.DDD) # let's remove all the coef columns
+# that model.sel adds automatically
 
 modsel_velocity
 ```
@@ -572,52 +578,52 @@ Our measure of the capacity of expansions to keep **neutral** genetic diversity 
 
 ```{r genetic-models}
 mod_div_00 <- clm(fixinterval ~
-                    mortality * (start_d0 + start_avgslope),
-                  data = filter(tab, edge_pxcor_120 > 0), # one front did not advance
-                  link = "cloglog"
-                  ) 
+mortality * (start_d0 + start_avgslope),
+data = filter(tab, edge_pxcor_120 > 0), # one front did not advance
+link = "cloglog"
+)
 
 mod_div_00 <- clm(fixinterval ~
-                    mortality + mortality:(start_d0 + start_avgslope),
-                  data = filter(tab, edge_pxcor_120 > 0),
-                  link = "cloglog"
-                  )
+mortality + mortality:(start_d0 + start_avgslope),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
-mod_div_00_K <- clm(fixinterval ~ 
-                      mortality + mortality:(start_d0 + start_Kslope),
-                    data = filter(tab, edge_pxcor_120 > 0),
-                    link = "cloglog"
-                    )
+mod_div_00_K <- clm(fixinterval ~
+mortality + mortality:(start_d0 + start_Kslope),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
 mod_div_00_noDDD <- clm(fixinterval ~
-                          mortality + mortality:(start_d0),
-                        data = filter(tab, edge_pxcor_120 > 0),
-                        link = "cloglog"
-                        )
+mortality + mortality:(start_d0),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
-mod_div_100 <- clm(fixinterval ~ 
-                     mortality + mortality:(mean_d0_100 + mean_avgslope_100),
-                   data = filter(tab, edge_pxcor_120 > 0),
-                   link = "cloglog"
-                   )
+mod_div_100 <- clm(fixinterval ~
+mortality + mortality:(mean_d0_100 + mean_avgslope_100),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
 mod_div_100_K <- clm(fixinterval ~
-                       mortality + mortality:(mean_d0_100 + mean_Kslope_100),
-                     data = filter(tab, edge_pxcor_120 > 0),
-                     link = "cloglog"
-                     )
+mortality + mortality:(mean_d0_100 + mean_Kslope_100),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
 mod_div_100_noDDD <- clm(fixinterval ~
-                           mortality + mortality:(mean_d0_100),
-                         data = filter(tab, edge_pxcor_120 > 0),
-                         link = "cloglog"
-                         )
+mortality + mortality:(mean_d0_100),
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 
 mod_div_null <- clm(fixinterval ~
-                      mortality,
-                    data = filter(tab, edge_pxcor_120 > 0),
-                    link = "cloglog"
-                    )
+mortality,
+data = filter(tab, edge_pxcor_120 > 0),
+link = "cloglog"
+)
 ```
 
 ### neutral genetic diversity: model selection table
@@ -626,10 +632,10 @@ Again, let's compare the models. And again, in addition to AIC, let's build a fu
 
 ```{r ordinal-R2}
 
-clm_pseudo_r2 <- function(model, data = tab) { ##given a model and the *original* data
-  #we make predictions
+clm_pseudo_r2 <- function(model, data = tab) { ## given a model and the *original* data
+  # we make predictions
   pp <- predict(model, newdata = data %>% select(-fixinterval))$fit
-  #it gets us probabilities for each categories, we sum them to get the rank of the average category
+  # it gets us probabilities for each categories, we sum them to get the rank of the average category
   preds <- 1 * pp[, 1] + 2 * pp[, 2] + 3 * pp[, 3] + 4 * pp[, 4] + pp[, 5] + 6 * pp[, 6] + 7 * pp[, 7]
   obs <- as.numeric(data$fixinterval)
   # then we use that and the rank of the observed category in a linear regression
@@ -653,21 +659,21 @@ modsel_diversity <- model.sel(list(
   as_tibble() %>%
   mutate(
     is.evo = case_when(
-      str_detect(model_name,"null") ~ NA_character_,
+      str_detect(model_name, "null") ~ NA_character_,
       str_detect(model_name, "_100") ~ "after evolution (t = 100)",
       T ~ "before evolution (t = 0)"
     ),
     is.DDD = case_when(
-      str_detect(model_name,"null") ~ NA_character_,
+      str_detect(model_name, "null") ~ NA_character_,
       str_detect(model_name, "_noDDD") ~ "ignored",
       str_detect(model_name, "_K") ~ "*&Delta;<sub>K-0</sub>* (shape-indep.)",
       T ~ "*&Delta;<sub>avg-0</sub>* (shape-dep.)"
     )
   ) %>%
   mutate(is.evo = fct_relevel(is.evo, "before evolution (t = 0)", after = 0)) %>%
-  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0))%>% 
-  select(model_name,clm_pseudo_r2:is.DDD) #let's remove all the coef columns
-  # that model.sel adds automatically
+  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0)) %>%
+  select(model_name, clm_pseudo_r2:is.DDD) # let's remove all the coef columns
+# that model.sel adds automatically
 
 modsel_diversity
 ```
@@ -677,7 +683,7 @@ modsel_diversity
 Now that we have model selection tables for both responses, we can build a figure summing up how each model structure performs for each:
 
 ```{r fig2-palette}
-mypalette <- c("#1b9e77","#d95f02","#7570b3")
+mypalette <- c("#1b9e77", "#d95f02", "#7570b3")
 ```
 
 
@@ -698,7 +704,7 @@ p2_1 <- modsel_velocity %>%
   )) +
   geom_hline(yintercept = summary(mod_null)$r.sq, lty = 2) + ## the aicc of the mortality only model
   scale_y_continuous("R^2") +
-  scale_colour_manual(values=mypalette) +
+  scale_colour_manual(values = mypalette) +
   scale_shape_discrete() +
   labs(title = "expansion velocity")
 
@@ -718,7 +724,7 @@ p2_2 <- modsel_diversity %>%
   )) +
   geom_hline(yintercept = clm_pseudo_r2(model = mod_div_null), lty = 2) + ## the aicc of the mortality only model
   scale_y_continuous("pseudo-R^2") +
-  scale_colour_manual(values=mypalette) +
+  scale_colour_manual(values = mypalette) +
   scale_shape_discrete() +
   labs(title = "neutral diversity")
 
@@ -955,17 +961,17 @@ p11 <- tab %>%
   geom_hline(yintercept = 0, lty = 2) +
   geom_vline(xintercept = 0, lty = 2) +
   # denoting the strategies that are possible (davg>dmax not possible):
-  geom_ribbon(   #shading impossible region
+  geom_ribbon( # shading impossible region
     data = tibble(x = c(-100:100) / 100),
     aes(x = x, ymin = 1 - x, ymax = 1),
     fill = "grey80", col = "black"
   ) +
-  geom_ribbon(   #cont'd
+  geom_ribbon( # cont'd
     data = tibble(x = c(-100:100) / 100),
     aes(x = x, ymin = -1 - x, ymax = -1),
     fill = "grey80", col = "black"
   ) +
-  #plotting replicates
+  # plotting replicates
   geom_point(aes(
     start_avgslope,
     mean_avgslope_100 - start_avgslope
@@ -986,8 +992,8 @@ p11 <- tab %>%
   facet_grid(
     rows = vars(paste("*m* =", dispersal_mortality)),
     cols = vars(paste("*h^2* =", heritability))
-  )+
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  ) +
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
   theme_bw()
 
 p10 <- tab %>%
@@ -1025,8 +1031,8 @@ p10 <- tab %>%
   facet_grid(
     rows = vars(paste("*m* =", dispersal_mortality)),
     cols = vars(paste("*h^2* =", heritability))
-  )+
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  ) +
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
   theme_bw()
 
 p01 <- tab %>%
@@ -1059,26 +1065,26 @@ p01 <- tab %>%
   ) +
   scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at front between *t* = 0 and *t* = 100") +
   scale_x_continuous("") +
-  ggtitle("A: Individual variation in *&alpha;* and *&beta;*") + 
+  ggtitle("A: Individual variation in *&alpha;* and *&beta;*") +
   facet_grid(
     rows = vars(paste("*m* =", dispersal_mortality)),
     cols = vars(paste("*h^2* =", heritability))
-  )+
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8))+
+  ) +
+  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
   theme_bw()
 
 
-p_explainer <- ggplot()+
-  geom_tile(aes(x=0,y=0,width=2.2,height=2),fill="white",col="black")+
-  scale_x_continuous("",breaks=0)+
-  scale_y_continuous("",breaks=0)+
-  geom_segment(aes(x=0,xend=0,y=1,yend=-1),lty=2) +
-  geom_segment(aes(x=-1.1,xend=1.1,y=0,yend=0),lty=2) +
-  geom_label(aes(x=0.55,y=-1,label="starts \n(more) pushed"),size=3.5)+
-  geom_label(aes(x=-0.5,y=-1,label="starts \n(more) pulled"),size=3.5)+
-  geom_label(aes(x=-1.2,y=0.37,label="becomes \n(more) pushed"),size=3.5)+
-  geom_label(aes(x=-1.2,y=-0.37,label="becomes \n(more) pulled"),size=3.5)+
-  coord_cartesian(xlim = c(-1.6, 1.5), ylim = c(-1.4, 1.4))+
+p_explainer <- ggplot() +
+  geom_tile(aes(x = 0, y = 0, width = 2.2, height = 2), fill = "white", col = "black") +
+  scale_x_continuous("", breaks = 0) +
+  scale_y_continuous("", breaks = 0) +
+  geom_segment(aes(x = 0, xend = 0, y = 1, yend = -1), lty = 2) +
+  geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), lty = 2) +
+  geom_label(aes(x = 0.55, y = -1, label = "starts \n(more) pushed"), size = 3.5) +
+  geom_label(aes(x = -0.5, y = -1, label = "starts \n(more) pulled"), size = 3.5) +
+  geom_label(aes(x = -1.2, y = 0.37, label = "becomes \n(more) pushed"), size = 3.5) +
+  geom_label(aes(x = -1.2, y = -0.37, label = "becomes \n(more) pulled"), size = 3.5) +
+  coord_cartesian(xlim = c(-1.6, 1.5), ylim = c(-1.4, 1.4)) +
   theme_void()
 
 layout <- "
@@ -1090,7 +1096,7 @@ CCCDDD
 CCCDDD
 "
 
- p01 + p_explainer + p10 + p11 + 
+p01 + p_explainer + p10 + p11 +
   plot_layout(design = layout) &
   theme(
     strip.text.x = element_markdown(),

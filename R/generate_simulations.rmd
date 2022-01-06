@@ -17,9 +17,9 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(nlrx)      # CRAN v0.4.2     
+library(nlrx) # CRAN v0.4.2
 library(tidyverse) # CRAN v1.3.1
-library(here)      # CRAN v1.0.1     
+library(here) # CRAN v1.0.1
 ```
 
 This is the code used to "talk" with the NetLogo simulation and make it run the experiment described in the Methods and Supplementary Materials of the Manuscript (see there and the Info pane of the NetLogo model for details). Briefly, we simulate asexual haploid individuals spreading in a linear discrete landscape. Runs differ on whether individuals very or not in traits shaping dispersal and its density-dependence, on whether that variation is heritable (and how much), and on the costs of dispersal.
@@ -61,25 +61,25 @@ Again, see the Methods, Supplementary Materials and the Info pane for more detai
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- tibble(
-   VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2,0,0,0,1.5^2,1.5^2,1.5^2),
-   VP_slope = c(0, 6^2, 6^2, 6^2, 6^2, 6^2, 6^2,0,0,0),
-   VP_midpoint =c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2,0,0,0), 
-   heritability = c(0, 0, 0.33, 1, 0, 0.33, 1,0,0.33,1)
+  VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2, 0, 0, 0, 1.5^2, 1.5^2, 1.5^2),
+  VP_slope = c(0, 6^2, 6^2, 6^2, 6^2, 6^2, 6^2, 0, 0, 0),
+  VP_midpoint = c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0, 0, 0),
+  heritability = c(0, 0, 0.33, 1, 0, 0.33, 1, 0, 0.33, 1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
-  ) %>% 
-  expand_grid(
-  start_dmax = 0.5, #median + VP here give relatively uniform distri over ]0-1[
-  start_slope = c(-6, 0, 6), #0, and + or -1SD from 0
-  ## also, |6| as slope mean we go from 0.05dmax to 0.95dmax over a range of K centred on midpoint
-  start_midpoint = c(0, 0.5, 1),#same logic here
-  dispersal_mortality = c(0.1, 0.5, 0.9),
-  reproduction = c("clonal"),   
-  fecundity = c(1.5, 5),
-  ## more or less arbitrary, references previous studies/models
-  K = 250        ## same
 ) %>%
+  expand_grid(
+    start_dmax = 0.5, # median + VP here give relatively uniform distri over ]0-1[
+    start_slope = c(-6, 0, 6), # 0, and + or -1SD from 0
+    ## also, |6| as slope mean we go from 0.05dmax to 0.95dmax over a range of K centred on midpoint
+    start_midpoint = c(0, 0.5, 1), # same logic here
+    dispersal_mortality = c(0.1, 0.5, 0.9),
+    reproduction = c("clonal"),
+    fecundity = c(1.5, 5),
+    ## more or less arbitrary, references previous studies/models
+    K = 250 ## same
+  ) %>%
   mutate(
-    reproduction_nl = paste('\"',reproduction,'\"',sep="")
+    reproduction_nl = paste('\"', reproduction, '\"', sep = "")
     # adds the quote and escape needed to export the string to Netlogo
   )
 ```
@@ -97,25 +97,29 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1, 20, 40, 60, 80, 100, 120), 
+  evalticks = c(1, 20, 40, 60, 80, 100, 120),
   # the evalticks = 1 is to guarantee something is saved every time
   # even in runs that never produce any valid value for one of metrics
   # code crashes if some metrics.patches report nothing
   ### metrics and metrics. patches: what we want the model to report back
-  metrics = c("ticks",
-              "start_d0", "start_dK","start_davg_0_K",
-              "start_slopeA_0_K", "start_slopeA_0_avg","start_uncond_0_K"),
-  metrics.patches = c("pxcor", "founding",
-                      "N_predispersal", "N_postdispersal",  
-                      "N_sedentary", "N_disp_dead",
-                      "N_allele0_pre", "N_allele1_pre",
-                      "N_allele0_post","N_allele1_post",
-                      "mean_genotype_logit_dmax", "var_genotype_logit_dmax",  
-                      "mean_genotype_slope", "var_genotype_slope",
-                      "mean_genotype_midpoint", "var_genotype_midpoint",
-                      "mean_dmax","mean_slope","mean_midpoint",
-                      "mean_d0","mean_dK", "mean_davg_0_K",
-                      "mean_slopeA_0_K", "mean_slopeA_0_avg","mean_uncond_0_K"),
+  metrics = c(
+    "ticks",
+    "start_d0", "start_dK", "start_davg_0_K",
+    "start_slopeA_0_K", "start_slopeA_0_avg", "start_uncond_0_K"
+  ),
+  metrics.patches = c(
+    "pxcor", "founding",
+    "N_predispersal", "N_postdispersal",
+    "N_sedentary", "N_disp_dead",
+    "N_allele0_pre", "N_allele1_pre",
+    "N_allele0_post", "N_allele1_post",
+    "mean_genotype_logit_dmax", "var_genotype_logit_dmax",
+    "mean_genotype_slope", "var_genotype_slope",
+    "mean_genotype_midpoint", "var_genotype_midpoint",
+    "mean_dmax", "mean_slope", "mean_midpoint",
+    "mean_d0", "mean_dK", "mean_davg_0_K",
+    "mean_slopeA_0_K", "mean_slopeA_0_avg", "mean_uncond_0_K"
+  ),
   ### constants and variables: what we feed the models
   constants = list(
     "duration" = duration
@@ -144,12 +148,12 @@ And we're go for running the simulations! We set a "distinct" simulation design 
 
 # set.seed(1989) ## we can set a seed here to guarantee the set of seeds selected below in nseeds is the same everytime
 nl_object@simdesign <- simdesign_distinct(nl = nl_object, nseeds = nreplicates)
-nl_object@simdesign@simseeds <- 1:nreplicates # or we can force rewrite the nseeds here 
-#(to guarantee they are all actually different)(sometimes when drawing seeds at random you will have duplicates when you don't want to)
+nl_object@simdesign@simseeds <- 1:nreplicates # or we can force rewrite the nseeds here
+# (to guarantee they are all actually different)(sometimes when drawing seeds at random you will have duplicates when you don't want to)
 length(unique(nl_object@simdesign@simseeds)) == nreplicates # either way, check that all generated seeds are different
 exp_h2 <- run_nl_all(nl_object)
 
-save(list=c("exp_h2"),file = here("Netlogo_output","raw_output.Rdata"))
+save(list = c("exp_h2"), file = here("Netlogo_output", "raw_output.Rdata"))
 ```
 
 # Output
@@ -159,29 +163,28 @@ We can now process the result for the main analyses. first we start by extractin
 ```{r processing-output-presaving}
 tab <- exp_h2 %>%
   select(ticks,
-    start_dmax,start_slope, start_midpoint,
+    start_dmax, start_slope, start_midpoint,
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
     fecundity, K, reproduction,
-    seedID = `random-seed`,siminputrow,
+    seedID = `random-seed`, siminputrow,
     metrics.patches,
-    start_d0, start_dK, start_davg_0_K, 
+    start_d0, start_dK, start_davg_0_K,
     start_slopeA_0_K, start_slopeA_0_avg, start_uncond_0_K
-  )  %>%
-  mutate(replicateID = paste(siminputrow,seedID,sep="_")) %>%
+  ) %>%
+  mutate(replicateID = paste(siminputrow, seedID, sep = "_")) %>%
   unnest(cols = c(metrics.patches)) %>%
   filter(founding >= 0) %>% # excluding never-populated patches
-  mutate( 
-  #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
-  across(.cols=everything(),na_if,-999)
+  mutate(
+    #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
+    across(.cols = everything(), na_if, -999)
   )
 ```
 
 then we save the file for later use
 
 ```{r saving-output}
-write_csv(tab, file = here("NetLogo_output","simulation_output.csv"))
+write_csv(tab, file = here("NetLogo_output", "simulation_output.csv"))
 ```
 
 We can now use the `analyse_simulations` and `supplementary` scripts to analyse the model outputs.
-
