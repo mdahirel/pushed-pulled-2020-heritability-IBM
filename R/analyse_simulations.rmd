@@ -576,7 +576,7 @@ It is extremely clear here what model is the best, independently of the criterio
 
 #### a small detour to check data
 
-```{r}
+```{r some-checks1}
 sum(tab$edge_pxcor_120==0)
 ```
 
@@ -584,7 +584,7 @@ Two runs (out of 2700!) have not advanced by the end of the experiment, so we wi
 
 Let's use the opportunity to check at the same time the expansions with fecundity = $\log(1.5)$, in prevision of the supplementary:
 
-```{r}
+```{r some-checks2}
 sum(na.omit(tab_all$edge_pxcor_120)==0)
 ## so across all the replicates, only 23 replicates survived and did not advance
 ## which means 23-2=21 in teh low fecundity set
