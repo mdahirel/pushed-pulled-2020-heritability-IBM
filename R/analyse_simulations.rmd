@@ -17,25 +17,25 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 ```
 
 ```{r load-packages}
-library(ordinal) # CRAN v2019.12-10
-library(arm) # CRAN v1.11-2
-library(matrixStats) # CRAN v0.60.0
+library(ordinal)     # CRAN v2019.12-10
+library(arm)         # CRAN v1.12-2
+library(matrixStats) # CRAN v0.61.0
 
-library(mgcv) # CRAN v1.8-35
-library(gratia) # CRAN v0.6.0
+library(mgcv)        # CRAN v1.8-38
+library(gratia)      # CRAN v0.6.0
 
-library(MuMIn) # CRAN v1.43.17
+library(MuMIn)       # CRAN v1.43.17
 
-library(tidyverse) # CRAN v1.3.1
+library(tidyverse)   # CRAN v1.3.1
 
-library(cowplot) # [github::wilkelab/cowplot] v1.1.1
-library(patchwork) # CRAN v1.1.1
+library(cowplot)     # [github::wilkelab/cowplot] v1.1.1
+library(patchwork)   # CRAN v1.1.1
 
-library(ggdist) # CRAN v3.0.0
+library(ggdist)      # CRAN v3.0.1
 
-library(ggtext) # CRAN v0.1.1
+library(ggtext)      # CRAN v0.1.1
 
-library(here) # CRAN v1.0.1
+library(here)        # CRAN v1.0.1
 ```
 
 # Introduction
@@ -71,7 +71,7 @@ Landscape-level variables, all constant across time (either because they are tru
 - `start_uncond_0_K`: same as above, for the unconditionality metric (see **Supplementary Material S6** for the definition of that metric)
 
 - `agent`: here always "patches"                   
-- `breed`: here always NA (Netlogo "breeds" are ways to have different discrete groups of individuals that play by different rules. Here there was only one breed, and data are collected at the patch level anyway)                                                  
+- `breed`: here always NA (NetLogo "breeds" are ways to have different discrete groups of individuals that play by different rules. Here there was only one breed, and data are collected at the patch level anyway)                                                  
 
 Patch-level variables:
 - `pxcor`: patch $x$ coordinate                   
@@ -90,7 +90,7 @@ To do our analyses, we're going to build four "processed" tables from this "raw"
 
 ## sub-table 1: expansion speed
 
-Here we build a table that contains, for each time x replicate combination, summary information about the location of the range edge after dispersal (farthest populated patch): 
+Here we build a table that contains, for each time x replicate combination, summary information about the location of the range edge (farthest populated patch after dispersal): 
 
 ```{r tab-front}
 tab_speed <- data %>%
@@ -106,7 +106,7 @@ Here we have mean traits in the range front (defined here as patches < 5 patches
 tab_intermediate <- data %>%
   filter(N_predispersal > 0) %>%
   # Here we use predispersal population size since that's when traits are recorded,
-  # but results are similar if one  use post-dispersal populations instead
+  # but results are similar if one use post-dispersal populations instead
   group_by(replicateID, ticks) %>% # for each time x replicate
   mutate(limit_pxcor = max(pxcor)) %>%
   ungroup() %>%
@@ -574,6 +574,27 @@ It is extremely clear here what model is the best, independently of the criterio
 
 ### genetic diversity: fitting ordinal models
 
+#### a small detour to check data
+
+```{r}
+sum(tab$edge_pxcor_120==0)
+```
+
+Two runs (out of 2700!) have not advanced by the end of the experiment, so we will exclude them from the analyses of genetic and phenotypic diversity at the front (since with only one patch populated, there is no front by any definition).
+
+Let's use the opportunity to check at the same time the expansions with fecundity = $\log(1.5)$, in prevision of the supplementary:
+
+```{r}
+sum(na.omit(tab_all$edge_pxcor_120)==0)
+## so across all the replicates, only 23 replicates survived and did not advance
+## which means 23-2=21 in teh low fecundity set
+sum(is.na(tab$edge_pxcor_120)) # this variable is NA if the expansion is fully extinct before the end
+## none in the high fecundity set
+sum(is.na(tab_all$edge_pxcor_120)) # 43 in the full set, so all in the low fecundity set
+```
+
+#### back to regular programming
+
 Our measure of the capacity of expansions to keep **neutral** genetic diversity at the front is... the time they take to lose it, i.e. having only one allele at the front. This is time to event data, so it should be easy to analyse using survival models. Except we only sampled expansions every 20 generations to save memory. But no worry, this is where discrete time-to-event models come to the rescue. A simple way to fit these is to fit an ordinal model, especially with a cloglog link, since it becomes basically a discrete proportional hazards model (see e.g. Bürkner and Vuorre 2019 doi: 10.1177/2515245918823199). So let's do that, with seven model structures, just like velocity:
 
 ```{r genetic-models}
@@ -912,7 +933,9 @@ Note that for this plot, we obviously excluded replicates where the initial phen
 
 ```{r fig5}
 tab %>%
-  filter(is.VP_dmax == 1) %>% # does not make sense to include replicates with no variation in dmax
+  filter(is.VP_dmax == 1 & edge_pxcor_120 > 0) %>% 
+  # does not make sense to include replicates with no variation in dmax
+  # we also exclude the replicates that did not advance (because if no front, no evolution at the front)
   mutate(is.VP_DDD = factor(is.VP_DDD)) %>%
   ggplot() +
   geom_hline(yintercept = 0.5, lty = 2) +
@@ -956,7 +979,7 @@ Finally, it is possible to identify regions of plotted space that are impossible
 
 ```{r fig6}
 p11 <- tab %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 1) %>%
+  filter(is.VP_dmax == 1 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
   ggplot() +
   geom_hline(yintercept = 0, lty = 2) +
   geom_vline(xintercept = 0, lty = 2) +
@@ -997,7 +1020,7 @@ p11 <- tab %>%
   theme_bw()
 
 p10 <- tab %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 0) %>%
+  filter(is.VP_dmax == 1 & is.VP_DDD == 0 & edge_pxcor_120 > 0) %>%
   ggplot() +
   geom_hline(yintercept = 0, lty = 2) +
   geom_vline(xintercept = 0, lty = 2) +
@@ -1036,7 +1059,7 @@ p10 <- tab %>%
   theme_bw()
 
 p01 <- tab %>%
-  filter(is.VP_dmax == 0 & is.VP_DDD == 1) %>%
+  filter(is.VP_dmax == 0 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
   ggplot() +
   geom_hline(yintercept = 0, lty = 2) +
   geom_vline(xintercept = 0, lty = 2) +
