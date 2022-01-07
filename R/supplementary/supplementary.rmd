@@ -6,6 +6,7 @@ output: pdf_document
 editor_options:
   chunk_output_type: console
 bibliography: references.bib
+csl: journal-of-animal-ecology.csl
 ---
 
 ```{r setup, include=FALSE}
