@@ -3,7 +3,7 @@
 
 # Dispersal evolution and pushed expansions: a simulation study
 
-repo DOI to add here after first release
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5830993.svg)](https://doi.org/10.5281/zenodo.5830993)
 
 This repository contains all data and code needed to re-do the analyses and figures in our manuscript
 
