@@ -161,7 +161,7 @@ Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additional
 
 - Two measures of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$ and $\Delta_{avg-0}=d_{avg}-d_{0}$. The former is independent of the shape of the dispersal function between 0 and $K$, while the latter accounts for it at least in part.
 
-**Reproduction:** Each individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
+**Reproduction:** Each adult individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
 
 $\lambda_{N} = \mathrm{e}^{r_{N}}, r_{N}=r_{0}(1-N/K),$
 
@@ -213,7 +213,7 @@ ggplot(tab) +
 
 &nbsp;
 
-So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neighbourhood of 1000 to be able to produce such shapes (when, as a reminder, $\alpha=6$ is needed to get a slope that takes a population increase of $K$ individuals to go from 5% to 95% of $d_{max}$, so a reasonably shallow, but not too shallow function). An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extreme $\alpha$ with a low but non-negligible probability (about 5%). And we know (see main text) that $6/\alpha$ expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,500)$ :
+So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neighbourhood of 1000 to be able to produce such shapes (when, as a reminder, $\alpha=6$ is needed to get a slope that takes a population increase of $K$ individuals to go from 5% to 95% of $d_{max}$, so a reasonably shallow, but not too shallow function). An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extreme $\alpha$ with a low but non-negligible probability (about 5%). And we know (see main text) that $6/\alpha$ approximately expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,500)$ :
 
 
 ```{r fig-s2-2, fig.width=6, fig.height=3}
@@ -234,7 +234,7 @@ tibble(x = rnorm(10000, 0, 500)) %>%
   )
 ```
 
-**Figure S2.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 1000 samples.
+**Figure S2.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 10000 samples.
 
 &nbsp;
 
