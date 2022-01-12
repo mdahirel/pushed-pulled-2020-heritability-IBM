@@ -132,9 +132,9 @@ to-report invlogit [number]
 end
 
 to-report logit [number]
-  ifelse ((number >= 0) and (number <= 1))
+  ifelse ((number > 0) and (number < 1))
     [report ln (number / (1 - number) )]
-    [error "input should be a proportion (>= 0 and <= 1)"]
+    [error "input should be a proportion (> 0 and < 1)"]
 end
 
 
