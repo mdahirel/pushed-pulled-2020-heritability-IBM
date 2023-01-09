@@ -485,7 +485,7 @@ newdata=select(tab_var_evo,Mort,Fec) |> distinct() |>
   expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
   add_epred_draws(mod,re_formula=NA,resp="meandmax")
 
-tab_var_evo |>  
+tab_var_evo |> filter(is.VP_dmax==1) |>  
   ggplot()+
   geom_point(aes(x=start_slopeA_0_K,y=mean_dmax,size=front),col="lightgreen",alpha=0.5)+
   stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
@@ -493,6 +493,7 @@ tab_var_evo |>
                summarise(dmax=mean(mean_dmax,na.rm=TRUE),
                          slope=mean(start_slopeA_0_K)),
              aes(x=slope,dmax),size=3)+
+  geom_hline(yintercept=0.5,lty=2)+
   facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
   scale_x_continuous("initial slope of DDD (mean dK - D0)")+
   scale_y_continuous("how far does genetic diversity persists?")+
