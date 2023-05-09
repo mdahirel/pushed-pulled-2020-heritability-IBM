@@ -61,8 +61,6 @@ Landscape-level variables, all constant across time (either because they are tru
 - `start_d0`, `start_dK`, `start_davg_0_K`, `start_slopeA_0_K`, `start_slopeA_0_avg`: mean values for $d_{0}$, $d_{K}$, $d_{avg}$,  the density-dependence metrics $\Delta_{K-0}$, $\Delta_{avg-0}$ in the starter population (see <!--SUPPLEMENTARY TO ADD--> for the definition of each of these variables)        
 - `start_uncond_0_K`: same as above, for the unconditionality metric (see <!--supplementary to add/edit?--> for the definition of that metric)
 
-- `agent`: here always "patches"                   
-- `breed`: here always NA (NetLogo "breeds" are ways to have different discrete groups of individuals that play by different rules. Here there was only one breed, and data are collected at the patch level anyway)                                                  
 
 Patch-level variables:
 - `pxcor`: patch $x$ coordinate                   
@@ -79,10 +77,9 @@ Patch-level variables:
 
 
 ```{r}
+# we only saved the state at g120, but since patch founding time is saved in each patch, we can reconstruct the dynamics for speed
 
-# something for later: a way to use founding column to get info about speed at all generations
-# shows that at 120 most seem to have reached equilibrium
-data |> select(heritability,fecundity,is.VP_dmax,is.VP_DDD,dispersal_mortality,replicateID,founding,pxcor) |> distinct() |> ggplot()+geom_line(aes(founding,pxcor/founding,group=replicateID,col=factor(heritability)))+scale_x_continuous("t (generations since start)")+scale_y_continuous("expansion speed up to t")+facet_wrap(~fecundity+dispersal_mortality)
+data |> select(heritability,fecundity,is.VP_dmax,is.VP_DDD,dispersal_mortality,replicateID,founding,pxcor) |> distinct() |> ggplot()+geom_line(aes(founding,pxcor,group=replicateID,col=factor(heritability)))+scale_x_continuous("t (generations since start)")+scale_y_continuous("expansion up to t")+facet_wrap(~fecundity+dispersal_mortality)
 ```
 
 To do our analyses, we're going to build several "processed" tables from this "raw" dataset, which we'll then merge into a final table.
@@ -173,6 +170,26 @@ N_expand<-length(unique(tab$replicateID))
 
 # Analysis
 
+<!--side note: there is an interesting interaction in non-evo treatments between initial beta and initial alpha in shaping speed.
+
+when initial beta is low, increasing initial alpha leads to higher speeds, because we go from a space where dispersal prob decreases over 0-K from a space where it increases (from the same starting point at density 0) so average dispersal increases with alpha
+
+when initial beta is high we have the reverse pattern
+
+this is destroyed by evo
+
+this has nothing to do with any pushed/pulled densitydependence thing, so do not know what to do with it, but will need to account for it if we include speed in the pushed analysis (not planned for now)
+
+if we express alpha and beta instead in terms of d0 and absolute slope, this probs disappears
+
+a model of the type mod=lmer(scale(front)~(scale(start_d0)+scale(start_slopeA_0_K))* Mort * Fec+(1|scenario),data=tab_var_evo)
+
+performs extremely well (r²>>0.95 for all var scenarios)
+
+maybe slide it in supplementary, for the idea that DDD and d0 both shape speed?
+-->
+
+
 We can't really combine in one analysis all the simulations: (i) expansions without phenotypic variation, (ii) with only non-heritable phenotypic variation and (iii) where evolution is possible in at least one trait are three "regimes" that are best analysed separately.
 
 So let's split the data:
@@ -182,9 +199,9 @@ So let's split the data:
 tab_novar = filter(tab, is.VP_DDD ==0 & is.VP_dmax ==0) #(i)
 
 tab_var_noevo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability ==0) #(ii)
-tab_var_evo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability >0) #(iii)
+tab_var_evo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability == 1) #(iii)
 
-dim(tab)[1] == dim(tab_novar)[1] + dim(tab_var_noevo) [1] + dim(tab_var_evo)[1] #sense check
+dim(tab)[1] == (dim(tab_novar)[1] + dim(tab_var_noevo) [1] + dim(tab_var_evo)[1]) #sense check
 
 ```
 
@@ -193,9 +210,9 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
 ## non evo models
 
 ```{r}
-mod_gen_novar=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|scenario),
-                     nlf(phi~1/invphi),
-                     invphi~1),
+mod_gen_novar <- brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
+                      nlf(phi~1/exp(loginvphi)),
+                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)),
                   family=beta_binomial(link_phi = "identity"),
                   data=tab_novar,backend="cmdstanr",
         seed=42,
@@ -203,7 +220,9 @@ mod_gen_novar=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),
                     set_prior("normal(0,1)",class="sd"),
-                    set_prior("normal(0,1)",class="b",nlpar="invphi",lb=0)
+                    set_prior("normal(0,1)",class="b",nlpar="loginvphi"),
+                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi"),
+                    set_prior("lkj(2)",class="cor")
                   )
 )
 
@@ -227,12 +246,29 @@ tab_novar |>
   scale_y_continuous("how far does genetic diversity persists?")+
   theme_bw()+
   theme(legend.position = "none")
+
+
+
+newdata=select(tab_novar,Mort,Fec) |> distinct() |> 
+  mutate(front=1) |> 
+  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
+  add_epred_draws(mod_gen_novar,re_formula=NA,nlpar="loginvphi")
+
+ggplot(newdata)+
+  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=(.epred)),fill="grey",alpha=0.5)+
+  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
+  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
+  scale_y_continuous("overdispersion 1/phi")+
+  theme_bw()+
+  theme(legend.position = "none")
+
+
 ```
 
 ```{r}
-mod_gen_var_noevo=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|scenario),
-                     nlf(phi~1/invphi),
-                     invphi~1),
+mod_gen_var_noevo=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
+                         nlf(phi~1/exp(loginvphi)),
+                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)),
                   family=beta_binomial(link_phi = "identity"),
                   data=tab_var_noevo,backend="cmdstanr",
         seed=42,
@@ -240,7 +276,9 @@ mod_gen_var_noevo=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  +
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),
                     set_prior("normal(0,1)",class="sd"),
-                    set_prior("normal(0,1)",class="b",nlpar="invphi",lb=0)
+                    set_prior("normal(0,1)",class="b",nlpar="loginvphi"),
+                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi"),
+                    set_prior("lkj(2)",class="cor")
                   )
 )
 
@@ -264,6 +302,21 @@ tab_var_noevo |>
   scale_y_continuous("how far does genetic diversity persists?")+
   theme_bw()+
   theme(legend.position = "none")
+
+
+newdata=select(tab_novar,Mort,Fec) |> distinct() |> 
+  mutate(front=1) |> 
+  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
+  add_epred_draws(mod_gen_var_noevo,re_formula=NA,nlpar="loginvphi")
+
+ggplot(newdata)+
+  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=(.epred)),fill="grey",alpha=0.5)+
+  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
+  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
+  scale_y_continuous("overdispersion 1/phi")+
+  theme_bw()+
+  theme(legend.position = "none")
+
 ```
 
 
@@ -409,7 +462,7 @@ ranef(mod)$scenario[,"Estimate",] |> as_tibble() |>
 
 ```{r}
 
-newdata=select(tab_var_evo,Mort,Fec) |> distinct() |> 
+newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
   mutate(front=1) |> 
   expand_grid(start_slopeA_0_K=c(-3:3)/10) |> 
   add_epred_draws(mod1,re_formula=NA,resp="meanKslope")
@@ -433,7 +486,7 @@ tab_var_evo |>  filter(is.VP_dmax==0) |>
 
 ```{r}
 
-newdata=select(tab_var_evo,Mort,Fec) |> distinct() |> 
+newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
   mutate(front=1) |> 
   expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
   add_epred_draws(mod,re_formula=NA,resp="meanKslope")
@@ -457,7 +510,7 @@ tab_var_evo |>
 
 ```{r}
 
-newdata=select(tab_var_evo,Mort,Fec) |> distinct() |> 
+newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
   mutate(front=1) |> 
   expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
   add_epred_draws(mod,re_formula=NA,resp="lagging")

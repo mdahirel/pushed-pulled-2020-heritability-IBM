@@ -20,6 +20,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALS
 library(nlrx) # CRAN v0.4.2
 library(tidyverse) # CRAN v1.3.1
 library(here) # CRAN v1.0.1
+# est runtime of current version: 32h
 ```
 
 This is the code used to "talk" with the NetLogo simulation and make it run the experiment described in the Methods and Supplementary Materials of the Manuscript (see there and the Info pane of the NetLogo model for details). Briefly, we simulate asexual haploid individuals spreading in a linear discrete landscape. Runs differ on whether individuals very or not in traits shaping dispersal and its density-dependence, on whether that variation is heritable (and how much), and on the costs of dispersal.
@@ -32,7 +33,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 ####
 NLPATH <- "C:/Program Files/NetLogo 6.2.0" # change as needed
 NLVERSION <- "6.2.0" # change as needed
-nreplicates <- 10
+nreplicates <- 5
 duration <- 120
 ```
 
@@ -61,17 +62,17 @@ Again, see the Methods, Supplementary Materials and the Info pane for more detai
 ```{r design-grid}
 ### designing the experiment
 trt_grid <- tibble(
-  VP_logit_dmax = c(0, 1.5^2, 1.5^2, 1.5^2, 0, 0, 0, 1.5^2, 1.5^2, 1.5^2),
-  VP_slope = c(0, 6^2, 6^2, 6^2, 6^2, 6^2, 6^2, 0, 0, 0),
-  VP_midpoint = c(0, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0.5^2, 0, 0, 0),
-  heritability = c(0, 0, 0.33, 1, 0, 0.33, 1, 0, 0.33, 1)
+  VP_logit_dmax = c(0, 0, 1.5^2, 1.5^2, 0, 1.5^2, 1.5^2),
+  VP_slope = c(0, 6^2, 0, 6^2, 6^2, 0, 6^2),
+  VP_midpoint = c(0, 0.5^2, 0, 0.5^2, 0.5^2, 0, 0.5^2),
+  heritability = c(0, 0, 0, 0, 1, 1, 1)
   # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
 ) %>%
   expand_grid(
     start_dmax = 0.5, # median + VP here give relatively uniform distri over ]0-1[
-    start_slope = c(-6, 0, 6), # 0, and + or -1SD from 0
+    start_slope = c(-6, -4, -2, 0, 2, 4, 6), # 0, and + or -1SD from 0
     ## also, |6| as slope mean we go from 0.05dmax to 0.95dmax over a range of K centred on midpoint
-    start_midpoint = c(0, 0.5, 1), # same logic here
+    start_midpoint = c(0, 0.25, 0.5, 0.75, 1), # same logic here
     dispersal_mortality = c(0.1, 0.5, 0.9),
     reproduction = c("clonal"),
     fecundity = c(1.5, 5),
@@ -97,7 +98,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1, 20, 40, 60, 80, 100, 120),
+  evalticks = c(1, 120),
   # the evalticks = 1 is to guarantee something is saved every time
   # even in runs that never produce any valid value for one of metrics
   # code crashes if some metrics.patches report nothing
@@ -166,18 +167,19 @@ tab <- exp_h2 %>%
     start_dmax, start_slope, start_midpoint,
     VP_logit_dmax, VP_slope, VP_midpoint,
     heritability, dispersal_mortality,
-    fecundity, K, reproduction,
     seedID = `random-seed`, siminputrow,
     metrics.patches,
     start_d0, start_dK, start_davg_0_K,
-    start_slopeA_0_K, start_slopeA_0_avg, start_uncond_0_K
+    start_slopeA_0_K, start_slopeA_0_avg, start_uncond_0_K,
+    fecundity, K, reproduction
   ) %>%
   mutate(replicateID = paste(siminputrow, seedID, sep = "_")) %>%
   unnest(cols = c(metrics.patches)) %>%
   filter(founding >= 0) %>% # excluding never-populated patches
+  select(-c(agent,breed)) %>% #not needed and mess up with na_if below
   mutate(
     #### IMPORTANT: replace the -999 (used as NA placeholders in Netlogo model) by actual NAs
-    across(.cols = everything(), na_if, -999)
+    across(.cols = ticks:K, na_if, -999)
   )
 ```
 
