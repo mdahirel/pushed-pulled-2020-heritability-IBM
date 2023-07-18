@@ -210,6 +210,69 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
 ## non evo models
 
 ```{r}
+non_evo <- rbind(
+  tab_novar |> mutate(type = "no var"),
+  tab_var_noevo |>  mutate(type = "non-genetic var")
+) |> 
+  mutate(l1 = case_when(type=="no var"~lagging, TRUE~NA_integer_),
+         l2 = case_when(type=="non-genetic var"~lagging, TRUE~NA_integer_))
+
+bf1 <- bf(l1|trials(front) + subset(type=="no var")~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
+                      nlf(phi~1/exp(loginvphi)),
+                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
+                  family=beta_binomial(link_phi = "identity"))
+
+bf2 <- bf(l2|trials(front) + subset(type=="non-genetic var")~ start_slopeA_0_K * Mort * Fec  + (1|q|scenario),
+                      nlf(phi~1/exp(loginvphi)),
+                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|q|scenario),
+                  family=beta_binomial(link_phi = "identity"))
+
+
+mod_non_evo <- brm(mvbf(bf1+bf2),
+                  data=non_evo,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    #set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b", resp="l1"),
+                    set_prior("normal(0,1)",class="sd", resp="l1"),
+                    set_prior("normal(0,1)",class="b",nlpar="loginvphi", resp="l1"),
+                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi", resp="l1"),
+                    
+                    
+                    #set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b", resp="l2"),
+                    set_prior("normal(0,1)",class="sd", resp="l2"),
+                    set_prior("normal(0,1)",class="b",nlpar="loginvphi", resp="l2"),
+                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi", resp="l2"),
+                    
+                    set_prior("lkj(2)",class="cor")
+                  )
+)
+
+newdata1=select(non_evo,Mort,Fec,type) |> distinct() |> 
+  mutate(front=1) |> 
+  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
+  add_epred_draws(mod_non_evo,re_formula=NA,resp="l1") |> 
+  mutate(l1=.epred) |> 
+  ungroup() |> 
+  select(-c(type,.epred))
+
+newdata2=select(non_evo,Mort,Fec,type) |> distinct() |> 
+  mutate(front=1) |> 
+  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
+  add_epred_draws(mod_non_evo,re_formula=NA,resp="l2") |> 
+  mutate(l2=.epred)|> 
+  ungroup() |> 
+  select(-c(type,.epred))
+
+left_join(newdata1,newdata2)
+```
+
+
+
+
+
+```{r}
 mod_gen_novar <- brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
                       nlf(phi~1/exp(loginvphi)),
                      loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)),
@@ -397,7 +460,12 @@ bf_genet=bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenari
             invphi~1,
             family=beta_binomial(link_phi = "identity"))
 
-bf_slope=bf(mean_Kslope~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario))
+bf_slope=bf(mean_Kslope~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
+                      sigma~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)
+)
+
+#while slope is bounded and therefore might be beta, we keep it gaussian to keep comparison to the linear expaction new trait = old trait in absence of evol clear
+## use bounded gaussian???
 
 bf_dmax=bf(mean_dmax|subset(is.VP_dmax==1)~ start_slopeA_0_K * Mort * Fec + (1|p|scenario),
            nlf(phi~1/invphi),
