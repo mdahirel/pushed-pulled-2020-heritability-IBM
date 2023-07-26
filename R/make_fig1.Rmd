@@ -1,0 +1,113 @@
+---
+title: 'Figure 1 for "Individual variation in dispersal, and its sources, shape the fate of pushed vs. pulled range expansions"'
+author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken (code by Maxime Dahirel)"
+date:
+output:
+  html_document:
+    theme: yeti
+    toc: TRUE
+    toc_float: TRUE
+    code_download: TRUE
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALSE)
+```
+
+```{r load-packages}
+
+library(tidyverse)   # CRAN v1.3.1 
+library(patchwork)   # CRAN v1.1.1 
+
+library(ggtext)      # CRAN v0.1.1 
+
+library(here)        # CRAN v1.0.1 
+```
+
+## Figure 1: overview of the dispersal function
+
+The aim of *Fig. 1*, which is in Methods, is to summarise visually how our density-dispersal function behaves, and the role of each of the three parameters:
+
+```{r fig1-panels}
+## we create a table that contains variation for all 3 parameters:
+p1_tab <- tibble(x = c(0:130) / 100) %>%
+  expand_grid(
+    dmax = c(0.2, 0.5, 0.7),
+    a = c(-10, 0, 10),
+    b = c(0.2, 0.5, 1.1)
+  ) %>%
+  mutate(group = paste(dmax, a, b)) %>%
+  mutate(d = dmax / (1 + exp(-a * (x - b))))
+
+
+## we make a subplot where we show what happens when dmax varies...
+p1_1_dmax <- p1_tab %>%
+  filter(b == 0.5 & a == 10) %>%
+  ggplot() +
+  geom_line(aes(x, d, group = group)) +
+  geom_textbox(
+    data = tibble(dmax = unique(p1_tab$dmax)),
+    aes(
+      x = 1,
+      y = dmax - 0.05,
+      label = paste("*d<sub>max</sub>* = ", dmax)
+    ),
+    width = grid::unit(0.3, "npc")
+  ) +
+  scale_x_continuous("N/K") +
+  scale_y_continuous("Dispersal probability") +
+  theme_bw()
+
+## when alpha (slope) varies...
+p1_2_alpha <- p1_tab %>%
+  filter(b == 0.5 & dmax == 0.7) %>%
+  ggplot() +
+  geom_line(aes(x, d, group = group)) +
+  geom_textbox(
+    data = tibble(
+      b = 0.5,
+      dmax = 0.7,
+      a = unique(p1_tab$a)
+    ),
+    aes(
+      x = 1,
+      y = dmax / (1 + exp(-a * (1 - b))),
+      label = paste("*&alpha;* =", a)
+    ),
+    width = grid::unit(0.22, "npc")
+  ) +
+  scale_x_continuous("N/K") +
+  scale_y_continuous("") +
+  theme_bw()
+
+### and when beta (midpoint) varies.
+p1_3_beta <- p1_tab %>%
+  filter(a == 10 & dmax == 0.7) %>%
+  ggplot() +
+  geom_line(aes(x, d, group = group)) +
+  geom_textbox(
+    data = tibble(
+      b = unique(p1_tab$b),
+      dmax = 0.7,
+      a = 10
+    ),
+    aes(
+      x = b,
+      y = 0.4,
+      label = paste("*&beta;* =", b)
+    ),
+    width = grid::unit(0.15, "npc")
+  ) +
+  scale_x_continuous("N/K") +
+  scale_y_continuous("") +
+  theme_bw()
+```
+
+
+```{r fig1}
+(p1_1_dmax | p1_2_alpha | p1_3_beta ) &
+  theme(legend.position = "none") &
+  plot_annotation(tag_levels = "A")
+```
