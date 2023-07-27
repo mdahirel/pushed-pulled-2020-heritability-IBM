@@ -25,6 +25,7 @@ library(tidybayes)
 options(mc.cores=4)
 
 library(patchwork)   # CRAN v1.1.1
+library(ggtext)
 
 library(here)        # CRAN v1.0.1
 ```
@@ -45,7 +46,7 @@ data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
 
 OK, the dataset we just imported is structured so that one row = one patch in one landscape at one observed time. Only patches that were populated at least once are included (see the end of the `generate_simulations` file). The dataset contains many variables, many of them were collected as a precaution "in case they were needed later" (since re-running the models is time consuming); not all of them will be used in the analysis:
 
-- `ticks`: time step at which the observations were made (= number of generations since start)
+- `ticks`: time step at which the observations were made (= number of generations since start), we planned to collect data only at the end of the runs (`ticks` = 120). As `nlrx` may fail if no data are collected for a run, we also collected data at `ticks` = 1, to avoid issues with replicates that go extinct before the end of their run.
 
 Landscape-level variables, all constant across time (either because they are truly constant, or because they only describe initial conditions at $t=0$ and are not updated after):
               
@@ -75,21 +76,13 @@ Patch-level variables:
 
 # Data wrangling
 
-
-```{r}
-# we only saved the state at g120, but since patch founding time is saved in each patch, we can reconstruct the dynamics for speed
-
-data |> select(heritability,fecundity,is.VP_dmax,is.VP_DDD,dispersal_mortality,replicateID,founding,pxcor) |> distinct() |> ggplot()+geom_line(aes(founding,pxcor,group=replicateID,col=factor(heritability)))+scale_x_continuous("t (generations since start)")+scale_y_continuous("expansion up to t")+facet_wrap(~fecundity+dispersal_mortality)
-```
-
 To do our analyses, we're going to build several "processed" tables from this "raw" dataset, which we'll then merge into a final table.
 
-First: we will only focus on the state of our expansions at the end of the simulations (t = 120). There is good evidence that speed and evolutionary dynamics are at or close to equilibrium for most replicates at this time. <!--DISCUSS IN SUPPLEMENTARY, SEE BONUS PLOT ABOVE, BRING IT TO SUPPLEMENTARY-->
+Again: we will only focus on the state of our expansions at the end of the simulations (t = 120). There is good evidence that evolutionary dynamics are at or close to equilibrium for most replicates at this time. <!--DISCUSS IN SUPPLEMENTARY-->
 
 Second: we will consistently use the metrics as captured at the *start* of each generation, i.e. pre-dispersal. This is to avoid trying to interpret non-genetic dynamics in traits that are reset each generation. For instance, if dispersal capacity is variable but 100% non-genetic, there may be an excess of high dispersers in newly colonised patches. This excess will however vanish when they reproduce and dispersal traits are redrawn. In front patches that are funded by a low number of individuals, this also allows us to estimate patch averages for traits and genetic diversity from higher post-reproduction numbers vs. lower founding numbers.
 
-
-We start by creating a dataset for genetic diversity, with one observation = one replicate expansion. Our metric of genetic diversity is spatial, and based on the positions of the expansion front for the whole expansion vs. for the individuals that bear the neutral allele that lags behind. In addition to this information, we create a `scenario` variable that groups together all replicates that share the same initial conditions (fecundity, mortality, starting values of dispersal traits, their variability and heritability). In creating this genetic diversity variable, we incidentally also create the expansion speed variable (since it is `front`, the location of the farthest individual irrespective of neutral allele identity, divided by `ticks`)
+We start by creating a dataset for genetic diversity, with one observation = one replicate expansion. Our metric of genetic diversity is spatial, and based on the positions of the expansion front for the whole expansion vs. for the individuals that bear the neutral allele that lags behind. In addition to this information, we create a `scenario` variable that groups together all replicates that share the same initial conditions (fecundity, mortality, starting values of dispersal traits, their variability and heritability).
 
 ```{r}
 tab <- data  |>
@@ -105,23 +98,37 @@ tab <- data  |>
            start_slope, start_midpoint,
            start_d0, start_dK,        
            start_slopeA_0_K) |> 
-  summarise(front1 = max(pxcor * (N_allele1_pre > 0), na.rm=TRUE), # the coordinate of the farthest individual with neutral allele 1
-            front0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE)  # same with neutral allele 0
+  summarise(edge1 = max(pxcor * (N_allele1_pre > 0), na.rm=TRUE), # the coordinate of the farthest individual with neutral allele 1
+            edge0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE)  # same with neutral allele 0
   ) |> 
   rowwise() |> 
-  mutate(front = max(front0, front1),  # which is the farthest of the two irrespective of allele value
-         lagging = min( front0, front1) # which is the other?
+  mutate(edge_pre = max(edge0, edge1),  # which is the farthest of the two irrespective of allele value
+         lagging_pre = min(edge0, edge1) # which is the other?
   ) |> 
   ungroup()
 ```
 
+```{r}
+tab_edge <- data  |>
+  filter(ticks==120) |> # we only keep the last iteration
+  filter(N_postdispersal>0) |> 
+  group_by(replicateID) |> 
+  summarise(edge_post = max(pxcor, na.rm=TRUE)) |> 
+  ungroup()
+```
+
+```{r}
+tab <- left_join(tab, tab_edge)
+```
+
+
 We then create a dataset that contain the mean dispersal trait values at time $t$ in the range front (which we defined here semi-arbitrarily as patches < 5 patches from the edge; see <!--Supplementary S2--> for justification).
 
-We first use the previously created dataset to know, for each replicate, which patches are "front patches"
+We first use the previously created dataset to know, for each replicate, which patches are "front patches" (we use the edge pre-dispersal as a reference, since traits are measured pre-dispersal)
 
 ```{r}
 tab_intermediate <- tab |> 
-  select(replicateID, front)
+  select(replicateID, edge_pre)
 
 ```
 
@@ -132,7 +139,7 @@ We then use that to (i) filter the big `data` to only keep front patches (ii) an
 tab_traits <- data |> 
   filter(ticks==120) |> 
   left_join(tab_intermediate) |> 
-  filter(pxcor > (front - 5)) |> 
+  filter(pxcor > (edge_pre - 5)) |> 
   group_by(replicateID, ticks)  |> 
   summarise(
     mean_dmax = weighted.mean(mean_dmax, w = N_predispersal, na.rm = TRUE),
@@ -143,13 +150,14 @@ tab_traits <- data |>
   ungroup()
 ```
 
-We can then merge the two in one dataset
+We can then merge the two in one dataset, and we rename some variables so that models are a bit easier to write below
 
 ```{r}
 tab <- left_join(tab,tab_traits) |> 
   mutate(Mort=factor(dispersal_mortality),
          Fec=factor(fecundity)
-         )
+         ) |> 
+  rename(start_Kslope="start_slopeA_0_K")
 ```
 
 ```{r}
@@ -159,7 +167,7 @@ N_non_extinct<-length(unique(tab$replicateID))
 
 
 ```{r}
-tab <- filter(tab, front>0) # we exclude what did not advance
+tab <- filter(tab, edge_pre>0) # we exclude what did not advance
 ```
 
 ```{r}
@@ -170,392 +178,396 @@ N_expand<-length(unique(tab$replicateID))
 
 # Analysis
 
-<!--side note: there is an interesting interaction in non-evo treatments between initial beta and initial alpha in shaping speed.
-
-when initial beta is low, increasing initial alpha leads to higher speeds, because we go from a space where dispersal prob decreases over 0-K from a space where it increases (from the same starting point at density 0) so average dispersal increases with alpha
-
-when initial beta is high we have the reverse pattern
-
-this is destroyed by evo
-
-this has nothing to do with any pushed/pulled densitydependence thing, so do not know what to do with it, but will need to account for it if we include speed in the pushed analysis (not planned for now)
-
-if we express alpha and beta instead in terms of d0 and absolute slope, this probs disappears
-
-a model of the type mod=lmer(scale(front)~(scale(start_d0)+scale(start_slopeA_0_K))* Mort * Fec+(1|scenario),data=tab_var_evo)
-
-performs extremely well (r²>>0.95 for all var scenarios)
-
-maybe slide it in supplementary, for the idea that DDD and d0 both shape speed?
--->
-
-
 We can't really combine in one analysis all the simulations: (i) expansions without phenotypic variation, (ii) with only non-heritable phenotypic variation and (iii) where evolution is possible in at least one trait are three "regimes" that are best analysed separately.
 
 So let's split the data:
 
 ```{r}
 
-tab_novar = filter(tab, is.VP_DDD ==0 & is.VP_dmax ==0) #(i)
+tab_fix = filter(tab, is.VP_DDD ==0 & is.VP_dmax ==0) #(i) traits are fixed
 
-tab_var_noevo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability ==0) #(ii)
-tab_var_evo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability == 1) #(iii)
+tab_noevo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability ==0) #(ii) traits can vary but do not evolve
+tab_evo = filter(tab,(is.VP_DDD==1 | is.VP_dmax==1) & heritability == 1) #(iii) at least one trait can evolve
 
-dim(tab)[1] == (dim(tab_novar)[1] + dim(tab_var_noevo) [1] + dim(tab_var_evo)[1]) #sense check
+dim(tab)[1] == (dim(tab_fix)[1] + dim(tab_noevo) [1] + dim(tab_evo)[1]) #sense check
 
 ```
 
-For (i) and (ii) there is no reason to analyse phenotypic trait changes, this can only be done meaningfully in (iii)
+For (i) and (ii) there is no reason to analyse phenotypic trait changes, this can only be done meaningfully in (iii) (and even in iii, not all trait changes can be analysed for all replicates, as we'll see later)
 
-## non evo models
+## Genetic diversity models
 
 ```{r}
-mod_gen_novar <- brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
-                      nlf(phi~1/exp(loginvphi)),
-                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)),
-                  family=beta_binomial(link_phi = "identity"),
-                  data=tab_novar,backend="cmdstanr",
+mod_gen_fixB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=binomial,
+                  data=tab_fix,backend="cmdstanr",
         seed=42,
                   prior=c(
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd"),
-                    set_prior("normal(0,1)",class="b",nlpar="loginvphi"),
-                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi"),
-                    set_prior("lkj(2)",class="cor")
+                    set_prior("normal(0,1)",class="sd")
                   )
 )
 
+pp_check(mod_gen_fixB,"stat_2d") #some evidence of overdispersion?
 
-
-newdata=select(tab_novar,Mort,Fec) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod_gen_novar,re_formula=NA)
-
-tab_novar |>  
-  ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=lagging/front,size=front),col="lightblue",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_novar |> group_by(scenario,Mort,Fec) |> 
-               summarise(div=mean(lagging/front,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,div),size=3)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("how far does genetic diversity persists?")+
-  theme_bw()+
-  theme(legend.position = "none")
-
-
-
-newdata=select(tab_novar,Mort,Fec) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod_gen_novar,re_formula=NA,nlpar="loginvphi")
-
-ggplot(newdata)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=(.epred)),fill="grey",alpha=0.5)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("overdispersion 1/phi")+
-  theme_bw()+
-  theme(legend.position = "none")
-
-
-```
-
-```{r}
-mod_gen_var_noevo=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
-                         nlf(phi~1/exp(loginvphi)),
-                     loginvphi~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)),
-                  family=beta_binomial(link_phi = "identity"),
-                  data=tab_var_noevo,backend="cmdstanr",
+mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_fix,backend="cmdstanr",
         seed=42,
                   prior=c(
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd"),
-                    set_prior("normal(0,1)",class="b",nlpar="loginvphi"),
-                    set_prior("normal(0,1)",class="sd",nlpar="loginvphi"),
-                    set_prior("lkj(2)",class="cor")
+                    set_prior("normal(0,1)",class="sd")
                   )
 )
 
+pp_check(mod_gen_fixBB0,"stat_2d") # better
 
-
-newdata=select(tab_var_noevo,Mort,Fec) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod_gen_var_noevo,re_formula=NA)
-
-tab_var_noevo |>  
-  ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=lagging/front,size=front),col="pink",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_noevo |> group_by(scenario,Mort,Fec) |> 
-               summarise(div=mean(lagging/front,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,div),size=3)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("how far does genetic diversity persists?")+
-  theme_bw()+
-  theme(legend.position = "none")
-
-
-newdata=select(tab_novar,Mort,Fec) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod_gen_var_noevo,re_formula=NA,nlpar="loginvphi")
-
-ggplot(newdata)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=(.epred)),fill="grey",alpha=0.5)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("overdispersion 1/phi")+
-  theme_bw()+
-  theme(legend.position = "none")
-
-```
-
-
-```{r}
-
-## a reanalysis to check if effect of fecundity/mortality subsumable into an effect of speed
-## mortality reduces speed, fecundity increases speed, so the number of founding events
-## first we note that increasing mortality and increasing fecundity have the same effect (reducing div)
-## nso unlikely
-## but we can rerun using speed as covar
-tab_var_noevo$sfront=scale(tab_var_noevo$front)
-
-mod_gen_var_noevo2=brm(bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + sfront + (1|scenario),
-                     nlf(phi~1/invphi),
-                     invphi~1),
-                  family=beta_binomial(link_phi = "identity"),
-                  data=tab_var_noevo,backend="cmdstanr",
+mod_gen_fixBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
+                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_fix,backend="cmdstanr",
         seed=42,
                   prior=c(
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd"),
-                    set_prior("normal(0,1)",class="b",nlpar="invphi",lb=0)
+                    set_prior("normal(0,1)",class="sd")
                   )
 )
 
+pp_check(mod_gen_fixBB,"stat_2d") # good
+
+loo_compare(
+  loo(mod_gen_fixB),
+  loo(mod_gen_fixBB0),
+  loo(mod_gen_fixBB)
+)
+## even with a few "Pareto k problematic obs", the differences in loo and the pp_check are clear
+```
 
 
-newdata=select(tab_var_noevo,Mort,Fec) |> distinct() |> 
-  mutate(front=1,sfront=0) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod_gen_var_noevo2,re_formula=NA)
+```{r}
+select(tab_fix,Mort,Fec,scenario) |> distinct() |> group_by(Mort,Fec) |> count() 
+#210 scenarios possible, so in theory 5*210 replicates = 1050
+#7 scenarios went fully extinct/failed to advance, so 203, and a max of 1015 replicates
+# we have 1009, so some scenarios failed elsewhere
+```
 
-tab_var_noevo |>  
+```{r}
+fits_fix=select(tab_fix,Mort,Fec) |> distinct() |> 
+  mutate(edge_pre=1) |> 
+  expand_grid(start_Kslope=c(-5:5)/10) |> 
+  add_epred_draws(mod_gen_fixBB,re_formula=NA) |> 
+  ungroup()
+
+tab_fix |>  
   ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=lagging/front,size=front),col="lightgreen",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_noevo |> group_by(scenario,Mort,Fec) |> 
-               summarise(div=mean(lagging/front,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,div),size=3)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("how far does genetic diversity persists?")+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="lightblue",alpha=0.25)+
+  stat_lineribbon(data=fits_fix,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(data=tab_fix |> group_by(scenario,Mort,Fec) |> 
+               summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
+                         slope=mean(start_Kslope)),
+             aes(x=slope,div),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("how far does genetic diversity persist?")+
+  ggtitle(label="",
+          subtitle="A) replicates with no individual variation in dispersal traits")+
   theme_bw()+
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
 ```
 
-## evo models
-
-We use a trivariate approach: we see again how genetic diversity changes in response to initial density-dependence, but also how the DD metric itself evolves, and also dispersal capacity.
-
-we start by setting the priors
 ```{r}
-prior_tri<-c(
-          set_prior("normal(0,1.5)",class="Intercept",resp="lagging"),
-          set_prior("normal(0,1)",class="b",resp="lagging"),
-          set_prior("normal(0,1)",class="sd",resp="lagging"),
-          set_prior("normal(0,1)",class="b",resp="lagging",nlpar="invphi",lb=0),
-          
-          set_prior("normal(0,1)",class="Intercept",resp="meanKslope"),
-          set_prior("normal(0,1)",class="b",resp="meanKslope"),
-          set_prior("normal(0,1)",class="sd",resp="meanKslope"),
-          
-          set_prior("normal(0,1.5)",class="Intercept",resp="meandmax"),
-          set_prior("normal(0,1)",class="b",resp="meandmax"),
-          set_prior("normal(0,1)",class="sd",resp="meandmax"),
-          set_prior("normal(0,1)",class="b",resp="meandmax",nlpar="invphi",lb=0),
-          
-          set_prior("lkj(2)",class="cor")
-        )
-```
-
-then the model formulas (note that how in the formula for dmax _ and thus in the trait correlations involving dmax _ , we only accept replicates in which dmax can evolve)
-```{r}
-bf_genet=bf(lagging|trials(front)~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
-            nlf(phi~1/invphi),
-            invphi~1,
-            family=beta_binomial(link_phi = "identity"))
-
-bf_slope=bf(mean_Kslope~ start_slopeA_0_K * Mort * Fec  + (1|p|scenario),
-                      sigma~start_slopeA_0_K * Mort * Fec  + (1|p|scenario)
+mod_gen_noevoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=binomial,
+                  data=tab_noevo,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
 )
 
-#while slope is bounded and therefore might be beta, we keep it gaussian to keep comparison to the linear expaction new trait = old trait in absence of evol clear
-## use bounded gaussian???
+pp_check(mod_gen_noevoB,"stat_2d") #some evidence of overdispersion?
 
-bf_dmax=bf(mean_dmax|subset(is.VP_dmax==1)~ start_slopeA_0_K * Mort * Fec + (1|p|scenario),
-           nlf(phi~1/invphi),
-           invphi~1,
-           family=Beta(link_phi = "identity"))
-```
-
-
-```{r}
-mod=brm(mvbf(bf_genet,bf_slope,bf_dmax),
-        data=tab_var_evo,backend="cmdstanr",
+mod_gen_noevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_noevo,backend="cmdstanr",
         seed=42,
-        prior=prior_tri)
-```
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
 
+pp_check(mod_gen_noevoBB0,"stat_2d") # no overdisp
 
-we may note that some of the among-traits correlations we see might be primarily driven by dmax evolution. For instance: if the relative shape of the dispersal function cannot evolve, only dmax, then increases in dmax will automatically lead to higher DD by our metric. 
-
-To check whether our correlations are primarily driven by that, we re-run the multivariate model, only using scenarios where only alpha and beta can evolve, not dmax. We logically make that a bivariate model only, since there are no reasons to expect variation in dmax:
-
-```{r}
-prior_bi<-c(
-          set_prior("normal(0,1.5)",class="Intercept",resp="lagging"),
-          set_prior("normal(0,1)",class="b",resp="lagging"),
-          set_prior("normal(0,1)",class="sd",resp="lagging"),
-          set_prior("normal(0,1)",class="b",resp="lagging",nlpar="invphi",lb=0),
-          
-          set_prior("normal(0,1)",class="Intercept",resp="meanKslope"),
-          set_prior("normal(0,1)",class="b",resp="meanKslope"),
-          set_prior("normal(0,1)",class="sd",resp="meanKslope"),
-          
-          set_prior("lkj(2)",class="cor")
-        )
-```
-
-
-```{r}
-mod1=brm(mvbf(bf_genet,bf_slope),
-        data=subset(tab_var_evo,is.VP_dmax==0),  # only replicates with no dmax evol
-        backend="cmdstanr",
+mod_gen_noevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
+                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_noevo,backend="cmdstanr",
         seed=42,
-        prior=prior_bi)
-```
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
 
+pp_check(mod_gen_noevoBB,"stat_2d") # good
 
-
-
-
-
-```{r}
-
-ranef(mod)$scenario[,"Estimate",] |> as_tibble() |>  
-  ggplot()+
-  geom_point(aes(lagging_Intercept,meanKslope_Intercept))+
-  geom_hline(yintercept=0,lty=2)+
-  geom_vline(xintercept=0,lty=2)+
-  scale_x_continuous("genetic diversity BLUP")+
-  scale_y_continuous("dispersal density-dependence BLUP")+
-  theme_bw()
+loo_compare(
+  loo(mod_gen_noevoB),
+  loo(mod_gen_noevoBB0),
+  loo(mod_gen_noevoBB)
+)
 ```
 
 
 ```{r}
+select(tab_noevo,Mort,Fec,scenario) |> distinct() |> group_by(Mort,Fec) |> count() 
+#630 scenarios possible, so in theory 5*630 replicates = 3050
+#9 scenarios went fully extinct/failed to advance (again all at max mortality low fec), so 621, and a max of 3105 replicates
+# we have 3092, so some scenarios failed elsewhere
+```
 
-newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-3:3)/10) |> 
-  add_epred_draws(mod1,re_formula=NA,resp="meanKslope")
+```{r}
+fits_noevo=select(tab_noevo,Mort,Fec) |> distinct() |> 
+  mutate(edge_pre=1) |> 
+  expand_grid(start_Kslope=c(-5:5)/10) |> 
+  add_epred_draws(mod_gen_noevoBB,re_formula=NA) |> 
+  ungroup()
 
-tab_var_evo |>  filter(is.VP_dmax==0) |> 
+outline_fix = fits_fix |> 
+  ungroup() |> 
+  group_by(Mort,Fec, start_Kslope) |> 
+  mean_hdci(.epred) |> 
+  ungroup()
+
+tab_noevo |>  
   ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=mean_Kslope),col="lightgreen",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_evo |> filter(is.VP_dmax==0) |> group_by(scenario,Mort,Fec) |> 
-               summarise(endslope=mean(mean_Kslope,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,endslope),size=3)+
-  geom_abline(aes(intercept=0,slope=1),lty=2)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("final slope of DDD")+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="pink",alpha=0.25)+
+  stat_lineribbon(data=fits_noevo,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_line(data=outline_fix,aes(x=start_Kslope,y=.lower),lty=2)+
+  geom_line(data=outline_fix,aes(x=start_Kslope,y=.upper),lty=2)+
+  geom_point(data=tab_noevo |> group_by(scenario,Mort,Fec) |> 
+               summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
+                         slope=mean(start_Kslope)),
+             aes(x=slope,div),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("how far does genetic diversity persist?")+
+  ggtitle(label="",
+          subtitle="B) individual variation in dispersal traits but no evolution (*h<sup>2</sup>* = 0)")+
   theme_bw()+
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
 ```
 
 
 ```{r}
+mod_gen_evoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=binomial,
+                  data=tab_evo,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
 
-newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod,re_formula=NA,resp="meanKslope")
+pp_check(mod_gen_evoB,"stat_2d") #some evidence of overdispersion?
 
-tab_var_evo |>
-  ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=mean_Kslope),col="lightblue",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_evo |> group_by(scenario,Mort,Fec) |> 
-               summarise(endslope=mean(mean_Kslope,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,endslope),size=3)+
-  geom_abline(aes(intercept=0,slope=1),lty=2)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("final slope of DDD")+
-  theme_bw()+
-  theme(legend.position = "none")
+mod_gen_evoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_evo,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
+
+pp_check(mod_gen_evoBB0,"stat_2d") # no overdisp
+
+mod_gen_evoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
+                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial,
+                  data=tab_evo,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
+
+pp_check(mod_gen_evoBB,"stat_2d") # good
+
+loo_compare(
+  loo(mod_gen_evoB),
+  loo(mod_gen_evoBB0),
+  loo(mod_gen_evoBB)
+)
 ```
 
 
 ```{r}
+fits_evo=select(tab_noevo,Mort,Fec) |> distinct() |> 
+  mutate(edge_pre=1) |> 
+  expand_grid(start_Kslope=c(-5:5)/10) |> 
+  add_epred_draws(mod_gen_evoBB,re_formula=NA)
 
-newdata=select(tab_var_evo,Mort,Fec,is.VP_dmax) |> distinct() |> 
-  mutate(front=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod,re_formula=NA,resp="lagging")
+outline_noevo = fits_noevo |> 
+  ungroup() |> 
+  group_by(Mort,Fec, start_Kslope) |> 
+  mean_hdci(.epred) |> 
+  arrange(start_Kslope) |> 
+  ungroup()
 
-tab_var_evo |>  
+tab_evo |>  
   ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=lagging/front,size=front),col="lightgreen",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_evo |> group_by(scenario,Mort,Fec) |> 
-               summarise(div=mean(lagging/front,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,div),size=3)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("how far does genetic diversity persists?")+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="palegreen",alpha=0.25)+
+  stat_lineribbon(data=fits_evo,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.lower),lty=2)+
+  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.upper),lty=2)+
+  geom_point(data=tab_evo |> group_by(scenario,Mort,Fec) |> 
+               summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
+                         slope=mean(start_Kslope)),
+             aes(x=slope,div),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("how far does genetic diversity persist?")+
+  ggtitle(label="",
+          subtitle="C) individual variation in dispersal traits *and* evolution possible (*h<sup>2</sup>* = 1)")+
   theme_bw()+
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
 ```
 
+## evo models : slope
 
 ```{r}
+tab_evo_DDD <- filter(tab_evo, is.VP_DDD==1) |>
+  mutate(mean_Kslope_std = mean_Kslope/mean_dmax)
+  
 
-newdata=select(tab_var_evo,Mort,Fec) |> distinct() |> 
-  mutate(front=1,is.VP_dmax=1) |> 
-  expand_grid(start_slopeA_0_K=c(-5:5)/10) |> 
-  add_epred_draws(mod,re_formula=NA,resp="meandmax")
 
-tab_var_evo |> filter(is.VP_dmax==1) |>  
-  ggplot()+
-  geom_point(aes(x=start_slopeA_0_K,y=mean_dmax,size=front),col="lightgreen",alpha=0.5)+
-  stat_lineribbon(data=newdata,aes(x=start_slopeA_0_K,y=.epred),fill="grey",alpha=0.5)+
-  geom_point(data=tab_var_evo |> filter(is.VP_dmax==1) |> group_by(scenario,Mort,Fec) |> 
-               summarise(dmax=mean(mean_dmax,na.rm=TRUE),
-                         slope=mean(start_slopeA_0_K)),
-             aes(x=slope,dmax),size=3)+
-  geom_hline(yintercept=0.5,lty=2)+
-  facet_grid(rows=vars(paste("fecundity(0)=",Fec)),cols=vars(paste("m=",Mort)))+
-  scale_x_continuous("initial slope of DDD (mean dK - D0)")+
-  scale_y_continuous("how far does genetic diversity persists?")+
-  theme_bw()+
-  theme(legend.position = "none")
+mod_slope <- brm(bf((mean_Kslope_std/2)+0.5~ start_Kslope * Mort * Fec  + (1|scenario),
+                    phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=Beta,
+                  data=tab_evo_DDD,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
+# DO PRIORS ON PHI
 ```
 
+```{r}
+fits_slope=select(tab_evo_DDD,Mort,Fec) |> distinct() |> 
+  expand_grid(start_Kslope=c(-5:5)/20) |> 
+  add_epred_draws(mod_slope,re_formula=NA) |> 
+  mutate(.epred = (.epred - 0.5) * 2) # rescaling to the -dmax/+dmax range
+
+tab_evo_DDD |>  
+  ggplot()+
+  geom_abline(intercept = 0,slope=2,lty=2)+ 
+  # ^ relative slope = absolute_slope / dmax  = absolute_slope / 0.5 at t=0
+  # y = x/0.5 is y = x*2
+  geom_point(aes(x=start_Kslope,y=mean_Kslope/mean_dmax),col="palegreen",alpha=0.25)+
+  stat_lineribbon(data=fits_slope,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(data=tab_evo_DDD |> group_by(scenario,Mort,Fec) |> 
+               summarise(trait=mean(mean_Kslope/mean_dmax,na.rm=TRUE),
+                         slope=mean(start_Kslope)),
+             aes(x=slope,trait),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("relative dispersal density-dependence (*&Delta;<sub>K-0</sub> / d<sub>max</sub>*) after expansion")+
+  theme_bw()+
+  ggtitle(label="",subtitle="(only scenarios with heritable variation in *&alpha;* and *&beta;*)")+
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
+```
+
+## evo models: dmax
+
+```{r}
+tab_evo_dmax <- filter(tab_evo, is.VP_dmax==1)
+  
+mod_dmax <- brm(bf(mean_dmax~ start_Kslope * Mort * Fec  + (1|scenario),
+                    phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=Beta,
+                  data=tab_evo_dmax,backend="cmdstanr",
+        seed=42,
+                  prior=c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+)
+# DO PRIORS ON PHI
+```
+
+```{r}
+fits_dmax=select(tab_evo_dmax,Mort,Fec) |> distinct() |> 
+  expand_grid(start_Kslope=c(-5:5)/10) |> 
+  add_epred_draws(mod_dmax,re_formula=NA)
+
+tab_evo_dmax |>  
+  ggplot()+
+  geom_hline(yintercept = 0.5,lty=2) +
+  geom_point(aes(x=start_Kslope,y=mean_dmax),col="palegreen",alpha=0.25)+
+  stat_lineribbon(data=fits_dmax,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(data=tab_evo_dmax |> group_by(scenario,Mort,Fec) |> 
+               summarise(trait=mean(mean_dmax,na.rm=TRUE),
+                         slope=mean(start_Kslope)),
+             aes(x=slope,trait),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("dispersal capacity (*d<sub>max</sub>*) after expansion")+
+  theme_bw()+
+  theme_bw()+
+  ggtitle(label="",subtitle="only scenarios with heritable variation in *d<sub>max</sub>*")+
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
+```
