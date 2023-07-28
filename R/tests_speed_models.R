@@ -40,6 +40,8 @@ ggplot(fits_fix_speed)+
                breaks=c(0:10)/10,col="black")+
   geom_polygon(data=tibble(y=c(-0.5,-0.5,0),x=c(0.5,0,0)),aes(x=x,y=y),fill="white")+
   geom_polygon(data=tibble(y=c(0.5,0.5,0),x=c(0,0.5,0.5)),aes(x=x,y=y),fill="white")+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0,0.25,0.25,0)),aes(x=x,y=y),fill="grey",alpha=0.6)+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0.25,0.5,0.5,0.25)),aes(x=x,y=y),fill="grey",alpha=0.6)+
   #geom_point(data=tab_fix,aes(x=start_d0,y=start_Kslope),col="grey",alpha=0.2)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_y_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+ scale_color_continuous(type="viridis")+
@@ -73,7 +75,9 @@ ggplot(fits_noevo_speed)+
                breaks=c(0:10)/10,col="black")+
   geom_polygon(data=tibble(y=c(-0.5,-0.5,0),x=c(0.5,0,0)),aes(x=x,y=y),fill="white")+
   geom_polygon(data=tibble(y=c(0.5,0.5,0),x=c(0,0.5,0.5)),aes(x=x,y=y),fill="white")+
-  #geom_point(data=tab_noevo,aes(x=start_d0,y=start_Kslope),col="grey",alpha=0.2)+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0,0.25,0.25,0)),aes(x=x,y=y),fill="grey",alpha=0.6)+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0.25,0.5,0.5,0.25)),aes(x=x,y=y),fill="grey",alpha=0.6)+
+  #geom_point(data=tab_noevo,aes(x=start_d0,y=start_Kslope),col="black",alpha=0.2)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_y_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+ scale_color_continuous(type="viridis")+
   scale_x_continuous("initial *d<sub>0</sub>*")+
@@ -102,8 +106,12 @@ ggplot(fits_evo_speed)+
                       breaks=c(0:10)/10)+
   geom_contour(aes(x=start_d0,y=start_Kslope, z = .epred/120),
                breaks=c(0:10)/10,col="black")+
+  #geom_contour(aes(x=start_d0,y=start_Kslope, z = .epred/120),
+  #             breaks=0.05+c(0:9)/10,col="black",lty=2)+
   geom_polygon(data=tibble(y=c(-0.5,-0.5,0),x=c(0.5,0,0)),aes(x=x,y=y),fill="white")+
   geom_polygon(data=tibble(y=c(0.5,0.5,0),x=c(0,0.5,0.5)),aes(x=x,y=y),fill="white")+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0,0.25,0.25,0)),aes(x=x,y=y),fill="grey",alpha=0.6)+
+  geom_polygon(data=tibble(y=c(0,-0.25,0,0.25),x=c(0.25,0.5,0.5,0.25)),aes(x=x,y=y),fill="grey",alpha=0.6)+
   #geom_point(data=tab_evo,aes(x=start_d0,y=start_Kslope),col="grey",alpha=0.2)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_y_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+ scale_color_continuous(type="viridis")+
