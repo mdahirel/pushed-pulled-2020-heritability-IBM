@@ -1,0 +1,248 @@
+---
+title: 'Figure 2 for "Individual variation in dispersal shapes the fate of pushed vs. pulled range expansions"'
+author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken (code by Maxime Dahirel)"
+date:
+output:
+  html_document:
+    theme: yeti
+    toc: TRUE
+    toc_float: TRUE
+    code_download: TRUE
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = FALSE)
+```
+
+```{r load-packages}
+
+library(tidyverse)   # CRAN v1.3.1 
+library(patchwork)   # CRAN v1.1.1 
+
+library(ggtext)      # CRAN v0.1.1 
+
+library(here)        # CRAN v1.0.1 
+```
+
+## Figure 2: overview of the parameter grid for the simulations
+
+```{r alpha_beta}
+## initial combinations of mean DD traits
+
+alpha <- c(-6,-4,-2,0,2,4,6)
+beta <- c(0,0.25,0.5,0.75,1)
+
+p_alphabeta <- expand_grid(alpha,beta) |> 
+  ggplot()+
+  geom_point(aes(beta,alpha),size=3)+
+  ggtitle("",subtitle="Density-dependence traits:")+
+  scale_x_continuous("&beta;",breaks=beta,minor_breaks = NULL)+
+  scale_y_continuous("&alpha;",breaks=alpha,minor_breaks=NULL)+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        plot.title.position =  "plot")
+```
+
+```{r variances}
+
+p_vars <- tibble(
+  VP_dmax = c(0, 0, 1, 1, 0, 1, 1),
+  VP_DDD = c(0, 1, 0, 1, 1, 0, 1),
+  heritability = c(0, 0, 0, 0, 1, 1, 1)
+  # (because if V_P=0, then any h^2 will give the same V_A than h^2=0)
+) |> 
+  mutate(VP_setup = case_when(
+    VP_dmax == 0  & VP_DDD== 0 ~ "no phenotypic variance",
+    VP_dmax == 0 & VP_DDD==1 ~ "in dispersal density-dependence",
+    VP_dmax == 1 & VP_DDD==0 ~ "in dispersal capacity",
+    VP_dmax == 1 & VP_DDD==1 ~ "in both",
+    T~NA_character_
+  )) |> 
+  mutate(VP_setup=fct_relevel(VP_setup,"no phenotypic variance", after=0)) |> 
+  ggplot()+
+  geom_point(aes(heritability,VP_setup),size=3)+
+  ggtitle("",subtitle="Phenotypic variance:")+
+  scale_x_continuous("initial heritability *h^2^*",breaks=c(0,1),minor_breaks = NULL)+
+  scale_y_discrete("")+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        plot.title.position =  "plot")
+
+```
+
+```{r dmax}
+
+p_dmax <- tibble(
+  dmax = c(0.5)) |> 
+  ggplot()+
+  geom_point(aes(dmax,1),size=3)+
+  ggtitle("",subtitle="Dispersal capacity:")+
+  scale_x_continuous("*d<sub>max</sub>*",breaks=c(0,0.5,1),minor_breaks = NULL)+
+  scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        axis.text.y = element_blank(),
+        plot.title.position =  "plot")
+
+
+```
+
+```{r mortality}
+p_mort <- tibble(
+  m = c(0.1,0.5,0.9),) |> 
+  ggplot()+
+  geom_point(aes(m,1),size=3)+
+  ggtitle("",subtitle="Dispersal mortality:")+
+  scale_x_continuous("*m*",breaks=c(0,0.1,0.5,0.9,1),minor_breaks = NULL)+
+  scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        axis.text.y = element_blank(),
+        plot.title.position =  "plot")
+```
+
+```{r K}
+ p_K <-tibble(
+  K = c(250)) |> 
+  ggplot()+
+  geom_point(aes(K,1),size=3)+
+  ggtitle("",subtitle="Carrying capacity:")+
+  scale_x_continuous("*K*",breaks=c(250),minor_breaks = NULL)+
+  scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        axis.text.y = element_blank(),
+        plot.title.position =  "plot")
+```
+
+```{r fec}
+p_fec <- tibble(
+  f = c(1.5,5)) |> 
+  ggplot()+
+  geom_point(aes(f,1),size=3)+
+  ggtitle("",subtitle="Low density fecundity exp(r<sub>0</sub>):")+
+  scale_x_continuous("mean offspring per capita",breaks=c(1,1.5,5),minor_breaks = NULL)+
+  scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
+  theme_minimal()+
+  theme(axis.title.y = element_markdown(),
+        axis.title.x=element_markdown(),
+        axis.text.y = element_blank(),
+        plot.subtitle = element_markdown(),
+        plot.title.position =  "plot")
+```
+
+
+
+
+
+```{r}
+background_disp <- ggplot() + 
+  geom_point() +
+  labs(
+    title = "*Dispersal traits parameters*"
+  ) +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_textbox_simple(
+      size = 13,
+      lineheight = 1,
+      padding = margin(5.5, 5.5, 5.5, 5.5),
+      margin = margin(0, 0, 5.5, 0),
+      fill = "cornsilk"
+    ),
+    panel.background = element_rect(fill="cornsilk")
+  )
+```
+
+```{r}
+p_alldisp = background_disp + 
+  inset_element(p_alphabeta,left=0,bottom=0,top=1,right=0.3) + 
+  inset_element(p_vars,left=0.33,bottom=0,top=1,right=0.66) + 
+  inset_element(p_dmax,left=0.7,bottom=0,top=1,right=1)
+```
+
+```{r}
+background_env <- ggplot() + 
+  geom_point() +
+  labs(
+    title = "*Environmental context parameters*"
+  ) +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_textbox_simple(
+      size = 13,
+      lineheight = 1,
+      padding = margin(5.5, 5.5, 5.5, 5.5),
+      margin = margin(0, 0, 5.5, 0),
+      fill = "palegreen"
+    ),
+    panel.background = element_rect(fill="palegreen")
+  )
+```
+
+```{r}
+p_allenv = background_env + 
+  inset_element(p_mort,left=0,bottom=0,top=1,right=0.5) + 
+  inset_element(p_K,left=0.6,bottom=0,top=1,right=1)
+```
+
+```{r}
+background_fec <- ggplot() + 
+  geom_point() +
+  labs(
+    title = "*Life history parameters*"
+  ) +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_textbox_simple(
+      size = 13,
+      lineheight = 1,
+      padding = margin(5.5, 5.5, 5.5, 5.5),
+      margin = margin(0, 0, 5.5, 0),
+      fill = "lightblue"
+    ),
+    panel.background = element_rect(fill="lightblue")
+  )
+```
+
+```{r}
+p_allfec = background_fec + 
+  inset_element(p_fec,left=0,bottom=0,top=1,right=1)
+```
+
+```{r}
+p_summary <- ggplot()+ 
+  geom_textbox(aes(
+    label= paste("<i style='color:orange'>35 × 7 × 1</i> × ",
+                 "<i style='color:green'>3 × 1</i> × ",
+                 "<i style='color:blue'>2</i>", " = **1470** sets of initial conditions <br>",
+                 "× 5 = **7350** simulated expansions"
+    ),
+    x=0,y=0
+    ),
+    fill = NA, box.colour = NA, halign=0,
+    width = grid::unit(0.73, "npc"), # 73% of plot panel width
+    )+
+  lims(x=c(-1,1),y=c(-1,1))+ 
+  theme_void()
+```
+
+
+
+```{r puzzle}
+layout <- "
+AAAA
+BBCD
+"
+
+(p_alldisp + p_allenv + p_allfec + p_summary) + 
+  plot_layout(design = layout)
+
+```
