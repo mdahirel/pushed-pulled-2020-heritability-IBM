@@ -195,6 +195,27 @@ dim(tab)[1] == (dim(tab_fix)[1] + dim(tab_noevo) [1] + dim(tab_evo)[1]) #sense c
 
 For (i) and (ii) there is no reason to analyse phenotypic trait changes, this can only be done meaningfully in (iii) (and even in iii, not all trait changes can be analysed for all replicates, as we'll see later)
 
+## Priors
+
+```{r}
+prior_binomial <- c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd")
+                  )
+
+prior_beta_binomial <- c(
+                    set_prior("normal(0,1.5)",class="Intercept"),
+                    set_prior("normal(0,1)",class="b"),
+                    set_prior("normal(0,1)",class="sd"),
+                    set_prior("normal(0,1)",nlpar="loginvphi",class="b")
+                  )
+
+prior_beta <- prior_beta_binomial
+```
+
+
+
 ## Genetic diversity models
 
 ```{r}
@@ -203,38 +224,32 @@ mod_gen_fixB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  
                   family=binomial,
                   data=tab_fix,backend="cmdstanr",
         seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  prior= prior_binomial
 )
 
 pp_check(mod_gen_fixB,"stat_2d") #some evidence of overdispersion?
 
-mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=beta_binomial,
+mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
+                         nlf(phi~1/exp(loginvphi)),
+                         # the "default" overdispersion parameter in brms is actually a precision parameter
+                         # the closest to Inf the closest to binomial
+                         # we want an overdispersion parameter (as in Harrison 2015), so we inverse
+                         loginvphi~1),
+                  family=beta_binomial(link_phi="identity"), # we need identity link so the transform works well
                   data=tab_fix,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
 pp_check(mod_gen_fixBB0,"stat_2d") # better
 
 mod_gen_fixBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
-                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=beta_binomial,
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial(link_phi="identity"),
                   data=tab_fix,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
 pp_check(mod_gen_fixBB,"stat_2d") # good
@@ -290,40 +305,31 @@ mod_gen_noevoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                           (1|scenario)),
                   family=binomial,
                   data=tab_noevo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_binomial
 )
 
-pp_check(mod_gen_noevoB,"stat_2d") #some evidence of overdispersion?
+pp_check(mod_gen_noevoB,"stat_2d")
 
 mod_gen_noevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
-                          (1|scenario)),
-                  family=beta_binomial,
+                          (1|scenario),
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ 1),
+                  family=beta_binomial(link_phi="identity"),
                   data=tab_noevo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_noevoBB0,"stat_2d") # no overdisp
+pp_check(mod_gen_noevoBB0,"stat_2d")
 
 mod_gen_noevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
-                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=beta_binomial,
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial(link_phi="identity"),
                   data=tab_noevo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
 pp_check(mod_gen_noevoBB,"stat_2d") # good
@@ -387,40 +393,31 @@ mod_gen_evoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  
                           (1|scenario)),
                   family=binomial,
                   data=tab_evo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_binomial
 )
 
-pp_check(mod_gen_evoB,"stat_2d") #some evidence of overdispersion?
+pp_check(mod_gen_evoB,"stat_2d")
 
 mod_gen_evoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
-                          (1|scenario)),
-                  family=beta_binomial,
+                          (1|scenario),
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ 1),
+                  family=beta_binomial(link_phi="identity"),
                   data=tab_evo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_evoBB0,"stat_2d") # no overdisp
+pp_check(mod_gen_evoBB0,"stat_2d")
 
 mod_gen_evoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
-                        phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=beta_binomial,
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial(link_phi="identity"),
                   data=tab_evo,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                  seed=42,
+                  prior=prior_beta_binomial
 )
 
 pp_check(mod_gen_evoBB,"stat_2d") # good
@@ -480,17 +477,13 @@ tab_evo_DDD <- filter(tab_evo, is.VP_DDD==1) |>
 
 
 mod_slope <- brm(bf((mean_Kslope_std/2)+0.5~ start_Kslope * Mort * Fec  + (1|scenario),
-                    phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=Beta,
+                    nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=Beta(link_phi="identity"),
                   data=tab_evo_DDD,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                 seed=42,
+                  prior=prior_beta
 )
-# DO PRIORS ON PHI
 ```
 
 ```{r}
@@ -530,17 +523,13 @@ tab_evo_DDD |>
 tab_evo_dmax <- filter(tab_evo, is.VP_dmax==1)
   
 mod_dmax <- brm(bf(mean_dmax~ start_Kslope * Mort * Fec  + (1|scenario),
-                    phi ~ start_Kslope * Mort * Fec  + (1|scenario)),
-                  family=Beta,
+                    nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                  family=Beta(link_phi="identity"),
                   data=tab_evo_dmax,backend="cmdstanr",
-        seed=42,
-                  prior=c(
-                    set_prior("normal(0,1.5)",class="Intercept"),
-                    set_prior("normal(0,1)",class="b"),
-                    set_prior("normal(0,1)",class="sd")
-                  )
+                seed=42,
+                  prior=prior_beta
 )
-# DO PRIORS ON PHI
 ```
 
 ```{r}
