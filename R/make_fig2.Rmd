@@ -195,9 +195,9 @@ background_env <- ggplot() +
       lineheight = 1,
       padding = margin(5.5, 5.5, 5.5, 5.5),
       margin = margin(0, 0, 5.5, 0),
-      fill = "palegreen"
+      fill = "#66c2a5"
     ),
-    panel.background = element_rect(fill="palegreen")
+    panel.background = element_rect(fill="#66c2a5")
   )
 ```
 
@@ -220,9 +220,9 @@ background_fec <- ggplot() +
       lineheight = 1,
       padding = margin(5.5, 5.5, 5.5, 5.5),
       margin = margin(0, 0, 5.5, 0),
-      fill = "lightblue"
+      fill = "#8da0cb"
     ),
-    panel.background = element_rect(fill="lightblue")
+    panel.background = element_rect(fill="#8da0cb")
   )
 ```
 
@@ -234,9 +234,9 @@ p_allfec = background_fec +
 ```{r}
 p_summary <- ggplot()+ 
   geom_textbox(aes(
-    label= paste("<i style='color:orange'>35 × 7 × 1</i> × ",
-                 "<i style='color:green'>3 × 1</i> × ",
-                 "<i style='color:blue'>2</i>", " = **1470** sets of initial conditions <br>",
+    label= paste("<i style='color:#d95f02'>35 × 7 × 1</i> × ",
+                 "<i style='color:#1b9e77'>3 × 1</i> × ",
+                 "<i style='color:#7570b3'>2</i>", " = **1470** sets of initial conditions <br>",
                  "× 5 = **7350** simulated expansions"
     ),
     x=0,y=0
