@@ -39,7 +39,7 @@ p_alphabeta <- expand_grid(alpha,beta) |>
   geom_point(aes(beta,alpha),size=3)+
   ggtitle("",subtitle="Density-dependence traits:")+
   scale_x_continuous("midpoint &beta;",breaks=beta,minor_breaks = NULL)+
-  scale_y_continuous("relative slope &alpha;",breaks=alpha,minor_breaks=NULL)+
+  scale_y_continuous("relative slope &alpha;",breaks=alpha,minor_breaks=NULL,limits=c(-6.5,6.5))+
   theme_minimal()+
   theme(axis.title.y = element_markdown(),
         axis.title.x=element_markdown(),
@@ -68,8 +68,8 @@ p_vars <- tibble(
   ggplot()+
   geom_point(aes(heritability,VP_setup),size=3)+
   ggtitle("",subtitle="Phenotypic variance:")+
-  scale_x_continuous("initial heritability *h^2^*",breaks=c(0,1),minor_breaks = NULL)+
-  scale_y_discrete("")+
+  scale_x_continuous("initial heritability *h^2^*",breaks=c(0,1),minor_breaks = NULL,limits=c(-0.1,1.1))+
+  scale_y_discrete("", position="right")+
   theme_minimal()+
   theme(axis.title.y = element_markdown(),
         axis.title.x=element_markdown(),
@@ -106,7 +106,7 @@ p_mort <- tibble(
   ggplot()+
   geom_point(aes(m,1),size=3)+
   ggtitle("",subtitle="Dispersal mortality:")+
-  scale_x_continuous("*m*",breaks=c(0,0.1,0.5,0.9,1),minor_breaks = NULL)+
+  scale_x_continuous("*m*",breaks=c(0.1,0.5,0.9),minor_breaks = NULL, limits=c(0,1))+
   scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
   theme_minimal()+
   theme(axis.title.y = element_markdown(),
@@ -139,8 +139,8 @@ p_fec <- tibble(
   f = c(1.5,5)) |> 
   ggplot()+
   geom_point(aes(f,1),size=3)+
-  ggtitle("",subtitle="Low density fecundity exp(r<sub>0</sub>):")+
-  scale_x_continuous("mean offspring per capita",breaks=c(1,1.5,5),minor_breaks = NULL)+
+  ggtitle("",subtitle="Low-density fecundity:")+
+  scale_x_continuous(" exp(r<sub>0</sub>)",breaks=c(1.5,5),minor_breaks = NULL,limits = c(1,5.5))+
   scale_y_continuous("",breaks=c(1),minor_breaks = NULL)+
   theme_minimal()+
   theme(axis.title.y = element_markdown(),
@@ -177,9 +177,9 @@ background_disp <- ggplot() +
 
 ```{r}
 p_alldisp = background_disp + 
-  inset_element(p_alphabeta,left=0,bottom=0,top=1,right=0.3) + 
-  inset_element(p_vars,left=0.33,bottom=0,top=1,right=0.66) + 
-  inset_element(p_dmax,left=0.7,bottom=0,top=1,right=1)
+  inset_element(p_alphabeta,left=0,bottom=0,top=1.1,right=0.35)  + 
+  inset_element(p_dmax,left=0.4,bottom=0,top=1.1,right=0.55)+ 
+  inset_element(p_vars,left=0.6,bottom=0,top=1.1,right=1)
 ```
 
 ```{r}
@@ -203,8 +203,8 @@ background_env <- ggplot() +
 
 ```{r}
 p_allenv = background_env + 
-  inset_element(p_mort,left=0,bottom=0,top=1,right=0.5) + 
-  inset_element(p_K,left=0.6,bottom=0,top=1,right=1)
+  inset_element(p_mort,left=0,bottom=0,top=1.1,right=0.5) + 
+  inset_element(p_K,left=0.6,bottom=0,top=1.1,right=1)
 ```
 
 ```{r}
@@ -228,20 +228,32 @@ background_fec <- ggplot() +
 
 ```{r}
 p_allfec = background_fec + 
-  inset_element(p_fec,left=0,bottom=0,top=1,right=1)
+  inset_element(p_fec,left=0.15,bottom=0,top=1.1,right=0.85)
 ```
 
 ```{r}
 p_summary <- ggplot()+ 
   geom_textbox(aes(
-    label= paste("<i style='color:#d95f02'>35 × 7 × 1</i> × ",
-                 "<i style='color:#1b9e77'>3 × 1</i> × ",
-                 "<i style='color:#7570b3'>2</i>", " = **1470** sets of initial conditions <br>",
-                 "× 5 = **7350** simulated expansions"
+    label= paste("<span style='color:#d95f02'>35 × 1 × 7</span> × ",
+                 "<span style='color:#1b9e77'>3 × 1</span> × ",
+                 "<span style='color:#7570b3'>2</span>", 
+                 "<br> = **1470** sets of initial conditions <br>",
+                 "× 5 replicates per condition", 
+                 "<br> = **7350** simulated expansions"
     ),
-    x=0,y=0
+    x=0,y=-0.6
     ),
-    fill = NA, box.colour = NA, halign=0,
+    fill = NA, halign=0,
+    width = grid::unit(0.73, "npc"), # 73% of plot panel width
+    )+ 
+  geom_textbox(aes(
+    label= paste("**Initial phenotypic variances when non-0:**<br>",
+                 "&sigma;^2^<sub>&alpha;</sub> = 6^2^ <br>",
+                 "&sigma;^2^<sub>&beta;</sub> = 0.5^2^ <br>", 
+                 "&sigma;^2^<sub>logit(*d<sub>max</sub>*)</sub> = 1.5^2^"),
+    x=0,y=0.5
+    ),
+    fill = NA, halign=0,
     width = grid::unit(0.73, "npc"), # 73% of plot panel width
     )+
   lims(x=c(-1,1),y=c(-1,1))+ 
@@ -251,12 +263,6 @@ p_summary <- ggplot()+
 
 
 ```{r puzzle}
-layout <- "
-AAAA
-BBCD
-"
-
-(p_alldisp + p_allenv + p_allfec + p_summary) + 
-  plot_layout(design = layout)
-
+p_alldisp / (p_allenv + p_allfec + p_summary + 
+  plot_layout(widths=c(0.4,0.24,0.36)))
 ```
