@@ -160,7 +160,7 @@ p_fec <- tibble(
 background_disp <- ggplot() + 
   geom_point() +
   labs(
-    title = "*Dispersal traits parameters*"
+    title = "**Dispersal traits parameters**"
   ) +
   theme(
     plot.title.position = "plot",
@@ -169,9 +169,9 @@ background_disp <- ggplot() +
       lineheight = 1,
       padding = margin(5.5, 5.5, 5.5, 5.5),
       margin = margin(0, 0, 5.5, 0),
-      fill = "#fff3c3"
+      fill = "#ffe992"
     ),
-    panel.background = element_rect(fill="#fff3c3")
+    panel.background = element_rect(fill="#ffe992")
   )
 ```
 
@@ -186,7 +186,7 @@ p_alldisp = background_disp +
 background_env <- ggplot() + 
   geom_point() +
   labs(
-    title = "*Environmental context parameters*"
+    title = "**Environmental context parameters**"
   ) +
   theme(
     plot.title.position = "plot",
@@ -211,7 +211,7 @@ p_allenv = background_env +
 background_fec <- ggplot() + 
   geom_point() +
   labs(
-    title = "*Life history parameters*"
+    title = "**Life history parameters**"
   ) +
   theme(
     plot.title.position = "plot",
@@ -220,7 +220,7 @@ background_fec <- ggplot() +
       lineheight = 1,
       padding = margin(5.5, 5.5, 5.5, 5.5),
       margin = margin(0, 0, 5.5, 0),
-      fill = "#b0bddb"
+      fill = "#b0bddb",
     ),
     panel.background = element_rect(fill="#b0bddb")
   )
@@ -234,17 +234,17 @@ p_allfec = background_fec +
 ```{r}
 p_summary <- ggplot()+ 
   geom_textbox(aes(
-    label= paste("<span style='color:#d95f02'>35 × 1 × 7</span> × ",
-                 "<span style='color:#3f9d7f'>3 × 1</span> × ",
-                 "<span style='color:#5874b3'>2</span>", 
+    label= paste("<span style='color:#c69f00'>**35** × **1** × **7**</span> × ",
+                 "<span style='color:#3f9d7f'>**3** × **1**</span> × ",
+                 "<span style='color:#445d96'>**2**</span>", 
                  "<br> = **1470** sets of initial conditions <br>",
-                 "× 5 replicates per condition", 
+                 "× **5** replicates per condition", 
                  "<br> = **7350** simulated expansions"
     ),
     x=0,y=-0.6
     ),
     fill = NA, halign=0,
-    width = grid::unit(0.73, "npc"), # 73% of plot panel width
+    width = grid::unit(0.75, "npc"), # 73% of plot panel width
     )+ 
   geom_textbox(aes(
     label= paste("**Initial phenotypic variances when non-0:**<br>",
@@ -254,7 +254,7 @@ p_summary <- ggplot()+
     x=0,y=0.5
     ),
     fill = NA, halign=0,
-    width = grid::unit(0.73, "npc"), # 73% of plot panel width
+    width = grid::unit(0.75, "npc"), # 73% of plot panel width
     )+
   lims(x=c(-1,1),y=c(-1,1))+ 
   theme_void()
