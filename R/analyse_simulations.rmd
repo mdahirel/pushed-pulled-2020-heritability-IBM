@@ -468,6 +468,91 @@ tab_evo |>
   )
 ```
 
+Evo, but using traits post evo:
+
+```{r}
+mod_gen_postevoB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + 
+                          (1|scenario)),
+                  family=binomial,
+                  data=tab_evo,backend="cmdstanr",
+                  seed=42,
+                  prior=prior_binomial
+)
+
+pp_check(mod_gen_postevoB,"stat_2d")
+
+mod_gen_postevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + 
+                          (1|scenario),
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ 1),
+                  family=beta_binomial(link_phi="identity"),
+                  data=tab_evo,backend="cmdstanr",
+                  seed=42,
+                  prior=prior_beta_binomial
+)
+
+pp_check(mod_gen_postevoBB0,"stat_2d")
+
+mod_gen_postevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + (1|scenario),
+                        nlf(phi~1/exp(loginvphi)),
+                        loginvphi ~ mean_Kslope * Mort * Fec  + (1|scenario)),
+                  family=beta_binomial(link_phi="identity"),
+                  data=tab_evo,backend="cmdstanr",
+                  seed=42,
+                  prior=prior_beta_binomial
+)
+
+pp_check(mod_gen_postevoBB,"stat_2d") # good
+
+loo_compare(
+  loo(mod_gen_postevoB),
+  loo(mod_gen_postevoBB0),
+  loo(mod_gen_postevoBB)
+)
+```
+
+
+```{r}
+fits_postevo=select(tab_evo,Mort,Fec) |> distinct() |> 
+  mutate(edge_pre=1) |> 
+  expand_grid(mean_Kslope=c(-10:10)/10) |> 
+  add_epred_draws(mod_gen_postevoBB,re_formula=NA)
+
+outline_evo = fits_evo |> 
+  ungroup() |> 
+  group_by(Mort,Fec, start_Kslope) |> 
+  mean_hdci(.epred) |> 
+  arrange(start_Kslope) |> 
+  ungroup()
+
+tab_evo |>  
+  ggplot()+
+  geom_point(aes(x=mean_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="palegreen",alpha=0.25)+
+  stat_lineribbon(data=fits_postevo,aes(x=mean_Kslope,y=.epred),fill="grey",col="grey40")+
+  #geom_line(data=outline_evo,aes(x=start_Kslope,y=.lower),lty=2)+
+  #geom_line(data=outline_evo,aes(x=start_Kslope,y=.upper),lty=2)+
+  geom_point(data=tab_evo |> group_by(scenario,Mort,Fec) |> 
+               summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
+                         slope=mean(mean_Kslope)),
+             aes(x=slope,div),size=2,fill="white",pch=21)+
+  facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
+  scale_x_continuous("**final** dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
+  scale_y_continuous("how far does genetic diversity persist?")+
+  ggtitle(label="",
+          subtitle="C) individual variation in dispersal traits *and* evolution possible (*h<sup>2</sup>* = 1)")+
+  theme_bw()+
+  theme(legend.position = "none",
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
+```
+
+
+
+
 ## evo models : slope
 
 ```{r}
