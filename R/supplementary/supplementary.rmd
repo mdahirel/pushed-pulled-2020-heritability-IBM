@@ -1,5 +1,5 @@
 ---
-title: 'Supplementary Material for "Individual variation in dispersal, and its sources, shape the fate of pushed vs. pulled range expansions"'
+title: 'Supplementary Material for "Individual variation in dispersal shapes the fate of pushed vs. pulled range expansions"'
 author: "Maxime Dahirel, Chloé Guicharnaud, Elodie Vercken"
 date:
 output: pdf_document
@@ -18,15 +18,6 @@ knitr::opts_chunk$set(
 ```
 
 ```{r load-packages}
-library(ordinal)     # CRAN v2019.12-10
-library(arm)         # CRAN v1.12-2
-library(matrixStats) # CRAN v0.61.0
-
-library(mgcv)        # CRAN v1.8-38
-library(gratia)      # CRAN v0.6.0
-
-library(MuMIn)       # CRAN v1.43.17
-
 library(tidyverse)   # CRAN v1.3.1
 
 library(cowplot)     # [github::wilkelab/cowplot] v1.1.1
@@ -43,7 +34,7 @@ library(here)        # CRAN v1.0.1
 
 ## Purpose and patterns
 
-The model simulates asexual individuals reproducing and dispersing in a linear landscape following an initial introduction, in order to approximate processes at play during natural and experimental range expansions. The aim is to gather insights into how evolutionary dynamics (neutral diversity and especially dispersal-related traits) are shaped by trait distribution (means and variances) at the start of the expansion, and how they influence expansion velocity in turn. We specifically focus on traits driving the position of expansions on the pushed/pulled continuum [@birzuFluctuationsUncoverDistinct2018; @birzuGeneticDriftRange2019], namely traits describing the shape of the density-dispersal function. Importantly, dispersal and reproduction are stochastic. The focus of the model is on studying the effects of initial trait variation at introduction; as such there is no mutation, for simplicity.
+The model simulates asexual individuals reproducing and dispersing in a linear landscape following an initial introduction, in order to approximate processes at play during natural and experimental range expansions. The aim is to gather insights into how evolutionary dynamics (neutral diversity and dispersal-related traits) and expansion velocity are shaped by trait distribution (means and variances) at the start of the expansion. We specifically focus on traits driving the position of expansions on the pushed/pulled continuum [@birzuFluctuationsUncoverDistinct2018; @birzuGeneticDriftRange2019], namely traits shaping the density-dispersal function. Importantly, dispersal and reproduction are stochastic. The focus of the model is on studying the effects of initial trait variation at introduction; as such there is no mutation, for simplicity.
 
 ## Entities, state variables and scales
 
@@ -55,11 +46,11 @@ Individuals are haploid and reproduce asexually, and can vary in:
 
 - the allelic value at a neutral locus $\gamma$ (binary, 0 or 1);
 
-- their life stage (juvenile, adult, coded as a binary variable);
+- their life stage (juvenile or adult, coded as a binary variable);
 
 - their fecundity $F$ ($\geq 0$ integer).
 
-We note that the model as it is coded and made available (**Data availability**) is more general and allows the use of diploid, sexually reproducing individuals, with some slight adaptations in the reproduction submodel. For simplicity we only use and describe the "haploid asexual" scenario here.
+We note that the model as it is coded and made available (see **Data availability** in main text) is more general and allows the use of diploid, sexually reproducing individuals, with some slight adaptations in the reproduction submodel. For simplicity we only use and describe the "haploid asexual" scenario here.
 
 Individuals live in discrete patches, which form the spatial units of our model. The model world is one-dimensional, and has closed boundaries. Patches can be described by:
 
@@ -67,7 +58,7 @@ Individuals live in discrete patches, which form the spatial units of our model.
 
 - their population size at the last count $N$ ($\geq 0$ integer; population counts occur at points of the cycle where only adults are present);
 
-- their carrying capacity $K$ ($\geq 0$ integer; in the present study, $K$ is fixed and constant across all patches);
+- their carrying capacity $K$ ($\geq 0$ integer; $K$ is fixed and constant across all patches);
 
 - a series of variables summarizing the trait distributions of the individuals born in the patch (see **Submodels**).
 
@@ -79,9 +70,9 @@ Generations start at the point of the life cycle where only pre-dispersal, pre-r
 
 - *Population count:* Individuals at each patch are counted to update the patch population sizes $N$ and the neutral allele frequencies for each patch.
 
-- *Summary statistics:* Patches estimate a series of summary variables describing the trait distribution of individuals they currently harbour. This is done because exporting and analyzing individual-level traits would be computationally expensive. A detailed list of these summary variables is provided in **Submodels** below.
+- *Summary statistics:* Patches estimate a series of summary variables describing the trait distribution of individuals they currently harbour. This is done because exporting and analyzing individual-level traits would be computationally expensive. Examples of these summary variables are provided in **Submodels** below.
 
-- *Dispersal:* Adult individuals may disperse with a probability $d$ depending on their individual traits ($d_{max}$, $\alpha$, $\beta$) and local population size $N$ **at the start of the dispersal phase**. The dispersal model is taken from Kun and Scheuring [-@kunEvolutionDensitydependentDispersal2006] and described in **Submodels** below. If an individual attempts to disperse, it dies during the attempt with a probability $m$. In practice, we draw random values from a $\mathrm{Uniform}(0,1)$ distribution; if the draw is lower than $d$ (respectively $m$), the individual disperses (respectively dies). Surviving dispersers are randomly moved to one of the nearest neighbouring patches; that is, the maximal dispersal distance is of 1 patch.
+- *Dispersal:* Adult individuals may disperse with a probability $d$ depending on their individual traits ($d_{max}$, $\alpha$, $\beta$) and local population size $N$ **at the start of the dispersal phase**. The dispersal model is taken from Kun and Scheuring [-@kunEvolutionDensitydependentDispersal2006] and described in **Submodels** below. If an individual attempts to disperse, it dies during the attempt with a probability $m$. As the model is coded in base Netlogo, which does not include the possibility to directly from Bernoulli or Binomial distributions, a workaround is used. In practice we draw random values from a $\mathrm{Uniform}(0,1)$ distribution; if the draw is lower than $d$ (respectively $m$), the individual disperses (respectively dies). Surviving dispersers are randomly moved to one of the nearest neighbouring patches; that is, the maximal dispersal distance is of 1 patch.
 
 - *Second population count:* The population sizes $N$ and neutral alleles frequencies at each patch are updated again.
 
@@ -99,7 +90,7 @@ The model then starts the next generation. We chose to make dispersal precede re
 
 - a focus on "small" population sizes that are realistic for many "macroscopic" organisms, giving a more important role to discreteness, drift and stochasticity in general, compared to models assuming much larger population sizes either implicitly (e.g. when using continuum models) or explicitly [@birzuGeneticDriftRange2019]. 
 
-- allowing for varying levels of trait heritability, where most models either ignore evolutionary dynamics in focal traits [e.g. @birzuGeneticDriftRange2019] or assume all variation is genetic [e.g. @ermEvolutionTransformsPushed2020]. 
+- the possibility of varying trait heritability, where most models either ignore evolutionary dynamics in focal traits [e.g. @birzuGeneticDriftRange2019] or assume all variation is genetic [e.g. @ermEvolutionTransformsPushed2020]. 
 
 **Emergence:** The number and distribution of individuals and alleles in space are the emergent result of individual dispersal and reproduction, which are stochastic and themselves depend, recursively, on the distribution of individuals in space. Most if not all variables of interest are summaries from these distributions.
 
@@ -125,7 +116,7 @@ The model then starts the next generation. We chose to make dispersal precede re
 
 Each expansion starts by creating the landscape (which, as we use nearest-neighbour dispersal, can be any length higher than the number of generations planned for the run), and setting the carrying capacity of all patches to $K$. We then introduce $K$ adult individuals that have not yet dispersed or reproduced to the left-most patch of the landscape ($x = 0$). All other patches are empty. Individual traits and alleles are then initialized as follows:
 
-- the value (0 or 1) at the neutral allele $\gamma$ is drawn from $\mathrm{Bernoulli}(0.5)$.
+- the value (0 or 1) at the neutral allele $\gamma$ is drawn from $\mathrm{Bernoulli}(0.5)$ (in practice implemented by randomly selecting an integer between 0 or 1).
 
 - for each dispersal trait $z$ ($\mathrm{logit}(d_{max})$, $\alpha$, $\beta$), the genetic component is drawn from $\textrm{Normal}(\overline{z}_{t=0}, \sqrt{h^2 V_{P[z]}})$ , the noise component from $\textrm{Normal}(0, \sqrt{(1-h^2) V_{P[z]}})$ , where $\overline{z}_{t=0}$ is the initial mean trait value,  $h^2$ is the initial trait heritability and $V_{P[z]}$ the initial phenotypic variance. The trait value is then obtained by summing the genetic and noise components, and in the case of $d_{max}$, back-transforming from the logit scale. 
 
@@ -151,15 +142,15 @@ Compared to other dispersal models [such as those reviewed in @hovestadtInformat
 
 Following the terminology in Cote et al [-@coteEvolutionDispersalStrategies2017], variation in $d_{max}$ can be interpreted as encoding variation in dispersal enhancing or enabling traits, while variation in $\alpha$ or $\beta$ corresponds to variation in dispersal matching traits.
 
-Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additionally calculate five values at the individual-level:  
+Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additionally calculate three values at the individual-level:  
 
 - $d_{0}$, the hypothetical dispersal rate at $N=0$. The theoretical distinction between pulled and pushed expansions hinges on whether expansion move as fast as expected from $d_{0}$ or faster [e.g. @birzuGeneticDriftRange2019].
 
 - $d_{K}$, the expected dispersal rate at $N=K$.
 
-- $d_{avg}$, the average dispersal over the range of densities $0-K$. For computational reasons, we approximate it by calculating $d_{N}$ every $0.1K$ from 0 to $K$.
+- A measure of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$.
 
-- Two measures of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$ and $\Delta_{avg-0}=d_{avg}-d_{0}$. The former is independent of the shape of the dispersal function between 0 and $K$, while the latter accounts for it at least in part.
+We note that the model contains added instructions for other metrics. These are deprecated and therefore not described here, but remain available in code for interested researchers.
 
 **Reproduction:** Each adult individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
 
@@ -171,9 +162,9 @@ Parent transmit their genetic values (dispersal-related: $\mathrm{logit}(d_{max}
 
 **Observation:**
 
-The code estimates and reports a variety of summary variables at the patch level, and can easily be modified to add more. Of potential interest are the following:
+The code estimates and reports a variety of summary variables at the patch level, typically means and variances of individual-level traits, as well as counts of individuals, and can easily be modified to add more. Of potential interest are the following:
 
-- the means of $d_{max}$, $d_{0}$, $d_{avg}$, $d_{K}$, $\Delta_{K-0}$, $\Delta_{avg-0}$ for all individuals born in a patch.
+- the means of $d_{max}$, $d_{0}$, $\Delta_{K-0}$ for all individuals born in a patch.
 
 - the variances of the genetic components $\mathrm{logit}(d_{max})_{[a]}$, $\alpha_{[a]}$, $\beta_{[a]}$ for all individuals born in a patch.
 
@@ -183,37 +174,39 @@ The code estimates and reports a variety of summary variables at the patch level
 
 # S2 - Effect of the magnitude of initial variation in $\alpha$ on density dependence
 
-In the ODD description above, we briefly discuss how allowing for negative $\beta$ is the only way we have to create mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, allowing very large $|\alpha|$ values so that dispersal goes from 0 to $d_{max}$ in less than 1 individual, is not viable. We expand this argument here. 
+In the ODD description above, we briefly discuss how allowing for negative $\beta$ is the only way we have to create mostly flat dispersal-density function where dispersal is close to $d_{max}$. We briefly explain that one seeming alternative, forcing $\beta$ to stay $\geq 0$ and allowing very large $|\alpha|$ values so that dispersal goes from 0 to close to $d_{max}$ between $N=0$ and $N=1$, is not viable for our purposes. We expand this argument here. 
 
-Using very large $\alpha$ means we'd need the initial trait distribution to contain both these very large $\alpha$ (positive and/or negative) *and* $\alpha$ close to 0, for evolution to be possible (in the absence of mutation at least). It's easy to demonstrate that distributions that fulfill this requirement are actually biased towards very sharp density-dispersal functions. If we assume $K = 250$ as in our simulations, then $\alpha = 1000$ (with $\beta$ very close to 0) is needed to generate one of these nearly flat functions:
+Using very large $\alpha$ means we'd need the initial trait distribution to contain both these very large $\alpha$ (positive and/or negative) *and* $\alpha$ close to 0, for evolution to be possible (in the absence of mutation at least). It's easy to demonstrate that distributions that fulfill this requirement are actually biased towards very sharp density-dispersal functions. If we assume $K = 250$ as in our simulations, then $\alpha$ close to 1000 are needed to generate one of these nearly flat functions (**Fig. S2.1**):
 
 <br>
 
-```{r fig-s2-1, fig.width=3, fig.height=3}
+```{r fig-s2-1, fig.width=6, fig.height=3}
 tab <- expand_grid(
   K = 250,
-  x = 0:50
+  x = 0:30,
+  dmax = 0.5,
+  alpha = c(100,500,750,1000),
+  beta = 0
 )
 
-dmax <- 0.5
-alpha <- 1000
-beta <- 0.000000000000001
-
 ggplot(tab) +
-  geom_line(aes(x, dmax / (1 + exp(-alpha * (x / K - beta))))) +
+  geom_line(aes(x, dmax / (1 + exp(-alpha * ((x / K) - beta))),
+                col=factor(alpha),group=alpha),linewidth=1) +
   scale_x_continuous("Population size") +
   scale_y_continuous("Dispersal rate") +
+  scale_color_grey("&alpha;", start=0.7,end=0.3)+
   geom_vline(xintercept = 1, lty = 2) +
   geom_hline(yintercept = 0.95 * 0.5, lty = 2) +
   coord_cartesian(ylim = c(0, 0.6)) +
-  theme_bw()
+  theme_bw() +
+  theme(legend.title = element_markdown())
 ```
 
-**Figure S2.1**. Example of how one can produce a functionally flat density-dispersal function using a very sharp slope, but very close to $N = 0$. $d_{max} = 0.5$, $\alpha = 1000$, $\beta = 10^{-15}$. The dashed lines mark $N=1$ (vertical) and $d_{N}=0.95 \times d_{max}$ (horizontal).
+**Figure S2.1**. Example of how one can produce a functionally flat density-dispersal function using a very sharp slope $\alpha$ ($d_{max} = 0.5$, $\beta = 0$). The dashed lines mark $N=1$ (vertical) and $d_{N}=0.95 \times d_{max}$ (horizontal).
 
 &nbsp;
 
-So, even after setting $\beta$ absurdly close to 0, we still need $\alpha$ in the neighbourhood of 1000 to be able to produce such shapes (when, as a reminder, $\alpha=6$ is needed to get a slope that takes a population increase of $K$ individuals to go from 5% to 95% of $d_{max}$, so a reasonably shallow, but not too shallow function). An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extreme $\alpha$ with a low but non-negligible probability (about 5%). And we know (see main text) that $6/\alpha$ approximately expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,500)$ :
+So, even after setting $\beta$ at 0, we still need $\alpha$ in the neighbourhood of 1000 to be able to produce such shapes (when, as a reminder, $\alpha=6$ is needed to get a slope that takes a population increase of $K$ individuals to go from 5% to 95% of $d_{max}$, so a reasonably shallow, but not too shallow function). An initial distribution of $\alpha$ of $\mathrm{Normal}(0,500)$ would hit these extreme $\alpha$ with low but non-negligible probabilities. And we know (see main text) that $6/\alpha$ approximately expresses (in units of $K$) how sharp the increase in dispersal with density is. Let's have a look at the distribution of $6/|\alpha|$ implied by $\alpha \sim \mathrm{Normal}(0,500)$  (**Fig. S2.2**):
 
 
 ```{r fig-s2-2, fig.width=6, fig.height=3}
@@ -234,11 +227,11 @@ tibble(x = rnorm(10000, 0, 500)) %>%
   )
 ```
 
-**Figure S2.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 10000 samples.
+**Figure S2.2**. Distribution of the increases in density needed to go from 5% of $d_{max}$ to 95%, assuming $\alpha \sim \mathrm{Normal}(0,500)$. Histogram drawn based on 10000 samples, the $x$ axis is cut at $5K$ for better visualisation.
 
 &nbsp;
 
-We can see that this initial distribution of $\alpha$ would mostly only allow sharp slopes, that take less than 20-50%$K$ to go from (nearly) 0 to (nearly) $d_{max}$, and shallower slopes would only be present at much lower frequencies. This is not a choice that is ecologically sound in our opinion, hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \approx d_{max}$ flat functions.
+We can see that this initial distribution of $\alpha$ would mostly only allow sharp slopes, that take less than 20-50%$K$ to go from (nearly) 0 to (nearly) $d_{max}$, and shallower slopes would only be present at much lower frequencies. This is not a choice that is ecologically sound in our opinion; hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \approx d_{max}$ flat functions.
 
 # S3 - How do we define the "range front"?
 
@@ -260,11 +253,11 @@ We are interested in how traits at the front of the expansion are shaped by, and
 # we use predispersal population size since that's when traits are recorded,
 # but the principle should work the same post-dispersal
 data %>%
-  filter(N_predispersal > 0) %>%
-  group_by(replicateID, ticks) %>% # for each time x replicate
-  mutate(edge_pxcor = max(pxcor)) %>%
-  ungroup() %>%
-  filter(pxcor > edge_pxcor - 20 & pxcor <= edge_pxcor) %>%
+  filter(N_predispersal > 0 & ticks ==120) |> 
+  group_by(replicateID) |> 
+  mutate(edge_pxcor = max(pxcor)) |> 
+  ungroup() |> 
+  filter(pxcor > edge_pxcor - 20 & pxcor <= edge_pxcor) |> 
   ggplot() +
   geom_boxplot(
     aes(edge_pxcor - pxcor, N_predispersal,
@@ -280,7 +273,7 @@ data %>%
       paste("*r<sub>0</sub>* = log(", fecundity, ")"),
       paste("*m* =", dispersal_mortality)
     ),
-    cols = vars(paste("*h^2*=", heritability))
+    cols = vars(paste("*h^2^*=", heritability))
   ) +
   theme_bw() +
   theme(
@@ -289,1106 +282,88 @@ data %>%
   )
 ```
 
-**Figure S3.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate populations \< 5 patches from the edge from the others.
+**Figure S3.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate the 5 patches closest from the edge from the others.
 
 &nbsp;
 
-We can see that a threshold where we consider all populations \< 5 patches from the edge as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing the precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
+We can see that a threshold where we consider the 5 patches closest from the edge (edge patch included) as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing the precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
 
-# S4 - Checking velocity and evolutionary convergence
+# S4 - Genetic variation at the end of the simulated expansions
 
-## Checking velocity convergence
-
-If an expansion has converged to its asymptotic speed after a time $t$, then it means that its speed over the full duration of the simulation (as long as it is \>$t$) and its speed over any time interval *after* $t$ should be identical ($\pm$ stochastic noise, of course).
-
-We find that convergence in expansion velocities is fast, and speeds measured at or after 100 generations can reasonably used as measures of long-run speed:
-
-```{r data-prep-convergence-speed}
-speed_convergence <- data %>%
-  filter(ticks > 1) %>%
-  filter(N_postdispersal > 0) %>%
-  group_by(replicateID, fecundity, heritability, dispersal_mortality, ticks) %>%
-  summarise(edge_pxcor = max(pxcor)) %>%
-  ungroup() %>%
-  group_by(replicateID) %>%
-  mutate(persist = max(ticks)) %>%
-  ungroup() %>%
-  filter(persist == 120) %>% # to be able to evaluate long-run speed we need to keep only these that persisted
-  ## this removes a few expansions for fecundity =1.5 only
-  group_by(replicateID) %>%
-  arrange(ticks) %>%
-  mutate(prev_edge = lag(edge_pxcor)) %>%
-  mutate(prev_edge = replace_na(prev_edge, 0)) %>%
-  mutate(speed_segment = (edge_pxcor - prev_edge) / 20) %>%
-  mutate(overall_speed = subset(edge_pxcor, ticks == 120) / 120) %>%
-  ungroup()
-```
-
-```{r fig-s4-1, fig.width=9, fig.height=6}
-speed_convergence %>%
-  filter(overall_speed > 0) %>% # can't divide by overall speed if it is 0
-  ggplot() +
-  geom_hline(yintercept = 1, lty = 2) +
-  geom_boxplot(aes(factor(ticks), speed_segment / overall_speed),
-    col = "grey40"
-  ) +
-  scale_y_continuous("ratio between velocity over interval and overall velocity") +
-  scale_x_discrete("time interval (generations)",
-    labels = c("0-20", "20-40", "40-60", "60-80", "80-100", "100-120")
-  ) +
-  facet_grid(
-    rows = vars(
-      paste("*r<sub>0</sub>* = log(", fecundity, ")"),
-      paste("*m* =", dispersal_mortality)
-    ),
-    cols = vars(paste("*h^2*=", heritability))
-  ) +
-  theme_bw() +
-  theme(
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(),
-    legend.position = "none"
-  ) +
-  coord_cartesian(ylim = c(0, 5))
-## we cut outliers <0 (negative speeds over intervals) and >5 for clarity
-```
-
-**Figure S4.1**. Convergence of expansion velocity towards an equilibrium. Ratio of the velocity observed over a 20-generation interval and the velocity over the entire 120-generation run. y-axis is cut to [0;5] to better showcase the interquartile range.
-
-&nbsp;
-
-## Checking evolutionary convergence
-
-We can then do a similar check for evolutionary stability at the edge. Because there is always some genetic variation remaining, let's use "only 5% of the initial genetic variation in traits remaining on average in front patches" as an arbitrary cutoff:
+For all three dispersal traits, a very large majority of replicates have lost most if not all of their genetic variance by $t = 120$ (**Figs S4.1**, **S4.2** and **S4.3**), meaning there is limited to no potential for further evolution should the simulations run for longer. Note that **Figs S4.1** to **S4.3** may still overstate the remaining potential for evolution: indeed, disruptive selection may lead to replicates where the final variances are still high, even higher than initial variances, and yet there are no further opportunities for selection.
 
 
 ```{r data-prep-convergence-evo}
-evo_convergence <- data %>%
-  filter(heritability > 0 & N_predispersal > 0) %>% # doesn't make sense to test non-evolving replicates
-  group_by(replicateID, ticks) %>%
-  mutate(edge_pxcor = max(pxcor)) %>%
-  ungroup() %>%
-  filter(pxcor > edge_pxcor - 5) %>%
-  group_by(
-    replicateID, ticks, heritability,
-    is.VP_dmax, is.VP_DDD,
-    VP_logit_dmax, VP_slope, VP_midpoint,
-    dispersal_mortality, fecundity
-  ) %>%
-  summarise(
-    var_genotype_logit_dmax = weighted.mean(var_genotype_logit_dmax, N_predispersal, na.rm = TRUE),
-    var_genotype_midpoint = weighted.mean(var_genotype_midpoint, N_predispersal, na.rm = TRUE),
-    var_genotype_slope = weighted.mean(var_genotype_slope, N_predispersal, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  mutate(
-    is.fixed_dmax = var_genotype_logit_dmax < (0.05 * VP_logit_dmax),
-    is.fixed_slope = var_genotype_slope < (0.05 * VP_slope),
-    is.fixed_midpoint = var_genotype_midpoint < (0.05 * VP_midpoint)
-  )
-
-dmax_convergence <- evo_convergence %>%
-  filter(is.VP_dmax > 0) %>% ## doesn't make sense to test it in replicates with no variation at the start
-  group_by(ticks, fecundity, heritability, dispersal_mortality) %>%
-  summarise(prop_dmax = mean(is.fixed_dmax))
-
-ddd_convergence <- evo_convergence %>%
-  filter(is.VP_DDD > 0) %>%
-  group_by(ticks, fecundity, heritability, dispersal_mortality) %>%
-  summarise(
-    prop_slope = mean(is.fixed_slope),
-    prop_midpoint = mean(is.fixed_midpoint)
-  )
+evo_convergence <- data  |> 
+  filter(heritability > 0 & N_predispersal > 0 & ticks == 120)  |> 
+  group_by(replicateID) |> 
+  mutate(edge_pxcor = max(pxcor)) |> 
+  ungroup() |> 
+  filter(pxcor > (edge_pxcor - 5))
 ```
 
-```{r fig-s4-2, fig.width=6, fig.height=6}
 
-ggplot(ddd_convergence) +
-  geom_line(aes(ticks, prop_midpoint), col = "#1b9e77") +
-  geom_line(aes(ticks, prop_slope), col = "#d95f02") +
-  geom_line(data = dmax_convergence, aes(ticks, prop_dmax), col = "#7570b3") +
-  scale_y_continuous("proportion of replicates with <5% of initial genetic variation remaining at the edge") +
-  scale_x_continuous("generations") +
+```{r remain_var_dmax, fig.width=6, fig.height=3}
+ggplot(evo_convergence |> filter(is.VP_dmax==1))+
+  geom_histogram(aes(100 * var_genotype_logit_dmax/(1.5^2)))+
+  scale_y_continuous("Number of replicates") +
+  scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
+  ggtitle("dispersal capacity *d<sub>max</sub>*")+
   facet_grid(
-    rows = vars(
-      paste("*r<sub>0</sub>* = log(", fecundity, ")"),
-      paste("*m* =", dispersal_mortality)
-    ),
-    cols = vars(paste("*h^2*=", heritability))
+    rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
+    cols = vars(paste("*m* =", dispersal_mortality))
   ) +
   theme_bw() +
   theme(
+    plot.title = element_markdown(),
     strip.text.x = element_markdown(),
     strip.text.y = element_markdown()
   )
 ```
 
-**Figure S4.2**. Proportion of replicates that have "spent" their initial genetic variation, as a function of time. Within a panel, each line represents a different trait, with midpoint ($\beta$) in [green]{style="color: #1b9e77;"}, slope ($\alpha$) in [orange]{style="color: #d95f02;"} and $d_{max}$ in [blue]{style="color: #7570b3;"} (the trajectories for all three traits are nearly identical).
-
+**Figure S4.1**. Distribution of the remaining genetic variance in $\mathrm{logit}(d_{max})$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\mathrm{logit}(d_{max})$ are displayed. 
 &nbsp;
 
-Using our operational definition of evolutionary "stability", we note that a very large majority of replicates have converged by the end of the experiment, especially in high fecundity replicates. In addition, we note that our definition of evolutionary stability excludes *de facto* cases of divergent selection, so the % of "evolutionary stable" expansions by $t$=100 generations, say, is possibly even higher.
-
-# S5 - Results for fecundity = 1.5
-
-```{r import-by-fecundity}
-tab_all <- read.csv(here("R_output", "processed_data_all_fecundities.csv"))
-
-## VERY IMPORTANT
-## because we re-imported it, we need to re-tell R that fixinterval is an ordered factor
-## AND that mortality is a factor
-## it does not carry over from the main text code
-
-tab_all <- tab_all %>%
-  mutate(
-    fixinterval = ordered(time_to_fix,
-      levels = sort(unique(time_to_fix))
-    ),
-    mortality = factor(mortality)
-  )
-
-tab_low <- tab_all %>%
-  filter(fecundity == 1.5)
-
-tab_high <- tab_all %>% # will be used in S5, might as well create it now
-  filter(fecundity == 5)
-```
-
-Here we reproduce the analyses and figures displayed in the main text Results, but for the low-fecundity scenarios. Note that `r sum(is.na(tab_low$advance))+sum(na.omit(tab_low$advance < 0))` out of 2700 replicates were excluded when fitting the velocity models, due to going fully extinct before the window used for velocity models (between $t=100$ and $t=120$) or because they had negative speeds during that window. We chose to exclude a very small percentage and stay consistent to the analyses in the main text, rather than change the analysis method for the Supplementary analyses.
-
-Regarding model selection, it is interesting to see here that, while the conclusions are the same as for fecundity = 5 for velocity (the best model includes density-dependence post-evolution, whether we use *R^2^* or AICc as a criterion), things are a little bit more complex for genetic diversity. Here, while both evaluation metrics agree on the fact the best model must include density-dependence, they disagree on whether it should be post- or pre- evolution. Note that we still decided to build **Fig. S5.4** using traits measured pre-evolution, to be comparable with the main text **Fig. 4**.
-
-```{r velocity-models}
-## OK so first we need to recreate all the models
-
-
-## the models assuming traits post-evolution matter
-mod_100 <- gam(cbind(advance, 20 - advance) ~
-s(mean_d0_100, by = mortality) +
-  s(mean_avgslope_100, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-mod_100_K <- gam(cbind(advance, 20 - advance) ~
-s(mean_d0_100, by = mortality) +
-  s(mean_Kslope_100, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-mod_100_noDDD <- gam(cbind(advance, 20 - advance) ~
-s(mean_d0_100, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-## the models assuming initial traits matter
-mod_00 <- gam(cbind(advance, 20 - advance) ~
-s(start_d0, by = mortality) +
-  s(start_avgslope, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-mod_00_K <- gam(cbind(advance, 20 - advance) ~
-s(start_d0, by = mortality) +
-  s(start_Kslope, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-mod_00_noDDD <- gam(cbind(advance, 20 - advance) ~
-s(start_d0, by = mortality) +
-  mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-
-## the mortality only model
-mod_null <- gam(cbind(advance, 20 - advance) ~
-mortality,
-family = binomial,
-data = subset(tab_low, advance >= 0), method = "REML"
-)
-```
-
-```{r GAM-R2}
-gam_dev.expl <- function(mod) {
-  return(summary(mod)$dev.expl)
-}
-
-gam_r2 <- function(mod) {
-  return(summary(mod)$r.sq)
-}
-```
-
-```{r velocity-modsel}
-modsel_velocity <- model.sel(list(
-  mod_100 = mod_100,
-  mod_100_K = mod_100_K,
-  mod_100_noDDD = mod_100_noDDD,
-  mod_00 = mod_00,
-  mod_00_K = mod_00_K,
-  mod_00_noDDD = mod_00_noDDD,
-  mod_null = mod_null
-), extra = list(gam_dev.expl, gam_r2)) %>%
-  # MuMIn::model.sel puts model names as a row name rather than as a variable
-  # let's correct this:
-  rownames_to_column(var = "model_name") %>%
-  as_tibble() %>%
-  # then let's add variables that tell us about what's in each model
-  # re: does it include density-dependency? use traits pre/post evolution?
-  mutate(
-    is.evo = case_when(
-      str_detect(model_name, "null") ~ NA_character_,
-      str_detect(model_name, "_100") ~ "after evolution (t = 100)",
-      T ~ "before evolution (t = 0)"
-    ),
-    is.DDD = case_when(
-      str_detect(model_name, "null") ~ NA_character_,
-      str_detect(model_name, "_noDDD") ~ "ignored",
-      str_detect(model_name, "_K") ~ "*&Delta;<sub>K-0</sub>* (shape-indep.)",
-      T ~ "*&Delta;<sub>avg-0</sub>* (shape-dep.)"
-    )
-  ) %>%
-  mutate(is.evo = fct_relevel(is.evo, "before evolution (t = 0)", after = 0)) %>%
-  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0)) %>%
-  select(model_name, gam_dev.expl:is.DDD) # let's remove all the coef columns
-# that model.sel adds automatically
-```
-
-```{r genetic-models}
-
-
-mod_div_00 <- clm(fixinterval ~
-mortality * (start_d0 + start_avgslope),
-data = filter(tab_low, edge_pxcor_120 > 0), # one front did not advance
-link = "cloglog"
-)
-
-mod_div_00 <- clm(fixinterval ~
-mortality + mortality:(start_d0 + start_avgslope),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_00_K <- clm(fixinterval ~
-mortality + mortality:(start_d0 + start_Kslope),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_00_noDDD <- clm(fixinterval ~
-mortality + mortality:(start_d0),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_100 <- clm(fixinterval ~
-mortality + mortality:(mean_d0_100 + mean_avgslope_100),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_100_K <- clm(fixinterval ~
-mortality + mortality:(mean_d0_100 + mean_Kslope_100),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_100_noDDD <- clm(fixinterval ~
-mortality + mortality:(mean_d0_100),
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-
-mod_div_null <- clm(fixinterval ~
-mortality,
-data = filter(tab_low, edge_pxcor_120 > 0),
-link = "cloglog"
-)
-```
-
-```{r ordinal-R2}
-
-clm_pseudo_r2 <- function(model, data = tab_low) { ## given a model and the *original* data
-  # we make predictions
-  pp <- predict(model, newdata = data %>% select(-fixinterval))$fit
-  # it gets us probabilities for each categories, we sum them to get the rank of the average category
-  preds <- 1 * pp[, 1] + 2 * pp[, 2] + 3 * pp[, 3] + 4 * pp[, 4] + pp[, 5] + 6 * pp[, 6] + 7 * pp[, 7]
-  obs <- as.numeric(data$fixinterval)
-  # the we use that and the rank of the observed category in a linear regression
-  return(summary(lm(obs ~ preds))$r.squared)
-}
-```
-
-```{r ordinal-modsel}
-modsel_diversity <- model.sel(list(
-  mod_div_100 = mod_div_100,
-  mod_div_100_K = mod_div_100_K,
-  mod_div_100_noDDD = mod_div_100_noDDD,
-  mod_div_00 = mod_div_00,
-  mod_div_00_K = mod_div_00_K,
-  mod_div_00_noDDD = mod_div_00_noDDD,
-  mod_div_null = mod_div_null
-), extra = list(clm_pseudo_r2)) %>%
-  rownames_to_column(var = "model_name") %>%
-  as_tibble() %>%
-  mutate(
-    is.evo = case_when(
-      str_detect(model_name, "null") ~ NA_character_,
-      str_detect(model_name, "_100") ~ "after evolution (t = 100)",
-      T ~ "before evolution (t = 0)"
-    ),
-    is.DDD = case_when(
-      str_detect(model_name, "null") ~ NA_character_,
-      str_detect(model_name, "_noDDD") ~ "ignored",
-      str_detect(model_name, "_K") ~ "*&Delta;<sub>K-0</sub>* (shape-indep.)",
-      T ~ "*&Delta;<sub>avg-0</sub>* (shape-dep.)"
-    )
-  ) %>%
-  mutate(is.evo = fct_relevel(is.evo, "before evolution (t = 0)", after = 0)) %>%
-  mutate(is.DDD = fct_relevel(is.DDD, "ignored", after = 0)) %>%
-  select(model_name, clm_pseudo_r2:is.DDD) # let's remove all the coef columns
-# that model.sel adds automatically
-```
-
-&nbsp;
-
-```{r fig-s5-1-palette}
-mypalette <- c("#1b9e77", "#d95f02", "#7570b3")
-```
-
-```{r fig-s5-1, fig.width=10, fig.height=4}
-
-p2_1 <- modsel_velocity %>%
-  filter(model_name != "mod_null") %>%
-  ggplot() +
-  geom_point(aes(is.evo, gam_r2,
-    col = is.DDD,
-    shape = is.DDD
-  ),
-  size = 4
-  ) +
-  geom_line(aes(is.evo, gam_r2,
-    group = is.DDD,
-    col = is.DDD
-  )) +
-  geom_hline(yintercept = summary(mod_null)$r.sq, lty = 2) + ## the aicc of the mortality only model
-  scale_y_continuous("R^2") +
-  scale_colour_manual(values = mypalette) +
-  scale_shape_discrete() +
-  labs(title = "expansion velocity")
-
-
-p2_2 <- modsel_diversity %>%
-  filter(model_name != "mod_div_null") %>%
-  ggplot() +
-  geom_point(aes(is.evo, clm_pseudo_r2,
-    col = is.DDD,
-    shape = is.DDD
-  ),
-  size = 4
-  ) +
-  geom_line(aes(is.evo, clm_pseudo_r2,
-    group = is.DDD,
-    col = is.DDD
-  )) +
-  geom_hline(yintercept = clm_pseudo_r2(model = mod_div_null), lty = 2) + ## the aicc of the mortality only model
-  scale_y_continuous("pseudo-R^2") +
-  scale_colour_manual(values = mypalette) +
-  scale_shape_discrete() +
-  labs(title = "neutral diversity")
-
-(p2_1 + p2_2 + plot_layout(guides = "collect")) & scale_x_discrete("when are trait covariables sampled?") &
-  labs(col = "Density dependence?", shape = "Density dependence?") & theme_bw() &
-  theme(
-    axis.title.y = element_markdown(),
-    legend.text = element_markdown()
-  )
-```
-
-**Figure S5.1**. R^2^ of the different models used to analyse simulations outputs with respect to expansion velocity in the last 20 generations (left) and time to loss of neutral genetic diversity in the range front (right) (case where $r_{0}=\log(1.5)$, see **main text Fig. 2** for the case where $r_{0}=\log(5)$). Dashed line: R^2^for the "baseline" model containing only dispersal mortality (all models include dispersal mortality, and its interactions with the other covariates when present).
-
-&nbsp;
-
-```{r fig-s5-2, fig.width=10, fig.height=4}
-
-p2_1 <- modsel_velocity %>%
-  filter(model_name != "mod_null") %>%
-  ggplot() +
-  geom_point(aes(is.evo, AICc,
-    col = is.DDD,
-    shape = is.DDD
-  ),
-  size = 4
-  ) +
-  geom_line(aes(is.evo, AICc,
-    group = is.DDD,
-    col = is.DDD
-  )) +
-  geom_hline(yintercept = AICc(mod_null), lty = 2) + ## the aicc of the mortality only model
-  scale_y_continuous("AICc") +
-  scale_colour_manual(values = mypalette) +
-  scale_shape_discrete() +
-  labs(title = "expansion velocity")
-
-
-p2_2 <- modsel_diversity %>%
-  filter(model_name != "mod_div_null") %>%
-  ggplot() +
-  geom_point(aes(is.evo, AICc,
-    col = is.DDD,
-    shape = is.DDD
-  ),
-  size = 4
-  ) +
-  geom_line(aes(is.evo, AICc,
-    group = is.DDD,
-    col = is.DDD
-  )) +
-  geom_hline(yintercept = AICc(mod_div_null), lty = 2) + ## the aicc of the mortality only model
-  scale_y_continuous("AICc") +
-  scale_colour_manual(values = mypalette) +
-  scale_shape_discrete() +
-  labs(title = "neutral diversity")
-
-(p2_1 + p2_2 + plot_layout(guides = "collect")) & scale_x_discrete("when are trait covariables sampled?") &
-  labs(col = "Density dependence?", shape = "Density dependence?") & theme_bw() &
-  theme(
-    axis.title.y = element_markdown(),
-    legend.text = element_markdown()
-  )
-```
-
-**Figure S5.2**. Same as **Figure S5.1** except with AICc as the model evaluation criterion. Note that this time, *lower* values denote better models.
-
-&nbsp;
-
-```{r fig-s5-3, fig.width=6, fig.height=7}
-
-# we create a grid with the full range of d0 and mortalities
-# but assuming no density dependence (avgslope = 0)
-newdata <- tibble(
-  mean_avgslope_100 = 0,
-  mean_d0_100 = c(0:100) / 100
-) %>%
-  expand_grid(mortality = c("0.1", "0.5", "0.9")) %>%
-  mutate(row = 1:length(mortality))
-
-# and use it to predict expansion speed and plot it
-p1 <- fitted_samples(mod_100, n = 1000, newdata = newdata, seed = 42, scale = "response") %>%
-  left_join(newdata) %>%
-  ggplot() +
-  stat_lineribbon(aes(mean_d0_100, fitted), .width = c(0.001, 0.95), fill = "grey") +
-  scale_y_continuous("predicted expansion velocity (patches/generation)") +
-  scale_x_continuous("Mean *d<sub>0</sub>* at *t* = 100") +
+```{r remain_var_slope, fig.width=6, fig.height=3}
+ggplot(evo_convergence |> filter(is.VP_DDD==1))+
+  geom_histogram(aes(100 * var_genotype_slope/(6^2)))+
+  scale_y_continuous("Number of replicates") +
+  scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
+  ggtitle("relative slope &alpha;")+
   facet_grid(
-    rows = vars(paste("*m* = ", mortality)),
-    cols = vars("effect of *d<sub>0</sub>*")
-  ) +
-  coord_cartesian(ylim = c(0, 1))
-
-# then we do the same, this time let avgslope vary, and fixing d0 to its average
-newdata <- tibble(
-  mean_avgslope_100 = seq(
-    from = range(tab_low$mean_avgslope_100, na.rm = TRUE)[1],
-    to = range(tab_low$mean_avgslope_100, na.rm = TRUE)[2],
-    length.out = 100
-  ),
-  mean_d0_100 = mean(tab_low$mean_d0_100, na.rm = TRUE)
-) %>%
-  expand_grid(mortality = c("0.1", "0.5", "0.9")) %>%
-  mutate(row = 1:length(mortality))
-
-# then we predict expansion speeds again and plot them again
-p2 <- fitted_samples(mod_100, n = 1000, newdata = newdata, seed = 42, scale = "response") %>%
-  left_join(newdata) %>%
-  ggplot() +
-  stat_lineribbon(aes(mean_avgslope_100, fitted), .width = c(0.001, 0.95), fill = "grey") +
-  scale_y_continuous("") +
-  scale_x_continuous("Mean *&Delta;<sub>avg-0</sub>* at *t* = 100") +
-  facet_grid(
-    rows = vars(paste("*m* = ", mortality)),
-    cols = vars("effect of density-dependence *&Delta;<sub>avg-0</sub>*")
-  ) +
-  coord_cartesian(ylim = c(0, 1))
-
-(p1 | p2) &
-  theme_bw() &
-  theme(
-    axis.title.x = element_markdown(),
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown()
-  )
-```
-
-**Figure S5.3**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on expansion velocity, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 3** for the case where $r_{0}=\log(5)$). Predictions are based on the best model **Fig. S5.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
-
-&nbsp;
-
-```{r fig-s5-4, fig.width=9, fig.height=7}
-newdata <- tibble(
-  start_avgslope = 0,
-  start_d0 = c(0:50) / 100
-) %>%
-  expand_grid(mortality = c("0.1", "0.5", "0.9")) %>%
-  mutate(row = 1:length(mortality))
-
-p1 <- cbind(newdata, predict(mod_div_00, newdata = newdata)$fit) %>%
-  pivot_longer(cols = c(`20`, `40`, `60`, `80`, `100`, `120`, `121`)) %>%
-  mutate(name = fct_recode(name,
-    `< 20` = "20",
-    `21 to 40` = "40",
-    `41 to 60` = "60",
-    `61 to 80` = "80",
-    `81 to 100` = "100",
-    `101 to 120` = "120",
-    `> 120` = "121"
-  )) %>%
-  mutate(name = str_replace(as.character(name), "< 20", "\u2264 20")) %>%
-  mutate(name = fct_relevel(
-    name,
-    "\u2264 20",
-    "21 to 40",
-    "41 to 60",
-    "61 to 80",
-    "81 to 100",
-    "101 to 120",
-    "> 120"
-  )) %>%
-  ggplot() +
-  geom_area(aes(x = start_d0, y = value, fill = name), position = "fill") +
-  scale_y_continuous("") +
-  scale_x_continuous("Mean *d<sub>0</sub>* at *t* = 0") +
-  guides(fill = "none") +
-  facet_grid(
-    rows = vars(paste("*m* = ", mortality)),
-    cols = vars("effect of *d<sub>0</sub>*")
-  ) +
-  coord_cartesian(ylim = c(0, 1))
-
-newdata <- tibble(
-  start_avgslope = seq(
-    from = range(tab_low$start_avgslope, na.rm = TRUE)[1],
-    to = range(tab_low$start_avgslope, na.rm = TRUE)[2],
-    length.out = 100
-  ),
-  start_d0 = mean(tab_low$start_d0, na.rm = TRUE)
-) %>%
-  expand_grid(mortality = c("0.1", "0.5", "0.9")) %>%
-  mutate(row = 1:length(mortality))
-
-p2 <- cbind(newdata, predict(mod_div_00, newdata = newdata)$fit) %>%
-  pivot_longer(cols = c(`20`, `40`, `60`, `80`, `100`, `120`, `121`)) %>%
-  mutate(name = fct_recode(name,
-    `< 20` = "20",
-    `21 to 40` = "40",
-    `41 to 60` = "60",
-    `61 to 80` = "80",
-    `81 to 100` = "100",
-    `101 to 120` = "120",
-    `> 120` = "121"
-  )) %>%
-  mutate(name = str_replace(as.character(name), "< 20", "\u2264 20")) %>%
-  mutate(name = fct_relevel(
-    name,
-    "\u2264 20",
-    "21 to 40",
-    "41 to 60",
-    "61 to 80",
-    "81 to 100",
-    "101 to 120",
-    "> 120"
-  )) %>%
-  ggplot() +
-  geom_area(aes(x = start_avgslope, y = value, fill = name), position = "fill") +
-  scale_y_continuous("") +
-  scale_x_continuous("Mean *&Delta;<sub>avg-0</sub>* at *t* = 0") +
-  labs(fill = "generations before allele fixation:") +
-  facet_grid(
-    rows = vars(paste("*m* = ", mortality)),
-    cols = vars("effect of density-dependence *&Delta;<sub>avg-0</sub>*")
-  ) +
-  coord_cartesian(ylim = c(0, 1))
-
-
-
-(p1 | p2) &
-  theme_bw() &
-  scale_fill_brewer(palette = "Greys") &
-  plot_layout(guides = "collect") &
-  theme(
-    axis.title.x = element_markdown(),
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown()
-  )
-```
-
-**Figure S5.4**. Predicted effect of $d_{0}$ (left) and density-dependence $\Delta_{avg-0}$ (right) on the loss of neutral diversity at the range front, depending of dispersal mortality (case where $r_{0}=\log(1.5)$, see **main text Fig. 4** for the case where $r_{0}=\log(5)$). Darker shades of grey indicate later fixation times. Predictions are based on the best model **Fig. S5.1**; predictions for the effect of $d_{0}$ are made assuming no density-dependence ($\Delta_{avg-0}=0$), and predictions for the effect of $\Delta_{avg-0}$ are made setting $d_{0}$ to its average value in the simulated dataset.
-
-&nbsp;
-
-```{r fig-s5-5, fig.width=6, fig.height=6}
-tab_low %>%
-  filter(is.VP_dmax == 1 & edge_pxcor_120 > 0) %>% # does not make sense to include replicates with no variation in dmax
-  mutate(is.VP_DDD = factor(is.VP_DDD)) %>%
-  ggplot() +
-  geom_hline(yintercept = 0.5, lty = 2) +
-  geom_jitter(aes(is.VP_DDD, mean_dmax_100),
-    col = "grey80"
-  ) +
-  stat_summary(aes(is.VP_DDD, mean_dmax_100),
-    fun = "mean", fun.min = "mean", fun.max = "mean", size = 1
-  ) +
-  scale_x_discrete("sources of individual variation",
-    labels = c(
-      "*d<sub>max</sub>* only",
-      "*&alpha;*, *&beta;*, and *d<sub>max</sub>*"
-    )
-  ) +
-  scale_y_continuous("Mean *d<sub>max</sub>* at the front at *t* = 100") +
-  facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
+    rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
+    cols = vars(paste("*m* =", dispersal_mortality))
   ) +
   theme_bw() +
   theme(
-    legend.position = "none",
+    plot.title = element_markdown(),
     strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(),
-    axis.text.x = element_markdown(),
-    axis.title.y = element_markdown(),
-    plot.title = element_markdown()
+    strip.text.y = element_markdown()
   )
 ```
 
-**Figure S5.5**. Evolutionary changes in mean dispersal capacity $d_{max}$ at the range front as a function of sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 5** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with the average values overlaid in black. Replicates with no individual variation in $d_{max}$ at $t=0$ are not displayed.
-
+**Figure S4.2**. Distribution of the remaining genetic variance in the relative slope $\alpha$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\alpha$ are displayed. 
 &nbsp;
 
-```{r fig-s5-6, fig.width=10, fig.height=10}
-p11 <- tab_low %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_vline(xintercept = 0, lty = 2) +
-  # denoting the strategies that are possible (davg>dmax not possible):
-  geom_ribbon( # shading impossible region
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon( # cont'd
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = -1 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  # plotting replicates
-  geom_point(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  col = "grey80"
-  ) +
-  # plotting regression
-  geom_smooth(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "C: Individual variation in *&alpha;*, *&beta;*, and *d<sub>max</sub>*") +
-  scale_y_continuous("") +
-  scale_x_continuous("Mean density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
+```{r remain_var_midpoint, fig.width=6, fig.height=3}
+ggplot(evo_convergence |> filter(is.VP_DDD==1))+
+  geom_histogram(aes(100 * var_genotype_midpoint/(0.5^2)))+
+  scale_y_continuous("Number of replicates") +
+  scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
+  ggtitle("midpoint &beta;")+
   facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
+    rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
+    cols = vars(paste("*m* =", dispersal_mortality))
   ) +
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
-  theme_bw()
-
-p10 <- tab_low %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 0 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_vline(xintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = -1 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  # denotes the strategies possibles (davg>dmax not possible)
-  geom_point(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "B: Individual variation in *d<sub>max</sub>*") +
-  scale_x_continuous("Mean density-dependence (*&Delta;<sub>avg-0</sub>*) at *t* = 0") +
-  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at front between *t* = 0 and *t* = 100") +
-  facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
-  ) +
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
-  theme_bw()
-
-p01 <- tab_low %>%
-  filter(is.VP_dmax == 0 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_vline(xintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0.5 - x, ymax = 1), # impossible space larger because dmax cannot evolve
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = -0.5 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_avgslope,
-    mean_avgslope_100 - start_avgslope
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  scale_y_continuous("Change in mean *&Delta;<sub>avg-0</sub>* at front between *t* = 0 and *t* = 100") +
-  scale_x_continuous("") +
-  ggtitle("A: Individual variation in *&alpha;* and *&beta;*") +
-  facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
-  ) +
-  coord_cartesian(xlim = c(-0.3, 0.3), ylim = c(-0.25, 0.8)) +
-  theme_bw()
-
-
-p_explainer <- ggplot() +
-  geom_tile(aes(x = 0, y = 0, width = 2.2, height = 2), fill = "white", col = "black") +
-  scale_x_continuous("", breaks = 0) +
-  scale_y_continuous("", breaks = 0) +
-  geom_segment(aes(x = 0, xend = 0, y = 1, yend = -1), lty = 2) +
-  geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), lty = 2) +
-  geom_label(aes(x = 0.55, y = -1, label = "starts \n(more) pushed"), size = 3.5) +
-  geom_label(aes(x = -0.5, y = -1, label = "starts \n(more) pulled"), size = 3.5) +
-  geom_label(aes(x = -1.2, y = 0.37, label = "becomes \n(more) pushed"), size = 3.5) +
-  geom_label(aes(x = -1.2, y = -0.37, label = "becomes \n(more) pulled"), size = 3.5) +
-  coord_cartesian(xlim = c(-1.6, 1.5), ylim = c(-1.4, 1.4)) +
-  theme_void()
-
-layout <- "
-AAA###
-AAABBB
-AAABBB
-CCCDDD
-CCCDDD
-CCCDDD
-"
-
-p01 + p_explainer + p10 + p11 +
-  plot_layout(design = layout) &
+  theme_bw() +
   theme(
+    plot.title = element_markdown(),
     strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(),
-    axis.title.x = element_markdown(),
-    axis.title.y = element_markdown(),
-    plot.title = element_markdown()
+    strip.text.y = element_markdown()
   )
 ```
 
-**Figure S5.6**. Evolutionary changes in mean density-dependence $\Delta_{avg-0}$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **main text Fig. 6** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed. Grey-filled areas indicate impossible phenotypes, more specifically evolved values of $\Delta_{avg-0}$ that would imply dispersal rates higher than the maximal possible $d_{max}$ (1 if $d_{max}$ is variable among individuals, 0.5 if it is not).
-
-&nbsp;
-
-# S6 - An unconditionality metric
-
-An interesting result from @travisAcceleratingInvasionRates2009 is that dispersal seems to become more density-independent at range edges. That is, the dispersal-density function becomes flat over a wider and wider range of densities. However, we find (see main text) that density-dependence relevant to pushed vs pulled expansions still exists after evolution at the range edge. How to reconcile this?
-
-It is relatively easy actually: the first step is to see that "flat over a larger and larger range of densities" does not mean "uniformly flat". As long as dispersal is slightly lower at specifically low densities, pushed dynamics can still happen, even if dispersal is fully independent of density over the rest of possible densities. The second step is to define an actual unconditionality index, and to test the prediction that, despite our results, our expansions still tend to become unconditional, on average.
-
-For a given emigration-density function $f(n)$ and a relevant range of densities $[0-K]$, we can define an unconditionality index $u$ as follows:
-
-$u = \frac{\int_{0}^{K}f(n)\mathrm{d}n}{\max\limits_{0 \leq n \leq K} f(n)}$.
-
-This index can take values between 0 and 1. The closer this index is to 1, the closer the average dispersal rate over the range 0-$K$ is equal to the maximal dispersal rate over the same range, i.e. the closer the dispersal function is to an horizontal line. For simplicity, as numerical integration from within base NetLogo is not possible, we approximated the numerator of $u$ by instead sampling $l$ density values at regular intervals over the range of densities and averaging the resulting dispersal rates:
-
-$N = \{0, 0.1K, 0.2K,...,0.9K,K\}$,
-
-$u_{[approx]} = \frac{(\sum_{n \in N}f(n))/l}{\max\limits_{n \in N} f(n)}$.
-
-We can then easily see that evolution of dispersal matching traits ($\alpha$ and $\beta$) indeed leads dispersal to become more unconditional when fecundity is high (**Fig. S6.1**).
-
-
-```{r fig-s6-1, fig.width=12, fig.height=5}
-p11 <- tab_high %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "C: Individual variation in *&alpha;*, *&beta;*, and *d<sub>max</sub>*") +
-  scale_y_continuous("") +
-  scale_x_continuous("", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1"))
-
-p10 <- tab_high %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 0 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "B: Individual variation in *d<sub>max</sub>*") +
-  scale_x_continuous("Mean dispersal unconditionality index *u* at *t* = 0",
-    breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")
-  ) +
-  scale_y_continuous("")
-
-p01 <- tab_high %>%
-  filter(is.VP_dmax == 0 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  scale_y_continuous("Change in mean *u* at the front between *t* = 0 and *t* = 100") +
-  scale_x_continuous("", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
-  ggtitle("A: Individual variation in *&alpha;* and *&beta;*")
-
-(p01 + p10 + p11) &
-  coord_cartesian(
-    ylim = c(-0.5, 0.8),
-    xlim = c(0, 1)
-  ) &
-  facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
-  ) &
-  theme_bw() &
-  theme(
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(),
-    axis.title.x = element_markdown(),
-    axis.title.y = element_markdown(),
-    plot.title = element_markdown()
-  )
-```
-
-**Figure S6.1**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(5)$, see **Supplementary Figure S6.2** for the case where $r_{0}=\log(1.5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed. Grey-filled areas indicate impossible states, i.e. changes in $u$ that would lead to $u>1$ or $u<0$.
-
-&nbsp;
-
-When fecundity is reduced, dispersal still becomes more unconditional with expansion, unless mortality costs are high (**Fig. S6.2**, below). Jointly with our main text result, this confirms that metrics specifically targeting differences to low-density behaviour are needed to understand pushed expansions.
-
-
-
-```{r fig-s6-2, fig.width=12, fig.height=5}
-p11 <- tab_low %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "C: Individual variation in *&alpha;*, *&beta;*, and *d<sub>max</sub>*") +
-  scale_y_continuous("") +
-  scale_x_continuous("", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1"))
-
-p10 <- tab_low %>%
-  filter(is.VP_dmax == 1 & is.VP_DDD == 0 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  labs(title = "B: Individual variation in *d<sub>max</sub>*") +
-  scale_x_continuous("Mean dispersal unconditionality index *u* at *t* = 0",
-    breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")
-  ) +
-  scale_y_continuous("")
-
-p01 <- tab_low %>%
-  filter(is.VP_dmax == 0 & is.VP_DDD == 1 & edge_pxcor_120 > 0) %>%
-  ggplot() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 1 - x, ymax = 1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_ribbon(
-    data = tibble(x = c(-100:100) / 100),
-    aes(x = x, ymin = 0 - x, ymax = -1),
-    fill = "grey80", col = "black"
-  ) +
-  geom_point(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  col = "grey80"
-  ) +
-  geom_smooth(aes(
-    start_uncond,
-    mean_uncond_100 - start_uncond
-  ),
-  method = "lm",
-  col = "black", fill = "#d95f02"
-  ) +
-  scale_y_continuous("Change in mean *u* at the front between *t* = 0 and *t* = 100") +
-  scale_x_continuous("", breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
-  ggtitle("A: Individual variation in *&alpha;* and *&beta;*")
-
-(p01 + p10 + p11) &
-  coord_cartesian(
-    ylim = c(-0.5, 0.8),
-    xlim = c(0, 1)
-  ) &
-  facet_grid(
-    rows = vars(paste("*m* =", dispersal_mortality)),
-    cols = vars(paste("*h^2* =", heritability))
-  ) &
-  theme_bw() &
-  theme(
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(),
-    axis.title.x = element_markdown(),
-    axis.title.y = element_markdown(),
-    plot.title = element_markdown()
-  )
-```
-
-**Figure S6.2**. Evolutionary changes in mean dispersal unconditionality $u$ at the range front as a function of its initial value, sources of phenotypic variation and dispersal costs (case where $r_{0}=\log(1.5)$, see **Supplementary Figure S6.1** for the case where $r_{0}=\log(5)$). Grey dots are individual replicates, with linear regression lines overlaid. Replicates with no individual variation in traits are not displayed.  Grey-filled areas indicate impossible states, i.e. changes in $u$ that would lead to $u>1$ or $u<0$.
-
+**Figure S4.3**. Distribution of the remaining genetic variance in the midpoint $\beta$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\beta$ are displayed.
 &nbsp;
 
 # References
