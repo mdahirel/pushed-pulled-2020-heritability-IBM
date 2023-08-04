@@ -78,13 +78,13 @@ Patch-level variables:
 
 To do our analyses, we're going to build several "processed" tables from this "raw" dataset, which we'll then merge into a final table.
 
-Again: we will only focus on the state of our expansions at the end of the simulations (t = 120). There is good evidence that evolutionary dynamics are at or close to equilibrium for most replicates at this time. <!--DISCUSS IN SUPPLEMENTARY-->
+Again: we will only focus on the state of our expansions at the end of the simulations (t = 120). There is good evidence that evolutionary dynamics are at or close to equilibrium for most replicates at this time. (see Supplementary)
 
 Second: we will consistently use the metrics as captured at the *start* of each generation, i.e. pre-dispersal. This is to avoid trying to interpret non-genetic dynamics in traits that are reset each generation. For instance, if dispersal capacity is variable but 100% non-genetic, there may be an excess of high dispersers in newly colonised patches. This excess will however vanish when they reproduce and dispersal traits are redrawn. In front patches that are funded by a low number of individuals, this also allows us to estimate patch averages for traits and genetic diversity from higher post-reproduction numbers vs. lower founding numbers.
 
 We start by creating a dataset for genetic diversity, with one observation = one replicate expansion. Our metric of genetic diversity is spatial, and based on the positions of the expansion front for the whole expansion vs. for the individuals that bear the neutral allele that lags behind. In addition to this information, we create a `scenario` variable that groups together all replicates that share the same initial conditions (fecundity, mortality, starting values of dispersal traits, their variability and heritability).
 
-```{r}
+```{r genet_data}
 tab <- data  |>
   filter(ticks==120) |> # we only keep the last iteration
   filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
@@ -108,7 +108,9 @@ tab <- data  |>
   ungroup()
 ```
 
-```{r}
+For good measure, we also collect the expansion front location post dispersal:
+
+```{r edge_post}
 tab_edge <- data  |>
   filter(ticks==120) |> # we only keep the last iteration
   filter(N_postdispersal>0) |> 
@@ -117,16 +119,16 @@ tab_edge <- data  |>
   ungroup()
 ```
 
-```{r}
+```{r tab_front_genet}
 tab <- left_join(tab, tab_edge)
 ```
 
 
-We then create a dataset that contain the mean dispersal trait values at time $t$ in the range front (which we defined here semi-arbitrarily as patches < 5 patches from the edge; see <!--Supplementary S2--> for justification).
+We then create a dataset that contain the mean dispersal trait values at time $t$ in the range front (which we defined here semi-arbitrarily as patches < 5 patches from the edge; see Supplementary S2 for justification).
 
 We first use the previously created dataset to know, for each replicate, which patches are "front patches" (we use the edge pre-dispersal as a reference, since traits are measured pre-dispersal)
 
-```{r}
+```{r tab_intermediate}
 tab_intermediate <- tab |> 
   select(replicateID, edge_pre)
 
@@ -135,7 +137,7 @@ tab_intermediate <- tab |>
 We then use that to (i) filter the big `data` to only keep front patches (ii) and then get weighted averages for each key trait 
 
 
-```{r}
+```{r make_tab_traits}
 tab_traits <- data |> 
   filter(ticks==120) |> 
   left_join(tab_intermediate) |> 
@@ -152,7 +154,7 @@ tab_traits <- data |>
 
 We can then merge the two in one dataset, and we rename some variables so that models are a bit easier to write below
 
-```{r}
+```{r combined_tab}
 tab <- left_join(tab,tab_traits) |> 
   mutate(Mort=factor(dispersal_mortality),
          Fec=factor(fecundity)
@@ -160,17 +162,20 @@ tab <- left_join(tab,tab_traits) |>
   rename(start_Kslope="start_slopeA_0_K")
 ```
 
-```{r}
+We then get back some information about how many replicates we have in our set vs how many we created (to see how much went extinct during simulations):
+
+```{r N_extinct}
 N_replicates<-length(unique(data$replicateID))
 N_non_extinct<-length(unique(tab$replicateID)) 
 ```
 
-
-```{r}
+We remove the replicates that did not went extinct but failed to advance 
+<!--OPEN QUESTION: should we remove them only for EVO/GENET AND KEEP THEM FOR SPEED-->
+```{r filter_failed_expansions}
 tab <- filter(tab, edge_pre>0) # we exclude what did not advance
 ```
 
-```{r}
+```{r N_final}
 
 N_expand<-length(unique(tab$replicateID)) 
 ```
@@ -182,7 +187,7 @@ We can't really combine in one analysis all the simulations: (i) expansions with
 
 So let's split the data:
 
-```{r}
+```{r split_tab}
 
 tab_fix = filter(tab, is.VP_DDD ==0 & is.VP_dmax ==0) #(i) traits are fixed
 
@@ -197,7 +202,7 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
 
 ## Priors
 
-```{r}
+```{r model_priors}
 prior_binomial <- c(
                     set_prior("normal(0,1.5)",class="Intercept"),
                     set_prior("normal(0,1)",class="b"),

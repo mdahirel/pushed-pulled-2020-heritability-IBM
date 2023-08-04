@@ -34,7 +34,7 @@ First, let's tell R where is your NetLogo version, what version number it is, fo
 NLPATH <- "C:/Program Files/NetLogo 6.2.0" # change as needed
 NLVERSION <- "6.2.0" # change as needed
 nreplicates <- 5
-duration <- 120
+duration <- 121 # 120 + 1 , so that metrics collected pre-dispersal are still collected after 120 generations of expansion
 ```
 
 We now need to tell R where the actual NetLogo file of the model is (The reader is strongly encouraged to go look at it, especially the Info pane):
@@ -98,7 +98,7 @@ nl_object@experiment <- experiment(
   idgo = "go",
   stopcond = "not any? turtles",
   runtime = duration,
-  evalticks = c(1, 120),
+  evalticks = c(1, 121),
   # the evalticks = 1 is to guarantee something is saved every time
   # even in runs that never produce any valid value for one of metrics
   # code crashes if some metrics.patches report nothing
