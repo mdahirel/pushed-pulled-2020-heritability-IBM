@@ -84,20 +84,22 @@ We start by creating a dataset for genetic diversity, with one observation = one
 
 ```{r genet_data}
 tab <- data  |>
-  filter(ticks==121) |> # we only keep the last iteration
-  filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
   mutate(scenario=paste0("F=",fecundity, "_M=",dispersal_mortality,
                          "_h2=",heritability,
                      "_slope=",start_slope,"_midpoint=",start_midpoint,
                      "_VP.DDD=",is.VP_DDD,"_VP_dmax=",is.VP_dmax)) |> 
+  filter(ticks==121) |> # we only keep the last iteration
+  filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
   group_by(replicateID, scenario, ticks, 
            dispersal_mortality, heritability, fecundity,
+           K,
            is.VP_dmax, is.VP_DDD,
            start_slope, start_midpoint,
            start_d0, start_dK,        
            start_slopeA_0_K) |> 
   summarise(edge1 = max(pxcor * (N_allele1_pre > 0), na.rm=TRUE), # the coordinate of the farthest individual with neutral allele 1
-            edge0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE)  # same with neutral allele 0
+            edge0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE),  # same with neutral allele 0
+            edge_pre_Nbased = sum(N_predispersal/K)
   ) |> 
   rowwise() |> 
   mutate(edge_pre = max(edge0, edge1),  # which is the farthest of the two irrespective of allele value
