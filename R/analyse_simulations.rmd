@@ -46,7 +46,7 @@ data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
 
 OK, the dataset we just imported is structured so that one row = one patch in one landscape at one observed time. Only patches that were populated at least once are included (see the end of the `generate_simulations` file). The dataset contains many variables, many of them were collected as a precaution "in case they were needed later" (since re-running the models is time consuming); not all of them will be used in the analysis:
 
-- `ticks`: time step at which the observations were made (= number of generations since start), we planned to collect data only at the end of the runs (`ticks` = 120). As `nlrx` may fail if no data are collected for a run, we also collected data at `ticks` = 1, to avoid issues with replicates that go extinct before the end of their run.
+- `ticks`: time step at which the observations were made (= number of generations since start), we planned to collect data only at the end of the runs (`ticks` = 121). As `nlrx` may fail if no data are collected for a run, we also collected data at `ticks` = 1, to avoid issues with replicates that go extinct before the end of their run.
 
 Landscape-level variables, all constant across time (either because they are truly constant, or because they only describe initial conditions at $t=0$ and are not updated after):
               
@@ -59,9 +59,7 @@ Landscape-level variables, all constant across time (either because they are tru
 - `K`: patch carrying capacity (same for all patches)
 - `reproduction`: whether the simulated species was clonal or sexual (here all runs are clonal)
 - `seedID`, `siminputrow`, `replicateID`: the first two variables, combined, give the third one: a unique identifier for each landscape/run
-- `start_d0`, `start_dK`, `start_davg_0_K`, `start_slopeA_0_K`, `start_slopeA_0_avg`: mean values for $d_{0}$, $d_{K}$, $d_{avg}$,  the density-dependence metrics $\Delta_{K-0}$, $\Delta_{avg-0}$ in the starter population (see <!--SUPPLEMENTARY TO ADD--> for the definition of each of these variables)        
-- `start_uncond_0_K`: same as above, for the unconditionality metric (see <!--supplementary to add/edit?--> for the definition of that metric)
-
+- `start_d0`, `start_dK`, `start_slopeA_0_K`: mean values for $d_{0}$, $d_{K}$, + the density-dependence metric $\Delta_{K-0}$ 
 
 Patch-level variables:
 - `pxcor`: patch $x$ coordinate                   
@@ -72,7 +70,7 @@ Patch-level variables:
 - `N_allele0_pre`, `N_allele1_pre`, `N_allele0_post`, `N_allele1_post`: number of individuals with each neutral allele, pre- and post-dispersal
 - `mean_genotype_logit_dmax`, `var_genotype_logit_dmax`, `mean_genotype_slope`, `var_genotype_slope`, `mean_genotype_midpoint`,  `var_genotype_midpoint`: mean and variances  of the genetic component of traits   
 - `mean_dmax`, `mean_slope`, `mean_midpoint`: phenotypic means of the dispersal traits
-- `mean_d0`, `mean_dK`, `mean_davg_0_K`, `mean_slopeA_0_K`, `mean_slopeA_0_avg`, `mean_uncond_0_K`: means of dispersal metrics that can be estimated from these dispersal traits (see above)     
+- `mean_d0`, `mean_dK`, `mean_slopeA_0_K`: means of dispersal metrics that can be estimated from these dispersal traits (see above)     
 
 # Data wrangling
 
@@ -86,7 +84,7 @@ We start by creating a dataset for genetic diversity, with one observation = one
 
 ```{r genet_data}
 tab <- data  |>
-  filter(ticks==120) |> # we only keep the last iteration
+  filter(ticks==121) |> # we only keep the last iteration
   filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
   mutate(scenario=paste0("F=",fecundity, "_M=",dispersal_mortality,
                          "_h2=",heritability,
@@ -108,21 +106,7 @@ tab <- data  |>
   ungroup()
 ```
 
-For good measure, we also collect the expansion front location post dispersal:
-
-```{r edge_post}
-tab_edge <- data  |>
-  filter(ticks==120) |> # we only keep the last iteration
-  filter(N_postdispersal>0) |> 
-  group_by(replicateID) |> 
-  summarise(edge_post = max(pxcor, na.rm=TRUE)) |> 
-  ungroup()
-```
-
-```{r tab_front_genet}
-tab <- left_join(tab, tab_edge)
-```
-
+(the pre-dispersal state at generation 121 reflects what happened after 120 generations of expansion)
 
 We then create a dataset that contain the mean dispersal trait values at time $t$ in the range front (which we defined here semi-arbitrarily as patches < 5 patches from the edge; see Supplementary S2 for justification).
 
@@ -139,7 +123,7 @@ We then use that to (i) filter the big `data` to only keep front patches (ii) an
 
 ```{r make_tab_traits}
 tab_traits <- data |> 
-  filter(ticks==120) |> 
+  filter(ticks==121) |> 
   left_join(tab_intermediate) |> 
   filter(pxcor > (edge_pre - 5)) |> 
   group_by(replicateID, ticks)  |> 

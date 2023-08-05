@@ -55,11 +55,6 @@ turtles-own[
 
   ;; neutral genetic diversity
   neutral_locus ;; two possible allele values (0 ; 1). Inherited with no selection; used for analyses of changes in neutral genetic diversity
-
-  ;; misc.
-  momID      ;; [sexual] unique Netlogo-created ID of the mother, useful for pedigree. [clonal] momID set and kept to the unique ID of the starting individual of the clonal line
-  PgrandmaID ;; [sexual] unique ID of the paternal grandmother of the turtle, set to -999 for the first generation (because unknown pedigree). [clonal] Set and kept equal to momID
-  MgrandmaID ;; [sexual] unique ID of the maternal grandmother of the turtle, set to -999 for the first generation (because unknown pedigree). [clonal] Set and kept equal to momID
 ]
 
 
@@ -183,10 +178,7 @@ to setup-turtles
 
        ;; at the next generation, individuals get genotypic values from parent(s), and redraw the residual noise from the random normal distribution
 
-       ;; assigning a line ID ; for clonal reproduction, momID correspond to the unique ID of a clonal line. MgrandmaID and PgrandmaID are equal to momID
-       set momID who
-       set MgrandmaID who
-       set PgrandmaID who
+
       ]
       [set neutral_locus list (random 2) (random 2)   ;; for sexual reproduction, 2 alleles are drawn, otherwise, same as clonal reproduction concerning traits values
 
@@ -198,10 +190,7 @@ to setup-turtles
        set genotype_slope mean (alleles_slope)
        set genotype_midpoint mean (alleles_midpoint)
 
-       ;; assigning an unknown pedigree for sexual reproduction ; -999 is used as a placeholder for missing values at the start of the experiment
-       set momID -999
-       set MgrandmaID -999
-       set PgrandmaID -999
+
        ]
 
    set_individual_traits
@@ -333,10 +322,6 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
         ;; in case of sexual reproduction, one allele comes from mom, another from mate
 
-        ;; misc.
-        set momID [who] of mom
-        set PgrandmaID [momID] of mate
-        set MgrandmaID [momID] of mom
 
         ;; trait determination
         set alleles_logit_dmax list (one-of [alleles_logit_dmax] of mom) (one-of [alleles_logit_dmax] of mate)
@@ -365,10 +350,6 @@ to reproduce_sexual  ;; sexual reproduction, no mutation
         set neutral_locus list (one-of [neutral_locus] of mom) (one-of [neutral_locus] of mate)
         ;; in case of sexual reproduction, one allele comes from mom, another from mate
 
-        ;; misc.
-        set momID [who] of mate
-        set PgrandmaID [momID] of mom
-        set MgrandmaID [momID] of mate
 
         ;; trait determination
         set alleles_logit_dmax list (one-of [alleles_logit_dmax] of mom) (one-of [alleles_logit_dmax] of mate)
@@ -406,11 +387,6 @@ to reproduce_clonal  ;; clonal reproduction, no mutation
 
         ;;neutral alleles
         set neutral_locus [neutral_locus] of mom
-
-        ;;misc.
-        set momID [momID] of mom
-        set MgrandmaID [momID] of mom
-        set PgrandmaID [momID] of mom
 
 
         ;;inheritance and trait determination
