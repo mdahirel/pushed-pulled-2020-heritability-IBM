@@ -24,6 +24,7 @@ library(bayesplot)
 library(tidybayes)
 options(mc.cores=4)
 
+library(viridis)
 library(patchwork)   # CRAN v1.1.1
 library(ggtext)
 
@@ -32,7 +33,9 @@ library(here)        # CRAN v1.0.1
 
 # Introduction
 
-After running the code in `R/generate_simulations`, we obtained, and saved, a `csv` file containing patch-level data for every simulation we ran. We can now load it, but we're going to immediately make a quick change: in the IBM, phenotypic variance input variables denote, well, the actual phenotypic variances we wanted to input. But since we only tested two levels, variance or no variance, much easier for us to work with binary variables going forward:
+After running the code in `R/generate_simulations`, we obtained, and saved, a `csv` file containing patch-level data for every simulation we ran. We can now load it, but we're going to immediately make two quick additions: 
+- in the IBM, phenotypic variance input variables denote, well, the actual phenotypic variances we wanted to input. But since we only tested two levels, variance or no variance, much easier for us to work with binary variables going forward
+- we create a `scenario` variable that groups together all replicates that share the same initial conditions (fecundity, mortality, starting values of dispersal traits, their variability and heritability).
 
 ```{r import-data}
 data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
@@ -41,7 +44,11 @@ data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
     is.VP_DDD = as.numeric(VP_slope > 0)
     # if VP_slope >0, then VP_midpoint is also >0 in our experimental design
     # so only one binary variable needed for density-dependent dispersal variables
-  )
+  )|>
+  mutate(scenario=paste0("F=",fecundity, "_M=",dispersal_mortality,
+                         "_h2=",heritability,
+                     "_slope=",start_slope,"_midpoint=",start_midpoint,
+                     "_VP.DDD=",is.VP_DDD,"_VP_dmax=",is.VP_dmax)) 
 ```
 
 OK, the dataset we just imported is structured so that one row = one patch in one landscape at one observed time. Only patches that were populated at least once are included (see the end of the `generate_simulations` file). The dataset contains many variables, many of them were collected as a precaution "in case they were needed later" (since re-running the models is time consuming); not all of them will be used in the analysis:
@@ -55,7 +62,8 @@ Landscape-level variables, all constant across time (either because they are tru
 - `is.VP_dmax`, `is.VP_DDD`: binary variables describing whether `VP_logit_dmax` on one hand, and `VP_slope` and `VP_midpoint` on the other, are >0
 - `heritability`: **initial** heritability (same value for all traits)
 - `dispersal_mortality`: probability of dying during dispersal
-- `fecundity`: hypothetical average fecundity at $N=0$ ($\exp(r_{0})$)               
+- `fecundity`: hypothetical average fecundity at $N=0$ ($\exp(r_{0})$)   
+- `scenario` : combination of `fecundity`, `dispersal_mortality`, `heritability`, `start_slope`, `start_midpoint`, `is.VP_dmax`, `is.VP_DDD`. Summarises the initial state of the expansion
 - `K`: patch carrying capacity (same for all patches)
 - `reproduction`: whether the simulated species was clonal or sexual (here all runs are clonal)
 - `seedID`, `siminputrow`, `replicateID`: the first two variables, combined, give the third one: a unique identifier for each landscape/run
@@ -76,30 +84,37 @@ Patch-level variables:
 
 To do our analyses, we're going to build several "processed" tables from this "raw" dataset, which we'll then merge into a final table.
 
-Again: we will only focus on the state of our expansions at the end of the simulations (t = 120). There is good evidence that evolutionary dynamics are at or close to equilibrium for most replicates at this time. (see Supplementary)
+Again: we will only focus on the state of our expansions at the end of the simulations (t = 121, effectively after 120 generations of expansion; see below as to why). There is good evidence that evolutionary dynamics are at or close to equilibrium for most replicates at this time. (see Supplementary)
 
 Second: we will consistently use the metrics as captured at the *start* of each generation, i.e. pre-dispersal. This is to avoid trying to interpret non-genetic dynamics in traits that are reset each generation. For instance, if dispersal capacity is variable but 100% non-genetic, there may be an excess of high dispersers in newly colonised patches. This excess will however vanish when they reproduce and dispersal traits are redrawn. In front patches that are funded by a low number of individuals, this also allows us to estimate patch averages for traits and genetic diversity from higher post-reproduction numbers vs. lower founding numbers.
 
-We start by creating a dataset for genetic diversity, with one observation = one replicate expansion. Our metric of genetic diversity is spatial, and based on the positions of the expansion front for the whole expansion vs. for the individuals that bear the neutral allele that lags behind. In addition to this information, we create a `scenario` variable that groups together all replicates that share the same initial conditions (fecundity, mortality, starting values of dispersal traits, their variability and heritability).
+We start by creating a backbone data frame with one row for **each** replicate, extinct or not
 
-```{r genet_data}
-tab <- data  |>
-  mutate(scenario=paste0("F=",fecundity, "_M=",dispersal_mortality,
-                         "_h2=",heritability,
-                     "_slope=",start_slope,"_midpoint=",start_midpoint,
-                     "_VP.DDD=",is.VP_DDD,"_VP_dmax=",is.VP_dmax)) |> 
-  filter(ticks==121) |> # we only keep the last iteration
-  filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
-  group_by(replicateID, scenario, ticks, 
+```{r backbone}
+
+tab <- data |>  
+  filter(ticks ==1) |> 
+  select(replicateID, scenario, 
            dispersal_mortality, heritability, fecundity,
            K,
            is.VP_dmax, is.VP_DDD,
            start_slope, start_midpoint,
            start_d0, start_dK,        
            start_slopeA_0_K) |> 
+  distinct()
+
+```
+
+
+We then create a dataset for genetic diversity at the end of the expansion, with one observation = one replicate expansion *that expanded past x = 0*. Our metric of genetic diversity is spatial, and based on the positions of the expansion front for the whole expansion vs. for the individuals that bear the neutral allele that lags behind. 
+
+```{r genet_data}
+tab_genet <- data  |>
+  filter(ticks==121) |> # we only keep the last iteration
+  filter(N_predispersal>0) |> # for genetic diversity to be measured in a patch, there needs to be individuals
+  group_by(replicateID) |> 
   summarise(edge1 = max(pxcor * (N_allele1_pre > 0), na.rm=TRUE), # the coordinate of the farthest individual with neutral allele 1
-            edge0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE),  # same with neutral allele 0
-            edge_pre_Nbased = sum(N_predispersal/K)
+            edge0 = max(pxcor * (N_allele0_pre > 0), na.rm=TRUE)  # same with neutral allele 0
   ) |> 
   rowwise() |> 
   mutate(edge_pre = max(edge0, edge1),  # which is the farthest of the two irrespective of allele value
@@ -115,7 +130,7 @@ We then create a dataset that contain the mean dispersal trait values at time $t
 We first use the previously created dataset to know, for each replicate, which patches are "front patches" (we use the edge pre-dispersal as a reference, since traits are measured pre-dispersal)
 
 ```{r tab_intermediate}
-tab_intermediate <- tab |> 
+tab_intermediate <- tab_genet |> 
   select(replicateID, edge_pre)
 
 ```
@@ -128,7 +143,7 @@ tab_traits <- data |>
   filter(ticks==121) |> 
   left_join(tab_intermediate) |> 
   filter(pxcor > (edge_pre - 5)) |> 
-  group_by(replicateID, ticks)  |> 
+  group_by(replicateID)  |> 
   summarise(
     mean_dmax = weighted.mean(mean_dmax, w = N_predispersal, na.rm = TRUE),
     mean_dK = weighted.mean(mean_dK, w = N_predispersal, na.rm = TRUE),
@@ -138,36 +153,98 @@ tab_traits <- data |>
   ungroup()
 ```
 
-We can then merge the two in one dataset, and we rename some variables so that models are a bit easier to write below
+We can then merge the two in one dataset, and we rename one variables so that models are a bit easier to write below. We also add a check to distinguish which expansions are successfull, stalled at x = 0 or went fully extinct
 
 ```{r combined_tab}
-tab <- left_join(tab,tab_traits) |> 
+tab <- left_join(tab,tab_genet) |> 
+  left_join(tab_traits) |> 
   mutate(Mort=factor(dispersal_mortality),
          Fec=factor(fecundity)
          ) |> 
-  rename(start_Kslope="start_slopeA_0_K")
+  rename(start_Kslope="start_slopeA_0_K") |> 
+  mutate(status = case_when(is.na(edge_pre)==TRUE ~ "extinct",
+                            edge_pre==0 ~ "failed",
+                            TRUE ~ "expanded"))
 ```
 
-We then get back some information about how many replicates we have in our set vs how many we created (to see how much went extinct during simulations):
-
-```{r N_extinct}
-N_replicates<-length(unique(data$replicateID))
-N_non_extinct<-length(unique(tab$replicateID)) 
+```{r}
+table(tab$status,tab$Mort,tab$Fec)
+# all failed or extinct are in low-fecundity, high-mortality, no exceptions
 ```
 
-We remove the replicates that did not went extinct but failed to advance 
-<!--OPEN QUESTION: should we remove them only for EVO/GENET AND KEEP THEM FOR SPEED-->
-```{r filter_failed_expansions}
-tab <- filter(tab, edge_pre>0) # we exclude what did not advance
-```
+For the analysis of expansions velocities, we might want to count the failed expansions as 0s, not NAs. So let's create a final variable for that:
 
-```{r N_final}
-
-N_expand<-length(unique(tab$replicateID)) 
+```{r}
+tab$obs_v <- case_when(tab$status=="extinct" ~ 0,
+                     TRUE ~ tab$edge_pre)
 ```
 
 
 # Analysis
+
+## Analysing expansion velocities, part 1: preparation
+
+We first implement a function that takes per capita fecundity (*not growth rate!*) and dispersal rate, and gives the expected velocity $v^*$ in the absence of dispersal density-dependence. We use the formula in Wang et al. 2019 (doi: 10.1016/j.tpb.2019.04.003) that accounts for discrete time and discrete space (with dispersal to nearest neighbour only); otherwise we might wrongly predict velocities > 1  when they are not possible in that setup. We modify the formula to account for dispersal mortality: dispersal mortality reduces both the net dispersal rate and the net fecundity that effectively enter the Wang et al formula
+
+```{r vstar_wang19}
+vstar <- function(fec,disp, mort){
+  
+  # tests
+  if(!is.vector(fec) | !is.vector(disp)| !is.vector(mort)){stop("all inputs should be numeric vectors!")}
+  if(length(fec)!= 1 | length(disp)!=1 | length(mort)!=1){stop("all inputs should be of size 1!")}
+  if(is.na(fec) | is.na(disp) |is.na(mort)){
+    warning("one of the arguments is NA, will return NA")
+    return( NA_real_ )
+    }
+  if(!is.numeric(fec) | !is.numeric(disp) | !is.numeric(mort)){stop("all inputs should be numeric vectors!")}
+  
+  if(fec < 0){stop("fec should be >= 0! (it is per-capita fecundity, not growth rate)")}
+  if(disp < 0 | disp > 1){stop("dispersal rate disp should be between 0 and 1!")}
+  if(mort < 0 | mort > 1){stop("dispersal mortality mort should be between 0 and 1!")}
+  
+  # formula in Wang et al Appendix A1
+  test = optimise(
+  function(kappa,
+           rho=fec*(1-disp*mort), # individuals dying in dispersal are lost to net fecundity
+           m=disp*(1-mort)        # and also obviously to net dispersal
+           ){
+    log(rho*(1+ m *(cosh(kappa)-1)))/kappa
+    },
+    lower=0,upper=707 #cosh(kappa>709) = overflow, estimated as Inf; upper a few orders lower by safety
+)
+  # Possibly due to the numerical optimisation, 
+  # the above will actually plateau a few 10^-3 or 10^-4 above 1, rather than 1
+  # It will also give negative values at fecundities < 1
+  # so some post-processing needed
+  vstar <- test$objective
+  if(vstar < 0){vstar <- 0} 
+  #if we want to *exclude* these expansions, can convert to NA instead of 0
+  # still easy to detect anyway, these will be the only vstar at actual 0, 
+  # if rho>1 will bottom at tiny value but still >0
+  if(vstar >1){vstar <- 1}
+return(vstar)
+}
+```
+
+We can apply the function to our data with the help of `map`:
+
+```{r create_vstar}
+tab <- tab |> 
+  group_by(replicateID) |> 
+  nest() |> 
+  mutate(vstar = map(
+    .x=data,
+    .f = \(x) vstar(
+    fec=x$fecundity,
+    disp=x$start_d0,
+    mort=x$dispersal_mortality)
+    )
+    ) |> 
+  unnest(data) |> 
+  unnest(vstar)
+```
+
+## Splitting the data
 
 We can't really combine in one analysis all the simulations: (i) expansions without phenotypic variation, (ii) with only non-heritable phenotypic variation and (iii) where evolution is possible in at least one trait are three "regimes" that are best analysed separately.
 
@@ -185,6 +262,38 @@ dim(tab)[1] == (dim(tab_fix)[1] + dim(tab_noevo) [1] + dim(tab_evo)[1]) #sense c
 ```
 
 For (i) and (ii) there is no reason to analyse phenotypic trait changes, this can only be done meaningfully in (iii) (and even in iii, not all trait changes can be analysed for all replicates, as we'll see later)
+
+## Analysing expansion velocities, part 2
+
+```{r}
+  ggplot(tab_fix)+
+  geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
+  geom_abline(intercept = 0,slope=1)+
+  scale_fill_viridis("&Delta;<sub>K-0</sub>", option = "inferno")+
+  scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. if &Delta;<sub>K-0</sub> = 0)")+
+  scale_y_continuous("Observed velocity")+
+  theme_bw()+
+  theme(
+    legend.title=element_markdown(),
+    axis.title.x = element_markdown()
+    )
+```
+
+```{r}
+  ggplot(tab_noevo)+
+  geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
+  geom_abline(intercept = 0,slope=1)+
+  scale_fill_viridis("&Delta;<sub>K-0</sub>", option = "inferno")+
+  scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. if &Delta;<sub>K-0</sub> = 0)")+
+  scale_y_continuous("Observed velocity")+
+  theme_bw()+
+  theme(
+    legend.title=element_markdown(),
+    axis.title.x = element_markdown()
+    )
+```
+
+
 
 ## Priors
 
