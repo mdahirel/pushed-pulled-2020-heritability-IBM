@@ -292,7 +292,7 @@ bin_polygon <- tibble(x=c(bin_confint$x,rev(bin_confint$x))/120,
 
 ```{r}
   ggplot(tab_fix)+
-  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="lightgrey")+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
   geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
@@ -309,7 +309,7 @@ bin_polygon <- tibble(x=c(bin_confint$x,rev(bin_confint$x))/120,
 
 ```{r}
   ggplot(tab_noevo)+
-  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="lightgrey")+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
   geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
@@ -327,7 +327,7 @@ bin_polygon <- tibble(x=c(bin_confint$x,rev(bin_confint$x))/120,
 ```{r}
 ## use vstar start or final??? or BOTH and compare
   ggplot(tab_evo)+
-  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="lightgrey")+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
   geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
