@@ -240,8 +240,17 @@ tab <- tab |>
     mort=x$dispersal_mortality)
     )
     ) |> 
+  mutate(vstar_final = map( #ignore the warning in vstar_final, caused by extinctions
+    .x=data,
+    .f = \(x) vstar(
+    fec=x$fecundity,
+    disp=x$mean_d0,
+    mort=x$dispersal_mortality)
+    )
+    )|> 
   unnest(data) |> 
-  unnest(vstar)
+  unnest(vstar) |> 
+  unnest(vstar_final)
 ```
 
 ## Splitting the data
@@ -266,9 +275,28 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
 ## Analysing expansion velocities, part 2
 
 ```{r}
+bin_confint <- tibble(x=0:120,n=120) |> 
+  group_by(n) |> 
+  mutate(lower = map(.x = x,
+                       .f = \(x) binom.test(x = x, n = 120)$conf.int[1]),
+         upper = map(.x = x,
+                     .f = \(x) binom.test(x = x, n = 120)$conf.int[2])) |> 
+  unnest(c(lower,upper)) |> 
+  ungroup()
+
+bin_polygon <- tibble(x=c(bin_confint$x,rev(bin_confint$x))/120,
+                      y = c(bin_confint$upper,rev(bin_confint$lower)))
+```
+
+<!--the general no-evo pattern holds if we split by mortality/fec, but we note that at high mortality/low fec there is a dearth of expansions that substantially faster, plots as supplementary, zoom in on on low vstar??-->
+
+```{r}
   ggplot(tab_fix)+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
+  geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
+  geom_line(data=bin_confint,aes(x=x/120,y=upper),lty=2)+
   scale_fill_viridis("&Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. if &Delta;<sub>K-0</sub> = 0)")+
   scale_y_continuous("Observed velocity")+
@@ -281,8 +309,11 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
 
 ```{r}
   ggplot(tab_noevo)+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
+  geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
+  geom_line(data=bin_confint,aes(x=x/120,y=upper),lty=2)+
   scale_fill_viridis("&Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. if &Delta;<sub>K-0</sub> = 0)")+
   scale_y_continuous("Observed velocity")+
@@ -293,7 +324,23 @@ For (i) and (ii) there is no reason to analyse phenotypic trait changes, this ca
     )
 ```
 
-
+```{r}
+## use vstar start or final??? or BOTH and compare
+  ggplot(tab_evo)+
+  geom_polygon(data=bin_polygon,aes(x,y),fill="grey")+
+  geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
+  geom_abline(intercept = 0,slope=1)+
+  geom_line(data=bin_confint,aes(x=x/120,y=lower),lty=2)+
+  geom_line(data=bin_confint,aes(x=x/120,y=upper),lty=2)+
+  scale_fill_viridis("**Final** &Delta;<sub>K-0</sub>", option = "inferno")+
+  scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. if &Delta;<sub>K-0</sub> = 0)")+
+  scale_y_continuous("Observed velocity")+
+  theme_bw()+
+  theme(
+    legend.title=element_markdown(),
+    axis.title.x = element_markdown()
+    )
+```
 
 ## Priors
 
