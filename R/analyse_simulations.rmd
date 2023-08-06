@@ -187,9 +187,10 @@ tab$obs_v <- case_when(tab$status=="extinct" ~ 0,
 We first implement a function that takes per capita fecundity (*not growth rate!*) and dispersal rate, and gives the expected velocity $v^*$ in the absence of dispersal density-dependence. We use the formula in Wang et al. 2019 (doi: 10.1016/j.tpb.2019.04.003) that accounts for discrete time and discrete space (with dispersal to nearest neighbour only); otherwise we might wrongly predict velocities > 1  when they are not possible in that setup. We modify the formula to account for dispersal mortality: dispersal mortality reduces both the net dispersal rate and the net fecundity that effectively enter the Wang et al formula
 
 ```{r vstar_wang19}
-vstar <- function(fec,disp, mort){
+vstar <- function(fec,disp, mort, na.low = FALSE){
   
   # tests
+  if(!is.logical(na.low) | is.na(na.low)){stop("na.low must be TRUE or FALSE!")}
   if(!is.vector(fec) | !is.vector(disp)| !is.vector(mort)){stop("all inputs should be numeric vectors!")}
   if(length(fec)!= 1 | length(disp)!=1 | length(mort)!=1){stop("all inputs should be of size 1!")}
   if(is.na(fec) | is.na(disp) |is.na(mort)){
@@ -217,11 +218,9 @@ vstar <- function(fec,disp, mort){
   # It will also give negative values at fecundities < 1
   # so some post-processing needed
   vstar <- test$objective
-  if(vstar < 0){vstar <- 0} 
-  #if we want to *exclude* these expansions, can convert to NA instead of 0
-  # still easy to detect anyway, these will be the only vstar at actual 0, 
-  # if rho>1 will bottom at tiny value but still >0
   if(vstar >1){vstar <- 1}
+  if(vstar < 0 & na.low == FALSE){vstar <- 0}
+  if(vstar < 0 & na.low == TRUE){vstar <- NA_real_}
 return(vstar)
 }
 ```
