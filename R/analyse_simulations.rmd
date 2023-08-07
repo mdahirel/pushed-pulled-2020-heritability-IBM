@@ -392,6 +392,10 @@ prior_beta <- prior_beta_binomial
 ## Genetic diversity models
 
 ```{r}
+if (file.exists(here("R_output", "mod_gen_fixB.Rdata"))) {
+  load(here("R_output", "mod_gen_fixB.Rdata"))
+} else {
+
 mod_gen_fixB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
@@ -402,7 +406,13 @@ mod_gen_fixB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  
                   prior= prior_binomial
 )
 
-pp_check(mod_gen_fixB,"stat_2d") #some evidence of overdispersion?
+save(list = c("mod_gen_fixB"), file = here("R_output", "mod_gen_fixB.Rdata"))
+}
+
+
+if (file.exists(here("R_output", "mod_gen_fixBB0.Rdata"))) {
+  load(here("R_output", "mod_gen_fixBB0.Rdata"))
+} else {
 
 mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
                          nlf(phi~1/exp(loginvphi)),
@@ -418,8 +428,13 @@ mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                   prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_fixBB0,"stat_2d") # better
+save(list = c("mod_gen_fixBB0"), file = here("R_output", "mod_gen_fixBB0.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_fixBB.Rdata"))) {
+  load(here("R_output", "mod_gen_fixBB.Rdata"))
+} else {
+  
 mod_gen_fixBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
@@ -431,6 +446,11 @@ mod_gen_fixBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec 
                   prior=prior_beta_binomial
 )
 
+save(list = c("mod_gen_fixBB"), file = here("R_output", "mod_gen_fixBB.Rdata"))
+}
+
+pp_check(mod_gen_fixB,"stat_2d") #some evidence of overdispersion?
+pp_check(mod_gen_fixBB0,"stat_2d") # better
 pp_check(mod_gen_fixBB,"stat_2d") # good
 
 loo_compare(
@@ -480,6 +500,10 @@ tab_fix |>
 ```
 
 ```{r}
+if (file.exists(here("R_output", "mod_gen_noevoB.Rdata"))) {
+  load(here("R_output", "mod_gen_noevoB.Rdata"))
+} else {
+
 mod_gen_noevoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
@@ -490,8 +514,13 @@ mod_gen_noevoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                   prior=prior_binomial
 )
 
-pp_check(mod_gen_noevoB,"stat_2d")
+save(list = c("mod_gen_noevoB"), file = here("R_output", "mod_gen_noevoB.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_noevoBB0.Rdata"))) {
+  load(here("R_output", "mod_gen_noevoBB0.Rdata"))
+} else {
+  
 mod_gen_noevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
@@ -504,8 +533,12 @@ mod_gen_noevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * F
                   prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_noevoBB0,"stat_2d")
+save(list = c("mod_gen_noevoBB0"), file = here("R_output", "mod_gen_noevoBB0.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_noevoBB.Rdata"))) {
+  load(here("R_output", "mod_gen_noevoBB.Rdata"))
+} else {
 mod_gen_noevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
@@ -517,6 +550,12 @@ mod_gen_noevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fe
                   prior=prior_beta_binomial
 )
 
+save(list = c("mod_gen_noevoBB"), file = here("R_output", "mod_gen_noevoBB.Rdata"))
+}
+
+
+pp_check(mod_gen_noevoB,"stat_2d")
+pp_check(mod_gen_noevoBB0,"stat_2d")
 pp_check(mod_gen_noevoBB,"stat_2d") # good
 
 loo_compare(
@@ -574,6 +613,10 @@ tab_noevo |>
 
 
 ```{r}
+if (file.exists(here("R_output", "mod_gen_evoB.Rdata"))) {
+  load(here("R_output", "mod_gen_evoB.Rdata"))
+} else {
+
 mod_gen_evoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
@@ -583,10 +626,14 @@ mod_gen_evoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  
                   seed=42,
                   prior=prior_binomial
 )
-# bad ESS (more than other binom models so far), probably linked to model itself being bad (more than other...)
 
-pp_check(mod_gen_evoB,"stat_2d")
+save(list = c("mod_gen_evoB"), file = here("R_output", "mod_gen_evoB.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_evoBB0.Rdata"))) {
+  load(here("R_output", "mod_gen_evoBB0.Rdata"))
+} else {
+  
 mod_gen_evoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
@@ -599,8 +646,12 @@ mod_gen_evoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                   prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_evoBB0,"stat_2d")
+save(list = c("mod_gen_evoBB0"), file = here("R_output", "mod_gen_evoBB0.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_evoBB.Rdata"))) {
+  load(here("R_output", "mod_gen_evoBB.Rdata"))
+} else {
 mod_gen_evoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
@@ -612,6 +663,12 @@ mod_gen_evoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec 
                   prior=prior_beta_binomial
 )
 
+save(list = c("mod_gen_evoBB"), file = here("R_output", "mod_gen_evoBB.Rdata"))
+}
+
+
+pp_check(mod_gen_evoB,"stat_2d")
+pp_check(mod_gen_evoBB0,"stat_2d")
 pp_check(mod_gen_evoBB,"stat_2d") # good
 
 loo_compare(
@@ -623,7 +680,7 @@ loo_compare(
 
 
 ```{r}
-fits_evo=select(tab_noevo,Mort,Fec) |> distinct() |> 
+fits_evo=select(tab_evo,Mort,Fec) |> distinct() |> 
   mutate(edge_pre=1) |> 
   expand_grid(start_Kslope=c(-5:5)/10) |> 
   add_epred_draws(mod_gen_evoBB,re_formula=NA)
@@ -663,6 +720,10 @@ tab_evo |>
 Evo, but using traits post evo:
 
 ```{r}
+if (file.exists(here("R_output", "mod_gen_postevoB.Rdata"))) {
+  load(here("R_output", "mod_gen_postevoB.Rdata"))
+} else {
+
 mod_gen_postevoB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
@@ -673,8 +734,13 @@ mod_gen_postevoB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fe
                   prior=prior_binomial
 )
 
-pp_check(mod_gen_postevoB,"stat_2d")
+save(list = c("mod_gen_postevoB"), file = here("R_output", "mod_gen_postevoB.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_postevoBB0.Rdata"))) {
+  load(here("R_output", "mod_gen_postevoBB0.Rdata"))
+} else {
+  
 mod_gen_postevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + 
                           (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
@@ -687,11 +753,15 @@ mod_gen_postevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * 
                   prior=prior_beta_binomial
 )
 
-pp_check(mod_gen_postevoBB0,"stat_2d")
+save(list = c("mod_gen_postevoBB0"), file = here("R_output", "mod_gen_postevoBB0.Rdata"))
+}
 
+if (file.exists(here("R_output", "mod_gen_postevoBB.Rdata"))) {
+  load(here("R_output", "mod_gen_postevoBB.Rdata"))
+} else {
 mod_gen_postevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
-                        loginvphi ~ mean_Kslope * Mort * Fec  + (1|scenario)),
+                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
                   data=subset(tab_evo,status=="expanded"),
                   backend="cmdstanr",
@@ -700,6 +770,12 @@ mod_gen_postevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * F
                   prior=prior_beta_binomial
 )
 
+save(list = c("mod_gen_postevoBB"), file = here("R_output", "mod_gen_postevoBB.Rdata"))
+}
+
+
+pp_check(mod_gen_postevoB,"stat_2d")
+pp_check(mod_gen_postevoBB0,"stat_2d")
 pp_check(mod_gen_postevoBB,"stat_2d") # good
 
 loo_compare(
@@ -758,7 +834,9 @@ tab_evo_DDD <- filter(tab_evo, is.VP_DDD==1 & status =="expanded") |>
   mutate(mean_Kslope_std = mean_Kslope/mean_dmax)
   
 
-
+if (file.exists(here("R_output", "mod_slope.Rdata"))) {
+  load(here("R_output", "mod_slope.Rdata"))
+} else {
 mod_slope <- brm(bf((mean_Kslope_std/2)+0.5~ start_Kslope * Mort * Fec  + (1|scenario),
                     nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
@@ -769,6 +847,9 @@ mod_slope <- brm(bf((mean_Kslope_std/2)+0.5~ start_Kslope * Mort * Fec  + (1|sce
                  seed=42,
                   prior=prior_beta
 )
+
+save(list = c("mod_slope"), file = here("R_output", "mod_slope.Rdata"))
+}
 ```
 
 ```{r}
@@ -807,6 +888,9 @@ tab_evo_DDD |>
 ```{r}
 tab_evo_dmax <- filter(tab_evo, is.VP_dmax==1  & status =="expanded")
   
+if (file.exists(here("R_output", "mod_dmax.Rdata"))) {
+  load(here("R_output", "mod_dmax.Rdata"))
+} else {
 mod_dmax <- brm(bf(mean_dmax~ start_Kslope * Mort * Fec  + (1|scenario),
                     nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
@@ -818,6 +902,9 @@ mod_dmax <- brm(bf(mean_dmax~ start_Kslope * Mort * Fec  + (1|scenario),
                 control = list(adapt_delta = 0.9), #some divergent transitions
                   prior=prior_beta
 )
+
+save(list = c("mod_dmax"), file = here("R_output", "mod_dmax.Rdata"))
+}
 ```
 
 ```{r}
