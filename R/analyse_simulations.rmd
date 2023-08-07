@@ -248,7 +248,8 @@ tab <- tab |>
     )|> 
   unnest(data) |> 
   unnest(vstar) |> 
-  unnest(vstar_final)
+  unnest(vstar_final) |> 
+  ungroup()
 ```
 
 ## Splitting the data
@@ -410,7 +411,9 @@ mod_gen_fixBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                          # we want an overdispersion parameter (as in Harrison 2015), so we inverse
                          loginvphi~1),
                   family=beta_binomial(link_phi="identity"), # we need identity link so the transform works well
-                  data=tab_fix,backend="cmdstanr",
+                  data=subset(tab_fix,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -421,7 +424,9 @@ mod_gen_fixBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec 
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_fix,backend="cmdstanr",
+                  data=subset(tab_fix,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -478,7 +483,9 @@ tab_fix |>
 mod_gen_noevoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
-                  data=tab_noevo,backend="cmdstanr",
+                  data=subset(tab_noevo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_binomial
 )
@@ -490,7 +497,9 @@ mod_gen_noevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * F
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ 1),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_noevo,backend="cmdstanr",
+                  data=subset(tab_noevo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -501,7 +510,9 @@ mod_gen_noevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fe
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_noevo,backend="cmdstanr",
+                  data=subset(tab_noevo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -566,10 +577,13 @@ tab_noevo |>
 mod_gen_evoB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_binomial
 )
+# bad ESS (more than other binom models so far), probably linked to model itself being bad (more than other...)
 
 pp_check(mod_gen_evoB,"stat_2d")
 
@@ -578,7 +592,9 @@ mod_gen_evoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ 1),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -589,7 +605,9 @@ mod_gen_evoBB <- brm(bf(lagging_pre|trials(edge_pre)~ start_Kslope * Mort * Fec 
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -648,7 +666,9 @@ Evo, but using traits post evo:
 mod_gen_postevoB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + 
                           (1|scenario)),
                   family=binomial,
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_binomial
 )
@@ -660,7 +680,9 @@ mod_gen_postevoBB0 <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * 
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ 1),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -671,7 +693,9 @@ mod_gen_postevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * F
                         nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ mean_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
-                  data=tab_evo,backend="cmdstanr",
+                  data=subset(tab_evo,status=="expanded"),
+                  backend="cmdstanr",
+                  iter = 4000, warmup = 2000,
                   seed=42,
                   prior=prior_beta_binomial
 )
@@ -730,7 +754,7 @@ tab_evo |>
 ## evo models : slope
 
 ```{r}
-tab_evo_DDD <- filter(tab_evo, is.VP_DDD==1) |>
+tab_evo_DDD <- filter(tab_evo, is.VP_DDD==1 & status =="expanded") |>
   mutate(mean_Kslope_std = mean_Kslope/mean_dmax)
   
 
@@ -739,7 +763,9 @@ mod_slope <- brm(bf((mean_Kslope_std/2)+0.5~ start_Kslope * Mort * Fec  + (1|sce
                     nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=Beta(link_phi="identity"),
-                  data=tab_evo_DDD,backend="cmdstanr",
+                  data=tab_evo_DDD,
+                 iter=4000, warmup =2000,
+                 backend="cmdstanr",
                  seed=42,
                   prior=prior_beta
 )
@@ -779,14 +805,17 @@ tab_evo_DDD |>
 ## evo models: dmax
 
 ```{r}
-tab_evo_dmax <- filter(tab_evo, is.VP_dmax==1)
+tab_evo_dmax <- filter(tab_evo, is.VP_dmax==1  & status =="expanded")
   
 mod_dmax <- brm(bf(mean_dmax~ start_Kslope * Mort * Fec  + (1|scenario),
                     nlf(phi~1/exp(loginvphi)),
                         loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
                   family=Beta(link_phi="identity"),
-                  data=tab_evo_dmax,backend="cmdstanr",
+                  data=tab_evo_dmax,
+                iter = 4000, warmup = 2000,
+                backend="cmdstanr",
                 seed=42,
+                control = list(adapt_delta = 0.9), #some divergent transitions
                   prior=prior_beta
 )
 ```
