@@ -70,7 +70,7 @@ Generations start at the point of the life cycle where only pre-dispersal, pre-r
 
 - *Population count:* Individuals at each patch are counted to update the patch population sizes $N$ and the neutral allele frequencies for each patch.
 
-- *Summary statistics:* Patches estimate a series of summary variables describing the trait distribution of individuals they currently harbour. This is done because exporting and analyzing individual-level traits would be computationally expensive. Examples of these summary variables are provided in **Submodels** below.
+- *Summary statistics:* Patches estimate a series of summary variables describing the trait distribution of individuals they currently harbour. This is done because exporting and analyzing individual-level traits would be computationally expensive. A list of the summary variables is provided in **Submodels** below.
 
 - *Dispersal:* Adult individuals may disperse with a probability $d$ depending on their individual traits ($d_{max}$, $\alpha$, $\beta$) and local population size $N$ **at the start of the dispersal phase**. The dispersal model is taken from Kun and Scheuring [-@kunEvolutionDensitydependentDispersal2006] and described in **Submodels** below. If an individual attempts to disperse, it dies during the attempt with a probability $m$. As the model is coded in base Netlogo, which does not include the possibility to directly from Bernoulli or Binomial distributions, a workaround is used. In practice we draw random values from a $\mathrm{Uniform}(0,1)$ distribution; if the draw is lower than $d$ (respectively $m$), the individual disperses (respectively dies). Surviving dispersers are randomly moved to one of the nearest neighbouring patches; that is, the maximal dispersal distance is of 1 patch.
 
@@ -150,7 +150,7 @@ Once we know the $d_{max}$, $\alpha$ and $\beta$ of an individual, we additional
 
 - A measure of the strength of density-dependence $\Delta_{K-0}=d_{K}-d_{0}$.
 
-We note that the model contains added instructions for other metrics. These are deprecated and therefore not described here, but remain available in code for interested researchers.
+We note that the model can easily be modified to add instructions for other metrics describing additional aspects of the shape of the density-dispersal function.
 
 **Reproduction:** Each adult individual still living during the reproduction stage produces $F$ offspring, with $F \sim \mathrm{Poisson}(\lambda)$ and the average offspring number $\lambda$ depending on local population size $N$ based on a Ricker model:
 
@@ -237,7 +237,7 @@ We can see that this initial distribution of $\alpha$ would mostly only allow sh
 
 ```{r load-data}
 ### let's start by loading the data
-data <- read_csv(here("NetLogo_output", "simulation_output.csv")) %>%
+data <- read_csv(here("NetLogo_output", "simulation_output.csv")) |> 
   mutate(
     is.VP_dmax = as.numeric(VP_logit_dmax > 0),
     is.VP_DDD = as.numeric(VP_slope > 0)
@@ -252,8 +252,8 @@ We are interested in how traits at the front of the expansion are shaped by, and
 
 # we use predispersal population size since that's when traits are recorded,
 # but the principle should work the same post-dispersal
-data %>%
-  filter(N_predispersal > 0 & ticks ==120) |> 
+data  |> 
+  filter(N_predispersal > 0 & ticks ==121) |> 
   group_by(replicateID) |> 
   mutate(edge_pxcor = max(pxcor)) |> 
   ungroup() |> 
@@ -295,7 +295,7 @@ For all three dispersal traits, a very large majority of replicates have lost mo
 
 ```{r data-prep-convergence-evo}
 evo_convergence <- data  |> 
-  filter(heritability > 0 & N_predispersal > 0 & ticks == 120)  |> 
+  filter(heritability > 0 & N_predispersal > 0 & ticks == 121)  |> 
   group_by(replicateID) |> 
   mutate(edge_pxcor = max(pxcor)) |> 
   ungroup() |> 
