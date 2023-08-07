@@ -761,7 +761,7 @@ if (file.exists(here("R_output", "mod_gen_postevoBB.Rdata"))) {
 } else {
 mod_gen_postevoBB <- brm(bf(lagging_pre|trials(edge_pre)~ mean_Kslope * Mort * Fec  + (1|scenario),
                         nlf(phi~1/exp(loginvphi)),
-                        loginvphi ~ start_Kslope * Mort * Fec  + (1|scenario)),
+                        loginvphi ~ mean_Kslope * Mort * Fec  + (1|scenario)),
                   family=beta_binomial(link_phi="identity"),
                   data=subset(tab_evo,status=="expanded"),
                   backend="cmdstanr",
