@@ -22,7 +22,7 @@ vstar <- function(
     msg = "`fec`, `disp`, and `mort` must all be vectors of length 1"
   )
   assert_that(
-    is.numeric(fec) == 1, is.numeric(disp) == 1, is.numeric(mort) == 1,
+    is.numeric(fec), is.numeric(disp), is.numeric(mort),
     msg = "`fec`, `disp`, and `mort` must all be numeric"
   )
   assert_that(
