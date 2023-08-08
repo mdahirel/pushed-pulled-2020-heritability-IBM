@@ -27,6 +27,7 @@ options(mc.cores=4)
 library(patchwork)   # CRAN v1.1.1
 library(ggtext)
 
+library(assertthat)
 library(here)        # CRAN v1.0.1
 ```
 
@@ -186,42 +187,7 @@ tab$obs_v <- case_when(tab$status=="extinct" ~ 0,
 We first implement a function that takes per capita fecundity (*not growth rate!*) and dispersal rate, and gives the expected velocity $v^*$ in the absence of dispersal density-dependence. We use the formula in Wang et al. 2019 (doi: 10.1016/j.tpb.2019.04.003) that accounts for discrete time and discrete space (with dispersal to nearest neighbour only); otherwise we might wrongly predict velocities > 1  when they are not possible in that setup. We modify the formula to account for dispersal mortality: dispersal mortality reduces both the net dispersal rate and the net fecundity that effectively enter the Wang et al formula
 
 ```{r vstar_wang19}
-vstar <- function(fec,disp, mort, na.low = FALSE){
-  
-  # tests
-  if(!is.logical(na.low) | is.na(na.low)){stop("na.low must be TRUE or FALSE!")}
-  if(!is.vector(fec) | !is.vector(disp)| !is.vector(mort)){stop("all inputs should be numeric vectors!")}
-  if(length(fec)!= 1 | length(disp)!=1 | length(mort)!=1){stop("all inputs should be of size 1!")}
-  if(is.na(fec) | is.na(disp) |is.na(mort)){
-    warning("one of the arguments is NA, will return NA")
-    return( NA_real_ )
-    }
-  if(!is.numeric(fec) | !is.numeric(disp) | !is.numeric(mort)){stop("all inputs should be numeric vectors!")}
-  
-  if(fec < 0){stop("fec should be >= 0! (it is per-capita fecundity, not growth rate)")}
-  if(disp < 0 | disp > 1){stop("dispersal rate disp should be between 0 and 1!")}
-  if(mort < 0 | mort > 1){stop("dispersal mortality mort should be between 0 and 1!")}
-  
-  # formula in Wang et al Appendix A1
-  test = optimise(
-  function(kappa,
-           rho=fec*(1-disp*mort), # individuals dying in dispersal are lost to net fecundity
-           m=disp*(1-mort)        # and also obviously to net dispersal
-           ){
-    log(rho*(1+ m *(cosh(kappa)-1)))/kappa
-    },
-    lower=0,upper=707 #cosh(kappa>709) = overflow, estimated as Inf; upper a few orders lower by safety
-)
-  # Possibly due to the numerical optimisation, 
-  # the above will actually plateau a few 10^-3 or 10^-4 above 1, rather than 1
-  # It will also give negative values at fecundities < 1
-  # so some post-processing needed
-  vstar <- test$objective
-  if(vstar >1){vstar <- 1}
-  if(vstar < 0 & na.low == FALSE){vstar <- 0}
-  if(vstar < 0 & na.low == TRUE){vstar <- NA_real_}
-return(vstar)
-}
+source(here("R","velocity_dsdt_wang-et-al_2019.R"))
 ```
 
 We can apply the function to our data with the help of `map`:
