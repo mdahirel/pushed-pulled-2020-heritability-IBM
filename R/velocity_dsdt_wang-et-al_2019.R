@@ -5,6 +5,7 @@ vstar <- function(
     na.low = FALSE # if TRUE, vstar < 0 are returned as NA, if FALSE, as 0
     ) {
   
+  # package check
   require(assertthat)
 
   # warning for NA
