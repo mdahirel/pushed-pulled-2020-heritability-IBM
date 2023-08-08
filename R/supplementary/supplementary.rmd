@@ -233,7 +233,11 @@ tibble(x = rnorm(10000, 0, 500)) %>%
 
 We can see that this initial distribution of $\alpha$ would mostly only allow sharp slopes, that take less than 20-50%$K$ to go from (nearly) 0 to (nearly) $d_{max}$, and shallower slopes would only be present at much lower frequencies. This is not a choice that is ecologically sound in our opinion; hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \approx d_{max}$ flat functions.
 
-# S3 - How do we define the "range front"?
+# S3 - (TO DO) $v^*$ as a predictor of extinction probability
+
+
+
+# S4 - How do we define the "range front"?
 
 ```{r load-data}
 ### let's start by loading the data
@@ -244,10 +248,10 @@ data <- read_csv(here("NetLogo_output", "simulation_output.csv")) |>
   )
 ```
 
-We are interested in how traits at the front of the expansion are shaped by, and shape, the expansion process. To do that right, we need an operational definition of what is the front. A "traditional" one is the range of patches where a density gradient is seen, i.e. where population density has not yet reached its equilibrium [e.g. @gandhi2016; @lewis2016]. Let's have a look:
+We are interested in how traits at the front of the expansion are shaped by, and shape, the expansion process. To do that right, we need an operational definition of what is the front. A "traditional" one is the range of patches where a density gradient is seen, i.e. where population density has not yet reached its equilibrium [e.g. @gandhi2016; @lewis2016].
 
 
-```{r fig-s3-1, fig.width=6, fig.height=6}
+```{r fig-s4-1, fig.width=6, fig.height=6}
 ## supplementary plot to explain arbitrary front size = 5
 
 # we use predispersal population size since that's when traits are recorded,
@@ -282,15 +286,15 @@ data  |>
   )
 ```
 
-**Figure S3.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate the 5 patches closest from the edge from the others.
+**Figure S4.1**. Predispersal population size as a function of distance to the range edge (only populations up to 20 patches from the edge at the time of sampling included). The vertical line separate the 5 patches closest from the edge from the others.
 
 &nbsp;
 
-We can see that a threshold where we consider the 5 patches closest from the edge (edge patch included) as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing the precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
+We can see **Fig. S4.1** that a threshold where we consider the 5 patches closest from the edge (edge patch included) as belonging to the range front is a good compromise that works across conditions. Narrower fronts would probably work for the high fecundity scenarios, but would not work for the low fecundity ones. In addition, a narrower threshold would limit the number of individuals included, reducing the precision of our trait means, while a wider one would lead us to fronts that are dominated by what are clearly non-front patches when fecundity is high.
 
-# S4 - Genetic variation at the end of the simulated expansions
+# S5 - Genetic variation at the end of the simulated expansions
 
-For all three dispersal traits, a very large majority of replicates have lost most if not all of their genetic variance by $t = 120$ (**Figs S4.1**, **S4.2** and **S4.3**), meaning there is limited to no potential for further evolution should the simulations run for longer. Note that **Figs S4.1** to **S4.3** may still overstate the remaining potential for evolution: indeed, disruptive selection may lead to replicates where the final variances are still high, even higher than initial variances, and yet there are no further opportunities for selection.
+For all three dispersal traits, a very large majority of replicates have lost most if not all of their genetic variance by $t = 120$ (**Figs S5.1**, **S5.2** and **S5.3**), meaning there is limited to no potential for further evolution should the simulations run for longer. Note that **Figs S5.1** to **S5.3** may still overstate the remaining potential for evolution: indeed, disruptive selection may lead to replicates where the final variances are still high, even higher than initial variances, and yet there are no further opportunities for selection.
 
 
 ```{r data-prep-convergence-evo}
@@ -321,7 +325,7 @@ ggplot(evo_convergence |> filter(is.VP_dmax==1))+
   )
 ```
 
-**Figure S4.1**. Distribution of the remaining genetic variance in $\mathrm{logit}(d_{max})$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\mathrm{logit}(d_{max})$ are displayed. 
+**Figure S5.1**. Distribution of the remaining genetic variance in $\mathrm{logit}(d_{max})$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S4**. Only replicates that started with non-zero genetic variance in $\mathrm{logit}(d_{max})$ are displayed. 
 &nbsp;
 
 ```{r remain_var_slope, fig.width=6, fig.height=3}
@@ -342,7 +346,7 @@ ggplot(evo_convergence |> filter(is.VP_DDD==1))+
   )
 ```
 
-**Figure S4.2**. Distribution of the remaining genetic variance in the relative slope $\alpha$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\alpha$ are displayed. 
+**Figure S5.2**. Distribution of the remaining genetic variance in the relative slope $\alpha$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S4**. Only replicates that started with non-zero genetic variance in $\alpha$ are displayed. 
 &nbsp;
 
 ```{r remain_var_midpoint, fig.width=6, fig.height=3}
@@ -363,7 +367,11 @@ ggplot(evo_convergence |> filter(is.VP_DDD==1))+
   )
 ```
 
-**Figure S4.3**. Distribution of the remaining genetic variance in the midpoint $\beta$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S3**. Only replicates that started with non-zero genetic variance in $\beta$ are displayed.
+**Figure S5.3**. Distribution of the remaining genetic variance in the midpoint $\beta$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S4**. Only replicates that started with non-zero genetic variance in $\beta$ are displayed.
 &nbsp;
+
+# S6 - (TO DO) velocities in evolutionary replicates, broken down by "is dmax allowed to evolve or not"
+
+xxx
 
 # References

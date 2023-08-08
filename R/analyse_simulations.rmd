@@ -453,21 +453,10 @@ pp_check(mod_gen_fixB,"stat_2d") #some evidence of overdispersion?
 pp_check(mod_gen_fixBB0,"stat_2d") # better
 pp_check(mod_gen_fixBB,"stat_2d") # good
 
-loo_compare(
-  loo(mod_gen_fixB),
-  loo(mod_gen_fixBB0),
-  loo(mod_gen_fixBB)
-)
+#loo_compare(loo(mod_gen_fixB),loo(mod_gen_fixBB0),loo(mod_gen_fixBB))
 ## even with a few "Pareto k problematic obs", the differences in loo and the pp_check are clear
 ```
 
-
-```{r}
-select(tab_fix,Mort,Fec,scenario) |> distinct() |> group_by(Mort,Fec) |> count() 
-#210 scenarios possible, so in theory 5*210 replicates = 1050
-#7 scenarios went fully extinct/failed to advance, so 203, and a max of 1015 replicates
-# we have 1009, so some scenarios failed elsewhere
-```
 
 ```{r}
 fits_fix=select(tab_fix,Mort,Fec) |> distinct() |> 
@@ -476,14 +465,13 @@ fits_fix=select(tab_fix,Mort,Fec) |> distinct() |>
   add_epred_draws(mod_gen_fixBB,re_formula=NA) |> 
   ungroup()
 
-tab_fix |>  
+tab_fix |> filter(status=="expanded") |> 
   ggplot()+
-  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="lightblue",alpha=0.25)+
-  stat_lineribbon(data=fits_fix,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
-  geom_point(data=tab_fix |> group_by(scenario,Mort,Fec) |> 
-               summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
-                         slope=mean(start_Kslope)),
-             aes(x=slope,div),size=2,fill="white",pch=21)+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_fix,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
+  stat_summary(aes(x=start_Kslope,y=lagging_pre/edge_pre,group=scenario),
+               geom="point",fun="mean",size=2,fill="white",pch=21)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
   scale_y_continuous("how far does genetic diversity persist?")+
@@ -491,11 +479,11 @@ tab_fix |>
           subtitle="A) replicates with no individual variation in dispersal traits")+
   theme_bw()+
   theme(legend.position = "none",
-    strip.text.x = element_markdown(),
-    strip.text.y = element_markdown(angle = 0),
-    axis.title.x = element_markdown(),
-    axis.title.y = element_markdown(),
-    plot.subtitle = element_markdown()
+        strip.text.x = element_markdown(),
+        strip.text.y = element_markdown(angle = 0),
+        axis.title.x = element_markdown(),
+        axis.title.y = element_markdown(),
+        plot.subtitle = element_markdown()
   )
 ```
 
@@ -558,19 +546,7 @@ pp_check(mod_gen_noevoB,"stat_2d")
 pp_check(mod_gen_noevoBB0,"stat_2d")
 pp_check(mod_gen_noevoBB,"stat_2d") # good
 
-loo_compare(
-  loo(mod_gen_noevoB),
-  loo(mod_gen_noevoBB0),
-  loo(mod_gen_noevoBB)
-)
-```
-
-
-```{r}
-select(tab_noevo,Mort,Fec,scenario) |> distinct() |> group_by(Mort,Fec) |> count() 
-#630 scenarios possible, so in theory 5*630 replicates = 3050
-#9 scenarios went fully extinct/failed to advance (again all at max mortality low fec), so 621, and a max of 3105 replicates
-# we have 3092, so some scenarios failed elsewhere
+#loo_compare(loo(mod_gen_noevoB),loo(mod_gen_noevoBB0),loo(mod_gen_noevoBB))
 ```
 
 ```{r}
@@ -586,13 +562,15 @@ outline_fix = fits_fix |>
   mean_hdci(.epred) |> 
   ungroup()
 
-tab_noevo |>  
+tab_noevo |> filter(status=="expanded") |> 
   ggplot()+
-  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="pink",alpha=0.25)+
-  stat_lineribbon(data=fits_noevo,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_noevo,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
   geom_line(data=outline_fix,aes(x=start_Kslope,y=.lower),lty=2)+
   geom_line(data=outline_fix,aes(x=start_Kslope,y=.upper),lty=2)+
-  geom_point(data=tab_noevo |> group_by(scenario,Mort,Fec) |> 
+  #can't use stat_summary for average here because the x's are also variable by scenario here
+  geom_point(data=tab_noevo |> filter(status=="expanded") |>group_by(scenario,Mort,Fec) |> 
                summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,div),size=2,fill="white",pch=21)+
@@ -671,11 +649,7 @@ pp_check(mod_gen_evoB,"stat_2d")
 pp_check(mod_gen_evoBB0,"stat_2d")
 pp_check(mod_gen_evoBB,"stat_2d") # good
 
-loo_compare(
-  loo(mod_gen_evoB),
-  loo(mod_gen_evoBB0),
-  loo(mod_gen_evoBB)
-)
+#loo_compare(loo(mod_gen_evoB),loo(mod_gen_evoBB0),loo(mod_gen_evoBB))
 ```
 
 
@@ -692,13 +666,14 @@ outline_noevo = fits_noevo |>
   arrange(start_Kslope) |> 
   ungroup()
 
-tab_evo |>  
+tab_evo |>  filter(status=="expanded") |> 
   ggplot()+
-  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="palegreen",alpha=0.25)+
-  stat_lineribbon(data=fits_evo,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_evo,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
   geom_line(data=outline_noevo,aes(x=start_Kslope,y=.lower),lty=2)+
   geom_line(data=outline_noevo,aes(x=start_Kslope,y=.upper),lty=2)+
-  geom_point(data=tab_evo |> group_by(scenario,Mort,Fec) |> 
+  geom_point(data=tab_evo |> filter(status=="expanded") |> group_by(scenario,Mort,Fec) |> 
                summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,div),size=2,fill="white",pch=21)+
@@ -778,11 +753,7 @@ pp_check(mod_gen_postevoB,"stat_2d")
 pp_check(mod_gen_postevoBB0,"stat_2d")
 pp_check(mod_gen_postevoBB,"stat_2d") # good
 
-loo_compare(
-  loo(mod_gen_postevoB),
-  loo(mod_gen_postevoBB0),
-  loo(mod_gen_postevoBB)
-)
+#loo_compare( loo(mod_gen_postevoB),loo(mod_gen_postevoBB0),loo(mod_gen_postevoBB))
 ```
 
 
@@ -799,13 +770,12 @@ outline_evo = fits_evo |>
   arrange(start_Kslope) |> 
   ungroup()
 
-tab_evo |>  
+tab_evo |>  filter(status=="expanded") |>
   ggplot()+
-  geom_point(aes(x=mean_Kslope,y=lagging_pre/edge_pre,size=edge_pre),col="palegreen",alpha=0.25)+
-  stat_lineribbon(data=fits_postevo,aes(x=mean_Kslope,y=.epred),fill="grey",col="grey40")+
-  #geom_line(data=outline_evo,aes(x=start_Kslope,y=.lower),lty=2)+
-  #geom_line(data=outline_evo,aes(x=start_Kslope,y=.upper),lty=2)+
-  geom_point(data=tab_evo |> group_by(scenario,Mort,Fec) |> 
+  geom_point(aes(x=mean_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_postevo,aes(x=mean_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
+  geom_point(data=tab_evo |> filter(status=="expanded") |> group_by(scenario,Mort,Fec) |> 
                summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
                          slope=mean(mean_Kslope)),
              aes(x=slope,div),size=2,fill="white",pch=21)+
@@ -861,10 +831,12 @@ fits_slope=select(tab_evo_DDD,Mort,Fec) |> distinct() |>
 tab_evo_DDD |>  
   ggplot()+
   geom_abline(intercept = 0,slope=2,lty=2)+ 
+  geom_hline(yintercept = 0,lty=2) +
   # ^ relative slope = absolute_slope / dmax  = absolute_slope / 0.5 at t=0
   # y = x/0.5 is y = x*2
-  geom_point(aes(x=start_Kslope,y=mean_Kslope/mean_dmax),col="palegreen",alpha=0.25)+
-  stat_lineribbon(data=fits_slope,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(aes(x=start_Kslope,y=mean_Kslope/mean_dmax),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_slope,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
   geom_point(data=tab_evo_DDD |> group_by(scenario,Mort,Fec) |> 
                summarise(trait=mean(mean_Kslope/mean_dmax,na.rm=TRUE),
                          slope=mean(start_Kslope)),
@@ -915,8 +887,9 @@ fits_dmax=select(tab_evo_dmax,Mort,Fec) |> distinct() |>
 tab_evo_dmax |>  
   ggplot()+
   geom_hline(yintercept = 0.5,lty=2) +
-  geom_point(aes(x=start_Kslope,y=mean_dmax),col="palegreen",alpha=0.25)+
-  stat_lineribbon(data=fits_dmax,aes(x=start_Kslope,y=.epred),fill="grey",col="grey40")+
+  geom_point(aes(x=start_Kslope,y=mean_dmax),col="lightgrey",alpha=0.5)+
+  stat_lineribbon(data=fits_dmax,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1)+
   geom_point(data=tab_evo_dmax |> group_by(scenario,Mort,Fec) |> 
                summarise(trait=mean(mean_dmax,na.rm=TRUE),
                          slope=mean(start_Kslope)),
