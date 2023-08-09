@@ -247,10 +247,8 @@ cor.test(tab_noevo$vstar,tab_noevo$obs_v/120)
 cor.test(tab_evo$vstar,tab_evo$obs_v/120)
 cor.test(tab_evo$vstar_final,tab_evo$obs_v/120)
 
-lmer_fix=lmer(obs_v/120~vstar+(1|scenario),data=tab_fix|> filter(start_slope==0))
-lmer_noevo=lmer(obs_v/120~vstar+(1|scenario),data=tab_noevo|> filter(start_slope==0))
-#lmer_evo1=lmer(obs_v/120~vstar+(1|scenario),data=tab_evo)
-#lmer_evo2=lmer(obs_v/120~vstar_final+(1|scenario),data=tab_noevo)
+lm_fix=lm(obs_v/120~vstar,data=tab_fix|> filter(start_slope==0))
+lm_noevo=lm(obs_v/120~vstar,data=tab_noevo|> filter(start_slope==0))
 ```
 
 Let's make Figure 3:
@@ -259,7 +257,7 @@ Let's make Figure 3:
 fig3_a <- ggplot(tab_fix)+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
-  geom_abline(intercept = fixef(lmer_fix)[1],slope=fixef(lmer_fix)[2],linetype=2)+
+  geom_abline(intercept = coef(lm_fix)[1],slope=coef(lm_fix)[2],linetype=2)+
   scale_fill_viridis_c("&Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("")+
   scale_y_continuous("Observed velocity")+
@@ -277,7 +275,7 @@ fig3_a <- ggplot(tab_fix)+
 fig3_b <- ggplot(tab_noevo)+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
-  geom_abline(intercept = fixef(lmer_noevo)[1],slope=fixef(lmer_noevo)[2],linetype=2)+
+  geom_abline(intercept = coef(lm_noevo)[1],slope=coef(lm_noevo)[2],linetype=2)+
   scale_fill_viridis_c("&Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. &Delta;<sub>K-0</sub> = 0)")+
   scale_y_continuous("Observed velocity")+
@@ -299,7 +297,7 @@ And then Figure 4:
 fig4_a <- ggplot(tab_evo)+
   geom_point(aes(vstar,obs_v/120,fill=start_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
-  #geom_abline(intercept = fixef(lmer_evo1)[1],slope=fixef(lmer_evo1)[2],linetype=2)+
+  geom_abline(intercept = coef(lm_noevo)[1],slope=coef(lm_noevo)[2],linetype=2)+
   scale_fill_viridis_c("**Initial** &Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("")+
   scale_y_continuous("Observed velocity")+
@@ -316,7 +314,6 @@ fig4_a <- ggplot(tab_evo)+
 fig4_b <- ggplot(tab_evo)+
   geom_point(aes(vstar_final,obs_v/120,fill=mean_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
-  #geom_abline(intercept = fixef(lmer_evo2)[1],slope=fixef(lmer_evo2)[2],linetype=2)+
   scale_fill_viridis_c("**Final** &Delta;<sub>K-0</sub>", option = "inferno")+
   scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. &Delta;<sub>K-0</sub> = 0)")+
   scale_y_continuous("Observed velocity")+
