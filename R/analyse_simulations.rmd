@@ -148,7 +148,9 @@ tab_traits <- data |>
     mean_dmax = weighted.mean(mean_dmax, w = N_predispersal, na.rm = TRUE),
     mean_dK = weighted.mean(mean_dK, w = N_predispersal, na.rm = TRUE),
     mean_d0 = weighted.mean(mean_d0, w = N_predispersal, na.rm = TRUE),
-    mean_Kslope = weighted.mean(mean_slopeA_0_K, w = N_predispersal, na.rm = TRUE)
+    mean_Kslope = weighted.mean(mean_slopeA_0_K, w = N_predispersal, na.rm = TRUE),
+    mean_slope = weighted.mean(mean_slope, w = N_predispersal, na.rm = TRUE),
+    mean_midpoint = weighted.mean(mean_midpoint, w = N_predispersal, na.rm = TRUE)
   )  |> 
   ungroup()
 ```
