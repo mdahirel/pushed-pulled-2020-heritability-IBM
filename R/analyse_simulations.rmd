@@ -279,7 +279,7 @@ fig3_b <- ggplot(tab_noevo)+
   geom_abline(intercept = 0,slope=1)+
   geom_abline(intercept = coef(lm_noevo)[1],slope=coef(lm_noevo)[2],linetype=2)+
   scale_fill_viridis_c("&Delta;<sub>K-0</sub>", option = "inferno")+
-  scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. &Delta;<sub>K-0</sub> = 0)")+
+  scale_x_continuous("Theoretical velocity <i>v^*^</i>")+
   scale_y_continuous("Observed velocity")+
   ggtitle("B) trait variation but no evolution")+
   theme_bw()+
@@ -317,7 +317,7 @@ fig4_b <- ggplot(tab_evo)+
   geom_point(aes(vstar_final,obs_v/120,fill=mean_Kslope),pch=21,size=2.5)+
   geom_abline(intercept = 0,slope=1)+
   scale_fill_viridis_c("**Final** &Delta;<sub>K-0</sub>", option = "inferno")+
-  scale_x_continuous("Theoretical velocity if density-independent dispersal (i.e. &Delta;<sub>K-0</sub> = 0)")+
+  scale_x_continuous("Theoretical velocity <i>v^*^</i>")+
   scale_y_continuous("Observed velocity")+
   ggtitle("B) evolving replicates, using final <i>v^*^</i> and &Delta;<sub>K-0</sub> (_t_=120)") +
   theme_bw()+
@@ -423,25 +423,25 @@ pp_check(mod_gen_fixBB,"stat_2d") # good
 ```
 
 
-```{r}
+```{r fig5_a}
 fits_fix=select(tab_fix,Mort,Fec) |> distinct() |> 
   mutate(edge_pre=1) |> 
   expand_grid(start_Kslope=c(-5:5)/10) |> 
   add_epred_draws(mod_gen_fixBB,re_formula=NA) |> 
   ungroup()
 
-tab_fix |> filter(status=="expanded") |> 
+fig5_a <- tab_fix |> filter(status=="expanded") |> 
   ggplot()+
   geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
-  stat_lineribbon(data=fits_fix,aes(x=start_Kslope,y=.epred),
-                  fill="#9ecae1",linewidth=1)+
   stat_summary(aes(x=start_Kslope,y=lagging_pre/edge_pre,group=scenario),
                geom="point",fun="mean",size=2,fill="white",pch=21)+
+  stat_lineribbon(data=fits_fix,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1,alpha=0.5)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
-  scale_y_continuous("how far does genetic diversity persist?")+
+  scale_y_continuous("How far does genetic diversity persist?")+
   ggtitle(label="",
-          subtitle="A) replicates with no individual variation in dispersal traits")+
+          subtitle="A) no trait variation")+
   theme_bw()+
   theme(legend.position = "none",
         strip.text.x = element_markdown(),
@@ -514,7 +514,7 @@ pp_check(mod_gen_noevoBB,"stat_2d") # good
 #loo_compare(loo(mod_gen_noevoB),loo(mod_gen_noevoBB0),loo(mod_gen_noevoBB))
 ```
 
-```{r}
+```{r fig5_b}
 fits_noevo=select(tab_noevo,Mort,Fec) |> distinct() |> 
   mutate(edge_pre=1) |> 
   expand_grid(start_Kslope=c(-5:5)/10) |> 
@@ -527,23 +527,24 @@ outline_fix = fits_fix |>
   mean_hdci(.epred) |> 
   ungroup()
 
-tab_noevo |> filter(status=="expanded") |> 
+fig5_b <- tab_noevo |> filter(status=="expanded") |> 
   ggplot()+
   geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
-  stat_lineribbon(data=fits_noevo,aes(x=start_Kslope,y=.epred),
-                  fill="#9ecae1",linewidth=1)+
-  geom_line(data=outline_fix,aes(x=start_Kslope,y=.lower),lty=2)+
-  geom_line(data=outline_fix,aes(x=start_Kslope,y=.upper),lty=2)+
   #can't use stat_summary for average here because the x's are also variable by scenario here
   geom_point(data=tab_noevo |> filter(status=="expanded") |>group_by(scenario,Mort,Fec) |> 
                summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,div),size=2,fill="white",pch=21)+
+  stat_lineribbon(data=fits_noevo,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1,alpha=0.5)+
+  geom_line(data=outline_fix,aes(x=start_Kslope,y=.lower),lty=2)+
+  geom_line(data=outline_fix,aes(x=start_Kslope,y=.upper),lty=2)+
+ 
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
-  scale_y_continuous("how far does genetic diversity persist?")+
+  scale_y_continuous("How far does genetic diversity persist?")+
   ggtitle(label="",
-          subtitle="B) individual variation in dispersal traits but no evolution (*h<sup>2</sup>* = 0)")+
+          subtitle="B) trait variation but no evolution")+
   theme_bw()+
   theme(legend.position = "none",
     strip.text.x = element_markdown(),
@@ -553,6 +554,12 @@ tab_noevo |> filter(status=="expanded") |>
     plot.subtitle = element_markdown()
   )
 ```
+
+
+```{r}
+fig5_a/fig5_b
+```
+
 
 
 ```{r}
@@ -631,22 +638,22 @@ outline_noevo = fits_noevo |>
   arrange(start_Kslope) |> 
   ungroup()
 
-tab_evo |>  filter(status=="expanded") |> 
+fig6<- tab_evo |>  filter(status=="expanded") |> 
   ggplot()+
   geom_point(aes(x=start_Kslope,y=lagging_pre/edge_pre),col="lightgrey",alpha=0.5)+
-  stat_lineribbon(data=fits_evo,aes(x=start_Kslope,y=.epred),
-                  fill="#9ecae1",linewidth=1)+
-  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.lower),lty=2)+
-  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.upper),lty=2)+
   geom_point(data=tab_evo |> filter(status=="expanded") |> group_by(scenario,Mort,Fec) |> 
                summarise(div=mean(lagging_pre/edge_pre,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,div),size=2,fill="white",pch=21)+
+  stat_lineribbon(data=fits_evo,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1,alpha=0.5)+
+  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.lower),lty=2)+
+  geom_line(data=outline_noevo,aes(x=start_Kslope,y=.upper),lty=2)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
   scale_y_continuous("how far does genetic diversity persist?")+
   ggtitle(label="",
-          subtitle="C) individual variation in dispersal traits *and* evolution possible (*h<sup>2</sup>* = 1)")+
+          subtitle="evolving replicates")+
   theme_bw()+
   theme(legend.position = "none",
     strip.text.x = element_markdown(),
@@ -655,6 +662,8 @@ tab_evo |>  filter(status=="expanded") |>
     axis.title.y = element_markdown(),
     plot.subtitle = element_markdown()
   )
+
+fig6
 ```
 
 Evo, but using traits post evo:
@@ -793,22 +802,22 @@ fits_slope=select(tab_evo_DDD,Mort,Fec) |> distinct() |>
   add_epred_draws(mod_slope,re_formula=NA) |> 
   mutate(.epred = (.epred - 0.5) * 2) # rescaling to the -dmax/+dmax range
 
-tab_evo_DDD |>  
+fig7 <- tab_evo_DDD |>  
   ggplot()+
   geom_abline(intercept = 0,slope=2,lty=2)+ 
   geom_hline(yintercept = 0,lty=2) +
   # ^ relative slope = absolute_slope / dmax  = absolute_slope / 0.5 at t=0
   # y = x/0.5 is y = x*2
   geom_point(aes(x=start_Kslope,y=mean_Kslope/mean_dmax),col="lightgrey",alpha=0.5)+
-  stat_lineribbon(data=fits_slope,aes(x=start_Kslope,y=.epred),
-                  fill="#9ecae1",linewidth=1)+
   geom_point(data=tab_evo_DDD |> group_by(scenario,Mort,Fec) |> 
                summarise(trait=mean(mean_Kslope/mean_dmax,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,trait),size=2,fill="white",pch=21)+
+  stat_lineribbon(data=fits_slope,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1,alpha=0.5)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
-  scale_y_continuous("relative dispersal density-dependence (*&Delta;<sub>K-0</sub> / d<sub>max</sub>*) after expansion")+
+  scale_y_continuous("relative dispersal density-dependence (*&Delta;<sub>K-0</sub> / d<sub>max</sub>*) **after** expansion")+
   theme_bw()+
   ggtitle(label="",subtitle="(only scenarios with heritable variation in *&alpha;* and *&beta;*)")+
   theme(legend.position = "none",
@@ -818,6 +827,8 @@ tab_evo_DDD |>
     axis.title.y = element_markdown(),
     plot.subtitle = element_markdown()
   )
+
+fig7
 ```
 
 ## evo models: dmax
@@ -849,22 +860,22 @@ fits_dmax=select(tab_evo_dmax,Mort,Fec) |> distinct() |>
   expand_grid(start_Kslope=c(-5:5)/10) |> 
   add_epred_draws(mod_dmax,re_formula=NA)
 
-tab_evo_dmax |>  
+fig8 <- tab_evo_dmax |>  
   ggplot()+
   geom_hline(yintercept = 0.5,lty=2) +
   geom_point(aes(x=start_Kslope,y=mean_dmax),col="lightgrey",alpha=0.5)+
-  stat_lineribbon(data=fits_dmax,aes(x=start_Kslope,y=.epred),
-                  fill="#9ecae1",linewidth=1)+
   geom_point(data=tab_evo_dmax |> group_by(scenario,Mort,Fec) |> 
                summarise(trait=mean(mean_dmax,na.rm=TRUE),
                          slope=mean(start_Kslope)),
              aes(x=slope,trait),size=2,fill="white",pch=21)+
+  stat_lineribbon(data=fits_dmax,aes(x=start_Kslope,y=.epred),
+                  fill="#9ecae1",linewidth=1,alpha=0.5)+
   facet_grid(rows=vars(paste0("*r<sub>0</sub>* = log(",Fec,")")),cols=vars(paste("*m* =",Mort)))+
   scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)")+
-  scale_y_continuous("dispersal capacity (*d<sub>max</sub>*) after expansion")+
+  scale_y_continuous("dispersal capacity (*d<sub>max</sub>*) **after** expansion")+
   theme_bw()+
   theme_bw()+
-  ggtitle(label="",subtitle="only scenarios with heritable variation in *d<sub>max</sub>*")+
+  ggtitle(label="",subtitle="(only scenarios with heritable variation in *d<sub>max</sub>*)")+
   theme(legend.position = "none",
     strip.text.x = element_markdown(),
     strip.text.y = element_markdown(angle = 0),
@@ -872,4 +883,25 @@ tab_evo_dmax |>
     axis.title.y = element_markdown(),
     plot.subtitle = element_markdown()
   )
+
+fig8
 ```
+
+# Some accounting, for the methods
+
+```{r}
+dim(tab_fix)
+dim(tab_noevo)
+dim(tab_evo)
+
+dim(tab |> filter(status=="expanded"))
+dim(tab |> filter(status!="expanded"))
+
+dim(tab_fix |> filter(status=="expanded"))
+dim(tab_noevo |> filter(status=="expanded"))
+dim(tab_evo |> filter(status=="expanded"))
+
+dim(tab_evo_DDD)
+dim(tab_evo_dmax)
+```
+

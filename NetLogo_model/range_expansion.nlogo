@@ -477,7 +477,7 @@ end
 GRAPHICS-WINDOW
 13
 29
-924
+384
 41
 -1
 -1
@@ -492,7 +492,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-300
+120
 0
 0
 1
@@ -589,7 +589,7 @@ fecundity
 fecundity
 0
 20
-1.5
+5.5
 0.1
 1
 NIL
@@ -649,7 +649,7 @@ heritability
 heritability
 0
 1
-0.32
+1.0
 0.01
 1
 NIL
@@ -709,6 +709,24 @@ VP_midpoint
 1
 NIL
 HORIZONTAL
+
+PLOT
+905
+134
+1152
+322
+speed
+time since start
+expansion speed
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "if (ticks > 0) [plot (max ([pxcor] of patches with [N_predispersal > 0])) / ticks]"
 
 @#$#@#$#@
 # A one-dimensional range expansion model with dispersal evolution
