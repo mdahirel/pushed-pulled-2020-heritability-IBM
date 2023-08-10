@@ -9,6 +9,9 @@ bibliography: references.bib
 csl: journal-of-animal-ecology.csl
 ---
 
+<!--This supplementary relies on a table that is created and saved to disk when running analyse_simulations.rmd-->
+<!--please make sure that table (R_output/tab_summarised_metrics.csv) is present before attempting to run or re-knit this file-->
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE, warning = FALSE,
@@ -18,16 +21,16 @@ knitr::opts_chunk$set(
 ```
 
 ```{r load-packages}
-library(tidyverse)   # CRAN v1.3.1
+library(tidyverse) # CRAN v1.3.1
 
-library(cowplot)     # [github::wilkelab/cowplot] v1.1.1
-library(patchwork)   # CRAN v1.1.1
+library(cowplot) # [github::wilkelab/cowplot] v1.1.1
+library(patchwork) # CRAN v1.1.1
 
-library(ggdist)      # CRAN v3.0.1
+library(ggdist) # CRAN v3.0.1
 
-library(ggtext)      # CRAN v0.1.1
-
-library(here)        # CRAN v1.0.1
+library(ggtext) # CRAN v0.1.1
+library(janitor)
+library(here) # CRAN v1.0.1
 ```
 
 # S1 - Detailed description of the individual-based model in the ODD format
@@ -181,20 +184,21 @@ Using very large $\alpha$ means we'd need the initial trait distribution to cont
 <br>
 
 ```{r fig-s2-1, fig.width=6, fig.height=3}
-tab <- expand_grid(
+tx <- expand_grid(
   K = 250,
   x = 0:30,
   dmax = 0.5,
-  alpha = c(100,500,750,1000),
+  alpha = c(100, 500, 750, 1000),
   beta = 0
 )
 
-ggplot(tab) +
+ggplot(tx) +
   geom_line(aes(x, dmax / (1 + exp(-alpha * ((x / K) - beta))),
-                col=factor(alpha),group=alpha),linewidth=1) +
+    col = factor(alpha), group = alpha
+  ), linewidth = 1) +
   scale_x_continuous("Population size") +
   scale_y_continuous("Dispersal rate") +
-  scale_color_grey("&alpha;", start=0.7,end=0.3)+
+  scale_color_grey("&alpha;", start = 0.7, end = 0.3) +
   geom_vline(xintercept = 1, lty = 2) +
   geom_hline(yintercept = 0.95 * 0.5, lty = 2) +
   coord_cartesian(ylim = c(0, 0.6)) +
@@ -233,15 +237,61 @@ tibble(x = rnorm(10000, 0, 500)) %>%
 
 We can see that this initial distribution of $\alpha$ would mostly only allow sharp slopes, that take less than 20-50%$K$ to go from (nearly) 0 to (nearly) $d_{max}$, and shallower slopes would only be present at much lower frequencies. This is not a choice that is ecologically sound in our opinion; hence why we rejected "extreme $\alpha$" as a method to generate $d_{N} \approx d_{max}$ flat functions.
 
-# S3 - (TO DO) $v^*$ as a predictor of extinction probability
+# S3 - Distribution of the replicates that failed to expand
+
+```{r}
+tab <- read_csv(here("R_output", "tab_summarised_metrics.csv"))
+
+# tab |> tabyl(status,fecundity,dispersal_mortality)
+# all extinctions failures are in low fecundity
+```
+Exploring data shows that all 109 replicates that either went extinct or otherwise failed to expand had low fecundity ($r_0 = \log(1.5)$) and high dispersal mortality ($m=0.9$). Looking into this subset of the data in more detail (**Fig. S3.1**), we find that:
+
+- most failed expansions are in replicates where evolution is not allowed. This suggests a role of evolutionary rescue;
+- failed expansions all have negative initial density-dependence $\Delta_{K-0}$;
+- however, this does not reduce the available range of density-dependence for analyses that rely on only successful expansions, and most replicates with $\Delta_{K-0}$ successfully expand.
 
 
+```{r fig-s3-1, fig.width=5, fig.height=5}
+tab |>
+  filter(dispersal_mortality == 0.9 & fecundity == 1.5) |>
+  mutate(
+    is.expanded = case_when(
+      status == "expanded" ~ "successful expansion",
+      TRUE ~ "failed to expand or went extinct"
+    ),
+    type = case_when(
+      heritability == 1 ~ "evolution possible",
+      is.VP_DDD == 0 & is.VP_dmax == 0 ~ "no trait variation",
+      TRUE ~ "trait variation but no evolution"
+    )
+  ) |>
+  mutate(type = fct_relevel(type, "evolution possible", after = 2)) |>
+  ggplot() +
+  geom_histogram(aes(start_Kslope, fill = is.expanded)) +
+  scale_x_continuous("initial dispersal density-dependence (*&Delta;<sub>K-0</sub>*)") +
+  scale_y_continuous("number of replicates") +
+  scale_fill_discrete(type = c("#bdbdbd", "#525252")) +
+  facet_wrap(~type, ncol = 2) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.75, 0.25),
+    strip.text.x = element_markdown(),
+    strip.text.y = element_markdown(angle = 0),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    plot.subtitle = element_markdown()
+  )
+```
+
+**Figure S3.1**. Distribution of the simulation replicates based on their initial density-dependence $\Delta_{K-0}$ and on whether they successfully expanded by $t=120$ or went extinct/remained stuck at $x=0$. Only replicates with low fecundity ($r_0 = \log(1.5)$) and high dispersal mortality ($m=0.9$) are displayed, since expansions under other conditions where all successful.
 
 # S4 - How do we define the "range front"?
 
 ```{r load-data}
 ### let's start by loading the data
-data <- read_csv(here("NetLogo_output", "simulation_output.csv")) |> 
+data <- read_csv(here("NetLogo_output", "simulation_output.csv")) |>
   mutate(
     is.VP_dmax = as.numeric(VP_logit_dmax > 0),
     is.VP_DDD = as.numeric(VP_slope > 0)
@@ -256,12 +306,12 @@ We are interested in how traits at the front of the expansion are shaped by, and
 
 # we use predispersal population size since that's when traits are recorded,
 # but the principle should work the same post-dispersal
-data  |> 
-  filter(N_predispersal > 0 & ticks ==121) |> 
-  group_by(replicateID) |> 
-  mutate(edge_pxcor = max(pxcor)) |> 
-  ungroup() |> 
-  filter(pxcor > edge_pxcor - 20 & pxcor <= edge_pxcor) |> 
+data |>
+  filter(N_predispersal > 0 & ticks == 121) |>
+  group_by(replicateID) |>
+  mutate(edge_pxcor = max(pxcor)) |>
+  ungroup() |>
+  filter(pxcor > edge_pxcor - 20 & pxcor <= edge_pxcor) |>
   ggplot() +
   geom_boxplot(
     aes(edge_pxcor - pxcor, N_predispersal,
@@ -298,21 +348,21 @@ For all three dispersal traits, a very large majority of replicates have lost mo
 
 
 ```{r data-prep-convergence-evo}
-evo_convergence <- data  |> 
-  filter(heritability > 0 & N_predispersal > 0 & ticks == 121)  |> 
-  group_by(replicateID) |> 
-  mutate(edge_pxcor = max(pxcor)) |> 
-  ungroup() |> 
+evo_convergence <- data |>
+  filter(heritability > 0 & N_predispersal > 0 & ticks == 121) |>
+  group_by(replicateID) |>
+  mutate(edge_pxcor = max(pxcor)) |>
+  ungroup() |>
   filter(pxcor > (edge_pxcor - 5))
 ```
 
 
 ```{r remain_var_dmax, fig.width=6, fig.height=3}
-ggplot(evo_convergence |> filter(is.VP_dmax==1))+
-  geom_histogram(aes(100 * var_genotype_logit_dmax/(1.5^2)))+
+ggplot(evo_convergence |> filter(is.VP_dmax == 1)) +
+  geom_histogram(aes(100 * var_genotype_logit_dmax / (1.5^2))) +
   scale_y_continuous("Number of replicates") +
   scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
-  ggtitle("dispersal capacity *d<sub>max</sub>*")+
+  ggtitle("dispersal capacity *d<sub>max</sub>*") +
   facet_grid(
     rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
     cols = vars(paste("*m* =", dispersal_mortality))
@@ -329,11 +379,11 @@ ggplot(evo_convergence |> filter(is.VP_dmax==1))+
 &nbsp;
 
 ```{r remain_var_slope, fig.width=6, fig.height=3}
-ggplot(evo_convergence |> filter(is.VP_DDD==1))+
-  geom_histogram(aes(100 * var_genotype_slope/(6^2)))+
+ggplot(evo_convergence |> filter(is.VP_DDD == 1)) +
+  geom_histogram(aes(100 * var_genotype_slope / (6^2))) +
   scale_y_continuous("Number of replicates") +
   scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
-  ggtitle("relative slope &alpha;")+
+  ggtitle("relative slope &alpha;") +
   facet_grid(
     rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
     cols = vars(paste("*m* =", dispersal_mortality))
@@ -350,11 +400,11 @@ ggplot(evo_convergence |> filter(is.VP_DDD==1))+
 &nbsp;
 
 ```{r remain_var_midpoint, fig.width=6, fig.height=3}
-ggplot(evo_convergence |> filter(is.VP_DDD==1))+
-  geom_histogram(aes(100 * var_genotype_midpoint/(0.5^2)))+
+ggplot(evo_convergence |> filter(is.VP_DDD == 1)) +
+  geom_histogram(aes(100 * var_genotype_midpoint / (0.5^2))) +
   scale_y_continuous("Number of replicates") +
   scale_x_continuous("Genotypic variance at the expansion front at t = 120, in % of initial variance") +
-  ggtitle("midpoint &beta;")+
+  ggtitle("midpoint &beta;") +
   facet_grid(
     rows = vars(paste("*r<sub>0</sub>* = log(", fecundity, ")")),
     cols = vars(paste("*m* =", dispersal_mortality))
@@ -370,8 +420,134 @@ ggplot(evo_convergence |> filter(is.VP_DDD==1))+
 **Figure S5.3**. Distribution of the remaining genetic variance in the midpoint $\beta$ at the expansion front at the end of the expansion. The values displayed are weighted averages of the patch-level variances, with the front defined as in **S4**. Only replicates that started with non-zero genetic variance in $\beta$ are displayed.
 &nbsp;
 
-# S6 - (TO DO) velocities in evolutionary replicates, broken down by "is dmax allowed to evolve or not"
+# S6 - Velocities in replicates with evolution, split based on whether $d_{max}$ can evolve or not
 
-xxx
+Here we provide versions of **Fig. 4** of the main text, but this time by separating replicates where the maximal dispersal rate can (**Fig. S6.1**) or cannot (**Fig. S6.2**) evolve. We see that the qualitative conclusions we present in the main text apply to both subsets similarly.
+
+```{r split_tab}
+tab_fix <- filter(tab, is.VP_DDD == 0 & is.VP_dmax == 0) # (i) traits are fixed
+
+tab_noevo <- filter(tab, (is.VP_DDD == 1 | is.VP_dmax == 1) & heritability == 0) # (ii) traits can vary but do not evolve
+tab_evo <- filter(tab, (is.VP_DDD == 1 | is.VP_dmax == 1) & heritability == 1) # (iii) at least one trait can evolve
+```
+
+```{r make_lines}
+lm_fix <- lm(obs_v / 120 ~ vstar, data = tab_fix |> filter(start_slope == 0))
+lm_noevo <- lm(obs_v / 120 ~ vstar, data = tab_noevo |> filter(start_slope == 0))
+```
+
+```{r fig_s6_1, fig.width=5, fig.height=7}
+fig_s6_1_a <- ggplot(tab_evo |> filter(is.VP_dmax == 1)) +
+  geom_point(aes(vstar, obs_v / 120, fill = start_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = coef(lm_noevo)[1], slope = coef(lm_noevo)[2], linetype = 2) +
+  scale_fill_viridis_c("**Initial** &Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("A) evolving replicates, using initial <i>v^*^</i> and &Delta;<sub>K-0</sub>") +
+  theme_bw() +
+  theme(
+    plot.title = element_markdown(),
+    legend.title = element_markdown(),
+    axis.title.x = element_markdown()
+  )
+
+fig_s6_1_b <- ggplot(tab_evo |> filter(is.VP_dmax == 1)) +
+  geom_point(aes(vstar_final, obs_v / 120, fill = mean_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  scale_fill_viridis_c("**Final** &Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("Theoretical velocity <i>v^*^</i>") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("B) evolving replicates, using final <i>v^*^</i> and &Delta;<sub>K-0</sub> (_t_=120)") +
+  theme_bw() +
+  theme(
+    plot.title = element_markdown(),
+    legend.title = element_markdown(),
+    axis.title.x = element_markdown()
+  )
+
+fig_s6_1_a / fig_s6_1_b
+```
+
+**Figure S6.1.** Relationship between observed expansion velocities and expected theoretical velocities $v^*$, in expansions where the maximal dispersal rate $d_{max}$ was allowed to evolve (whether or not density-dependence traits were allowed to). In (A), $v^*$ and dispersal density-dependence $\Delta_{K-0}$ are both calculated based on the initial distribution of dispersal traits, as in **Fig. 3** of the main text; in (B) they are instead calculated based on traits at the range front after evolution, at the end of the simulated expansion. Each replicate is coloured according to its value of dispersal density-dependence (note the different scales in (A) and (B)). The full straight lines correspond to $y=x$, the dotted line in (A) is the linear regression from **Fig. 3B** of the main text, i.e. for the replicates with $\Delta_{K-0}=0$ only in the absence of evolution.
+
+```{r fig_s6_2, fig.width=5, fig.height=7}
+fig_s6_2_a <- ggplot(tab_evo |> filter(is.VP_dmax == 0)) +
+  geom_point(aes(vstar, obs_v / 120, fill = start_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = coef(lm_noevo)[1], slope = coef(lm_noevo)[2], linetype = 2) +
+  scale_fill_viridis_c("**Initial** &Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("A) evolving replicates, using initial <i>v^*^</i> and &Delta;<sub>K-0</sub>") +
+  theme_bw() +
+  theme(
+    plot.title = element_markdown(),
+    legend.title = element_markdown(),
+    axis.title.x = element_markdown()
+  )
+
+fig_s6_2_b <- ggplot(tab_evo |> filter(is.VP_dmax == 0)) +
+  geom_point(aes(vstar_final, obs_v / 120, fill = mean_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  scale_fill_viridis_c("**Final** &Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("Theoretical velocity <i>v^*^</i>") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("B) evolving replicates, using final <i>v^*^</i> and &Delta;<sub>K-0</sub> (_t_=120)") +
+  theme_bw() +
+  theme(
+    plot.title = element_markdown(),
+    legend.title = element_markdown(),
+    axis.title.x = element_markdown()
+  )
+
+fig_s6_2_a / fig_s6_2_b
+```
+
+**Figure S6.1.** Relationship between observed expansion velocities and expected theoretical velocities $v^*$, in expansions where evolution was possible but only density-dependence traits ($\alpha$ and $\beta$) were allowed to evolve. Legend is otherwise identical to **Fig. S6.2**.
+
+# S7 - Relationship between velocity and density-dependence when costs are high and fecundity low
+
+We reproduce here a subset of the main text **Fig. 3**, focusing only on replicates with low fecundity and high dispersal mortality (**Fig. S7.1**). We show that in this subset, and contrary to the whole dataset, we do not find the relationship between expansion velocity and density-dependence that is expected from theory; that is, high $\Delta_{K-0}$ do not lead to consistently higher velocities than expected from their $v^*$. The absence of a key pattern from pushed expansion theory is to put in perspective with a similar absence regarding genetic diversity (see main text **Fig. 5**).
+
+```{r fig_s7_1_a}
+fig_s7_1_a <- ggplot(tab_fix |> filter(dispersal_mortality == 0.9 & fecundity == 1.5)) +
+  geom_point(aes(vstar, obs_v / 120, fill = start_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = coef(lm_fix)[1], slope = coef(lm_fix)[2], linetype = 2) +
+  scale_fill_viridis_c("&Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("A) no trait variation") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    # legends of 3_a and 3_b are identical (you can check by restoring this legend)
+    # but plot_layout(guides="collect") does not recognise this and leaves the duplicate
+    axis.title.x = element_markdown()
+  )
+```
+
+```{r fig_s7_1_b}
+fig_s7_1_b <- ggplot(tab_noevo |> filter(dispersal_mortality == 0.9 & fecundity == 1.5)) +
+  geom_point(aes(vstar, obs_v / 120, fill = start_Kslope), pch = 21, size = 2.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = coef(lm_noevo)[1], slope = coef(lm_noevo)[2], linetype = 2) +
+  scale_fill_viridis_c("&Delta;<sub>K-0</sub>", option = "inferno") +
+  scale_x_continuous("Theoretical velocity <i>v^*^</i>") +
+  scale_y_continuous("Observed velocity") +
+  ggtitle("B) trait variation but no evolution") +
+  theme_bw() +
+  theme(
+    legend.title = element_markdown(),
+    axis.title.x = element_markdown()
+  )
+```
+
+```{r fig_s7, fig.width=5, fig.height=7}
+(fig_s7_1_a / fig_s7_1_b) + plot_layout(guides = "collect")
+```
+
+**Figure S7.1.** Relationship between observed expansion velocities and expected theoretical velocities $v^*$, in the absence of trait evolution and for replicates with low fecundity ($r_0 = \log(1.5)$) and high dispersal mortality ($m=0.9$). Each replicate is coloured according to its value of dispersal density-dependence. The full straight lines correspond to $y=x$, the dotted line are linear regressions for the replicates with $\Delta_{K-0}=0$ only (using all fecundity and mortality values, as in **Fig.3** of the main text).
 
 # References

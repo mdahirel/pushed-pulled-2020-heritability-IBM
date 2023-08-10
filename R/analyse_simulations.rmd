@@ -218,6 +218,9 @@ tab <- tab |>
   unnest(vstar) |> 
   unnest(vstar_final) |> 
   ungroup()
+
+
+write_csv(tab,here("R_output","tab_summarised_metrics.csv"))
 ```
 
 ## Splitting the data
