@@ -249,7 +249,7 @@ Exploring data shows that all 109 replicates that either went extinct or otherwi
 
 - most failed expansions are in replicates where evolution is not allowed. This suggests a role of evolutionary rescue;
 - failed expansions all have negative initial density-dependence $\Delta_{K-0}$;
-- however, this does not reduce the available range of density-dependence for analyses that rely on only successful expansions, and most replicates with $\Delta_{K-0}$ successfully expand.
+- however, this does not reduce the available range of density-dependence for analyses that rely on only successful expansions, and most replicates with $\Delta_{K-0}<0$ successfully expand.
 
 
 ```{r fig-s3-1, fig.width=5, fig.height=5}
