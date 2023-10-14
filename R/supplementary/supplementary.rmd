@@ -504,7 +504,7 @@ fig_s6_2_b <- ggplot(tab_evo |> filter(is.VP_dmax == 0)) +
 fig_s6_2_a / fig_s6_2_b
 ```
 
-**Figure S6.1.** Relationship between observed expansion velocities and expected theoretical velocities $v^*$, in expansions where evolution was possible but only density-dependence traits ($\alpha$ and $\beta$) were allowed to evolve. Legend is otherwise identical to **Fig. S6.2**.
+**Figure S6.2.** Relationship between observed expansion velocities and expected theoretical velocities $v^*$, in expansions where evolution was possible but only density-dependence traits ($\alpha$ and $\beta$) were allowed to evolve. Legend is otherwise identical to **Fig. S6.1**.
 
 # S7 - Relationship between velocity and density-dependence when costs are high and fecundity low
 
